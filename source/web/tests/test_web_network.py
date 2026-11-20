@@ -67,3 +67,28 @@ def test_switch_lan_keeps_loopback_server(tmp_path, monkeypatch):
         stop.set()
         server.join(timeout=5)
     assert not server.is_alive()
+
+
+def test_melonds_dns_uses_verified_loopback_or_active_lan(monkeypatch):
+    from types import SimpleNamespace
+    from dnslib import DNSRecord
+    from game_sync_server.entralinked.network.dns.server import FixedResolver
+    from utils import player_dns
+
+    def answers(address, name, kind):
+        request = DNSRecord.question(name, kind)
+        resolver = FixedResolver(address)
+        reply = resolver.resolve(request, SimpleNamespace(client_address=(address, 12345)))
+        return [rr.rdata for rr in reply.rr]
+
+    monkeypatch.setattr(player_dns, "_answers", answers)
+    assert player_dns.emulator_dns("127.0.0.1", "localhost") == {"status": "ready", "address": "10.64.0.1"}
+    assert player_dns.emulator_dns("127.64.0.2", "localhost")["address"] is None
+    assert player_dns.emulator_dns("192.168.1.14", "192.168.1.5")["address"] is None
+    lan = "192.168.1.5"
+    assert str(answers(lan, "nas.nintendowifi.net", "A")[0]) == lan
+    monkeypatch.setattr(player_dns, "_candidates", lambda: [lan])
+    monkeypatch.setattr(player_dns, "_answers", lambda address, name, kind: [] if address == "127.0.0.1" else answers(address, name, kind))
+    assert player_dns.emulator_dns("::1", "localhost") == {"status": "ready", "address": lan}
+    monkeypatch.setattr(player_dns, "_answers", lambda *args: [])
+    assert player_dns.emulator_dns("::1", "localhost") == {"status": "offline", "address": None}

@@ -4,8 +4,9 @@ import os
 import socket
 from contextlib import suppress
 
-from dnslib import QTYPE, DNSError, DNSRecord
+from dnslib import DNSError, DNSRecord
 
+from game_sync_server.entralinked.network.dns.server import MELONDS_HOST
 from utils.web_network import LOCAL_HOSTS, same_web_lan
 
 PRIVATE_LAN = tuple(ipaddress.IPv4Network(prefix) for prefix in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
@@ -28,8 +29,8 @@ def _is_lan(value: str) -> bool:
     return any(address in network for network in PRIVATE_LAN)
 
 
-def _is_serving(ip: str) -> bool:
-    query = DNSRecord.question(STATUS_NAME, "TXT")
+def _answers(ip: str, name: str, kind: str):
+    query = DNSRecord.question(name, kind)
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
             # A candidate must actually belong to this computer. Never probe other LAN devices.
@@ -39,11 +40,25 @@ def _is_serving(ip: str) -> bool:
             probe.send(query.pack())
             reply = DNSRecord.parse(probe.recv(512))
         if reply.header.id != query.header.id or not reply.header.qr or reply.header.rcode or reply.q != query.q:
-            return False
-        marker = [f"dreamworld-dns-v1 {ip}".encode("ascii")]
-        return any(rr.rname == query.q.qname and rr.rtype == QTYPE.TXT and rr.rdata.data == marker for rr in reply.rr)
+            return []
+        return [rr.rdata for rr in reply.rr if rr.rname == query.q.qname and rr.rtype == query.q.qtype]
     except (OSError, DNSError):
-        return False
+        return []
+
+
+def _is_serving(ip: str) -> bool:
+    marker = [f"dreamworld-dns-v1 {ip}".encode("ascii")]
+    return any(answer.data == marker for answer in _answers(ip, STATUS_NAME, "TXT"))
+
+
+def emulator_dns(peer: str | None, host: str | None) -> dict:
+    if peer not in ("127.0.0.1", "::1") or host not in LOCAL_HOSTS:
+        return {"status": "ambiguous", "address": None}
+    if _is_serving("127.0.0.1"):
+        answers = _answers("127.0.0.1", "nas.nintendowifi.net", "A")
+        if any(str(answer) == MELONDS_HOST for answer in answers):
+            return {"status": "ready", "address": MELONDS_HOST}
+    return get_player_dns(peer, host)
 
 
 def get_player_dns(peer: str | None, web_host: str | None = "localhost") -> dict[str, str | None]:

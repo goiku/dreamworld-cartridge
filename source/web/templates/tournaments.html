@@ -4,7 +4,7 @@
 <title>{{ t.title }}</title><link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
 <script type="module" src="{{ url_for('.static',filename='tournaments.mjs') }}"></script></head>
 <body><main><nav><a href="/campaign/japan/">← Pokémon Global Link</a><a href="/languages/?page=/campaign/japan/tournaments/">Language</a></nav>
-<h1>{{ t.title }}</h1><p>{{ t.help }}</p>
+<h1>{{ t.title }}</h1><p>{{ t.wireless }}</p><p>{{ t.help }}</p>
 <label>{{ t.choose }} <input id="save" type="file" accept=".sav"></label>
 <p id="message" role="status"></p><a id="copy" hidden>{{ t.copy }}</a>
 <ul>{% for row in rows %}<li><strong lang="ja">{{ row.title }}</strong>{% if '(Bug)' in row.file %} · {{ t.original }}{% endif %}

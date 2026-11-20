@@ -9,7 +9,7 @@ from http import HTTPStatus
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 
-from utils import distributions
+from utils import distributions, pwt_archive
 
 from ...context import Context
 from ...model.dlc.dlc import dlc_list_string
@@ -18,6 +18,8 @@ from ...utility.url_encoded_form import decode_form
 logger = logging.getLogger(__name__)
 
 SERVICE = "dls1.nintendowifi.net"
+
+
 @dataclass
 class DlsRequest:
     token: str
@@ -55,7 +57,7 @@ class DlsHandler:
                 action=form["action"],
                 dlc_type=dlc_type,
                 language=language or None,
-                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type != "MYSTERY" else None,
+                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type not in ("MYSTERY", "WBT") else None,
                 dlc_name=form.get("contents"),
             )
         except (KeyError, ValueError):
@@ -69,22 +71,22 @@ class DlsHandler:
             logger.debug("Rejecting DLS request because the service session has expired")
             return "", HTTPStatus.UNAUTHORIZED
 
-        if dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
+        if dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
+            content, status = pwt_archive.wireless_download(form)
+        elif dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
             content, status = distributions.download(session.user.id, form)
-            is_file = status == 200 and dls_request.action == "contents"
-            response = Response(content, status=status, mimetype="application/x-dsdl" if is_file else "text/plain")
-            response.headers["X-DLS-Host"] = f"http://{SERVICE}/"
-            if is_file:
-                response.headers.set("Content-Disposition", "attachment", filename=dls_request.dlc_name)
-            return response
+        else:
+            handler = self._actions.get(dls_request.action)
+            if handler is None:
+                return "", HTTPStatus.BAD_REQUEST
+            return handler(dls_request)
 
-        handler = self._actions.get(dls_request.action)
-
-        if handler is None:
-            logger.error("Invalid DLS request action: %s", dls_request.action)
-            return "", HTTPStatus.BAD_REQUEST
-
-        return handler(dls_request)
+        is_file = status == 200 and dls_request.action == "contents"
+        response = Response(content, status=status, mimetype="application/x-dsdl" if is_file else "text/plain")
+        response.headers["X-DLS-Host"] = f"http://{SERVICE}/"
+        if is_file:
+            response.headers.set("Content-Disposition", "attachment", filename=dls_request.dlc_name)
+        return response
 
     def handle_retrieve_dlc_list(self, req: DlsRequest) -> ResponseReturnValue:
         """List the DLC of a type."""

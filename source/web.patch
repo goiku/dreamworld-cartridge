@@ -41,29 +41,32 @@ index 0000000000000000000000000000000000000000..d6410bee02aa695c3623b5f06f87af3f
 +pause
 diff --git a/api/distributions.py b/api/distributions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..81311973036a148988355c67e2149f4199c6c2b9
+index 0000000000000000000000000000000000000000..309595862dde1fea41bc181a3cec2ff073093044
 --- /dev/null
 +++ b/api/distributions.py
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,251 @@
 +"""Promotions for the cartridge linked to the signed-in resident."""
 +import secrets
 +import unicodedata
 +from functools import cache
 +
-+from flask import Blueprint, abort, redirect, render_template, request, session, url_for
++from flask import Blueprint, abort, make_response, redirect, render_template, request, session, url_for
 +
 +from api.native_islands import resident
 +from api.pgl_pals import current_save
 +from utils.visit_storage import GUEST_PREFIX
 +from config import LANG
++from game_sync_server.entralinked.model.player.player import Player
 +from game_sync_server.entralinked.model.save_file import SaveFile, SaveFileError
++from game_sync_server.entralinked.network.http.pgl_handler import MAX_ENCOUNTERS, MAX_ITEMS
 +from game_sync_server.entralinked.utility.db_manager import db
 +from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
 +from utils import distributions as gifts
 +from utils import save_data, text
 +from utils.data import load_json_data
 +
-+campaigns = Blueprint("campaigns", __name__, template_folder="../templates")
++campaigns = Blueprint("campaigns", __name__, template_folder="../templates",
++                      static_folder="../static", static_url_path="/campaign/assets")
 +PAGE_SIZE = 24
 +
 +
@@ -111,6 +114,49 @@ index 0000000000000000000000000000000000000000..81311973036a148988355c67e2149f41
 +    return current_save()
 +
 +
++def _gift_name(gift):
++    if gift.japanese_title and LANG == "ja":
++        return gift.japanese_title
++    return gift.name or text.lookup_str("pokemon", gift.species)
++
++
++@campaigns.get("/campaign/queue/")
++def receiver_queue():
++    card = _campaign_card()
++    groups = {}
++    warning = None
++    if card:
++        with db.transaction() as conn:
++            ident, orders, _ = gifts.state(conn, card)
++            saved = db.read_full_state(card)
++            member = saved[0]["member"] if saved and saved[0] else {}
++            warning = gifts.delivery_target_error(conn, ident, member.get("rom_id"), member.get("langcode"))
++            if session.get("visit_guest"):
++                warning = "queue_home"
++            groups["wonder"] = [r["gift"] for r in gifts.wonder_queue(conn, card)]
++            groups["sent"] = [r["gift"] for r in orders.values() if r["status"] == "sent"]
++            waiting = [r["gift"] for r in gifts.wake_orders(conn, card)]
++            batch = []
++            if waiting and member:
++                pending = (saved[1] or {}).get("pending_wake")
++                if pending:
++                    batch = pending.get("distribution_ids", [])
++                else:
++                    # Work on a detached player. Previewing the next wake must never reserve a delivery.
++                    batch = gifts.add_to_wake(conn, Player.from_saved(card, *saved), MAX_ENCOUNTERS, MAX_ITEMS)
++            included = set(batch)
++            groups["wake"] = batch
++            groups["later"] = [key for key in waiting if key not in included]
++    response = make_response(render_template("distribution_queue.html", card=card, groups=groups,
++                             catalog=gifts.catalog(), gift_name=_gift_name, t=labels(), lang=LANG, warning=warning,
++                             csrf=session.setdefault("gift_csrf", secrets.token_hex(24)) if card else None))
++    response.cache_control.private = True
++    response.cache_control.no_cache = True
++    response.vary.add("Cookie")
++    response.add_etag()
++    return response.make_conditional(request)
++
++
 +def _listing(japanese):
 +    card = _campaign_card()
 +    member = save_data.read_member(card) if card else {}
@@ -142,9 +188,7 @@ index 0000000000000000000000000000000000000000..81311973036a148988355c67e2149f41
 +                    continue
 +            elif not eligible:
 +                continue
-+            name = gift.name or text.lookup_str("pokemon", gift.species)
-+            if gift.japanese_title and LANG == "ja":
-+                name = gift.japanese_title
++            name = _gift_name(gift)
 +            details = []
 +            noun = "item" if gift.card_type == 2 else "pokemon"
 +            if gift.card_type:
@@ -205,7 +249,10 @@ index 0000000000000000000000000000000000000000..81311973036a148988355c67e2149f41
 +    gift = gifts.catalog().get(key) or abort(404)
 +    member = save_data.read_member(card)
 +    if request.form.get("next") == "1":
-+        return _return("wonder", gifts.prioritize(card, gift), gift.key)
++        result = gifts.prioritize(card, gift)
++        if request.form.get("from_queue") == "1" and result == "queued":
++            return redirect(url_for("campaigns.receiver_queue"), code=303)
++        return _return("wonder", result, gift.key)
 +    try:
 +        gender = int(request.form["gender"]) if "gender" in request.form else None
 +        result = gifts.queue(card, gift, member.get("rom_id"), member.get("langcode"), gender,
@@ -2409,7 +2456,7 @@ index 0000000000000000000000000000000000000000..04bc2fa2044ddbe6dd5674027f10cdbd
 +def delete(query: Query) -> dict:
 +    return _change(query, remove=True)
 diff --git a/api/pgl_member.py b/api/pgl_member.py
-index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..99aef23951cb6c0f6a705f5d4bc36a968363c348 100644
+index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..1fd53ca62c862a455d763b5d72f061b8fd99da0b 100644
 --- a/api/pgl_member.py
 +++ b/api/pgl_member.py
 @@ -1,48 +1,104 @@
@@ -2633,7 +2680,17 @@ index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..99aef23951cb6c0f6a705f5d4bc36a96
      }
  
  
-@@ -161,13 +235,19 @@ def rom_check(query: Query) -> dict:
+@@ -155,19 +229,28 @@ def rom_check(query: Query) -> dict:
+     gscd = query.get("gscd", "").strip()
+     if gscd and not db.gscd_exists(gscd):
+         return _field_error("gscd", "gscd_not_found")
+-    return {"rom_id": save_data.read_member(gscd).get("rom_id") if gscd else None}
++    rom = save_data.read_member(gscd).get("rom_id") if gscd else None
++    if gscd and rom is None:
++        return _field_error("gscd", "gsid_waiting_upload")
++    return {"rom_id": rom}
+ 
+ 
  @endpoint("pgl.member.profile.avator_list", methods=("POST",))
  def avatar_list(_query: Query) -> dict:
      """Return the avatars the picker offers."""
@@ -2655,7 +2712,7 @@ index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..99aef23951cb6c0f6a705f5d4bc36a96
      return {}
  
  
-@@ -191,30 +271,51 @@ def _link_gscd(username: str, gscd: str) -> dict | None:
+@@ -191,30 +274,53 @@ def _link_gscd(username: str, gscd: str) -> dict | None:
      Return a field error, and link nothing, if the Game Sync ID doesn't exist or is
      already linked to any account, this one included. Return None once it's linked.
      """
@@ -2683,6 +2740,8 @@ index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..99aef23951cb6c0f6a705f5d4bc36a96
 +            return _field_error("gscd", "gscd_already_yours" if owner == username else "gscd_already_taken")
 +        linked = accounts.get_gscds_for_account(username)
 +        rom_id = save_data.read_member(gscd).get("rom_id")
++        if rom_id is None:
++            return _field_error("gscd", "gsid_waiting_upload")
 +        if len(linked) >= MAX_LINKED_GSCDS or any(save_data.read_member(other)["rom_id"] == rom_id for other in linked):
 +            return _field_error("gscd", "gscd_game_already_linked")
 +        if not accounts.link_gscd(username, gscd, connection=conn):
@@ -3100,10 +3159,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..eb044149facd87df99682f732db460378199754b
+index 0000000000000000000000000000000000000000..baf918a467528556e9b47e1dada922328b3c44e4
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,146 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3119,7 +3178,7 @@ index 0000000000000000000000000000000000000000..eb044149facd87df99682f732db46037
 +from utils import save_data
 +from utils.constants import PlayerStatus
 +from utils.data import load_json_data
-+from utils.player_dns import get_player_dns
++from utils.player_dns import emulator_dns, get_player_dns
 +from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
 +
 +player_guide = Blueprint("player_guide", __name__, url_prefix="/player-guide",
@@ -3158,6 +3217,13 @@ index 0000000000000000000000000000000000000000..eb044149facd87df99682f732db46037
 +@player_guide.get("/dns.json")
 +def dns() -> Response:
 +    response = jsonify(get_player_dns(request.remote_addr, urlsplit(request.host_url).hostname))
++    response.cache_control.no_store = True
++    return response
++
++
++@player_guide.get("/emulator-dns.json")
++def local_emulator_dns() -> Response:
++    response = jsonify(emulator_dns(request.remote_addr, urlsplit(request.host_url).hostname))
 +    response.cache_control.no_store = True
 +    return response
 +
@@ -3361,7 +3427,7 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..ca29c938a9535a4478cddb2f5cbcbd9fac4acd2f 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..7056bc597dd3eb56f1b91644033b1be5c5e38e87 100644
 --- a/api/server.py
 +++ b/api/server.py
 @@ -7,18 +7,28 @@ import atexit
@@ -3430,7 +3496,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..ca29c938a9535a4478cddb2f5cbcbd9f
 +
 +def _language_page() -> str:
 +    source = request.args.get("page") or urlsplit(request.referrer or "").path
-+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/"} | {f"/practice/{n}/" for n in range(1,13)}
++    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/"} | {f"/practice/{n}/" for n in range(1,13)}
 +    return source if source in allowed else "/"
 +
 +
@@ -3682,23 +3748,16 @@ index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..445d54622b49ec6dd0e7a76ac80aea08
      "POST": (
 diff --git a/api/tournaments.py b/api/tournaments.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..72590638b383928f1bd679b1f6783bff9b757746
+index 0000000000000000000000000000000000000000..a52e551cb364ba02e3dfa488a2c7534a99da2ef9
 --- /dev/null
 +++ b/api/tournaments.py
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,34 @@
 +"""Offer verified Japanese PWT files. The player's save stays inside their browser."""
-+
-+import hashlib
-+import tempfile
-+from functools import cache
-+from pathlib import Path
-+from urllib.error import URLError
-+from urllib.parse import quote
-+from urllib.request import urlopen
 +
 +from flask import Blueprint, Response, abort, render_template
 +
-+from config import LANG, SAVE_DIR
++from config import LANG
++from utils.pwt_archive import catalog, tournament_file
 +from utils.data import load_json_data
 +
 +tournaments = Blueprint(
@@ -3708,39 +3767,6 @@ index 0000000000000000000000000000000000000000..72590638b383928f1bd679b1f6783bff
 +    static_folder="../static",
 +    static_url_path="/campaign/pwt/assets",
 +)
-+ARCHIVE = (
-+    "https://raw.githubusercontent.com/projectpokemon/EventsGallery/"
-+    "f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/World%20Tournaments/JPN/"
-+)
-+
-+
-+@cache
-+def catalog() -> dict:
-+    return {row["sha"]: row for row in load_json_data("japanese_tournaments")}
-+
-+
-+def _valid(data, sha) -> bool:
-+    return len(data) == 4884 and hashlib.sha1(b"blob 4884\0" + data).hexdigest() == sha
-+
-+
-+def tournament_file(row) -> bytes:
-+    sha = row["sha"]
-+    path = SAVE_DIR / "tournament-cache" / (sha + ".pwt")
-+    if path.is_file():
-+        with path.open("rb") as source:
-+            data = source.read(4885)
-+        if _valid(data, sha):
-+            return data
-+    with urlopen(ARCHIVE + quote(row["file"]), timeout=8) as source:
-+        data = source.read(4885)
-+    if not _valid(data, sha):
-+        raise ValueError("Archive verification failed.")
-+    path.parent.mkdir(parents=True, exist_ok=True)
-+    with tempfile.TemporaryDirectory(dir=path.parent) as folder:
-+        temporary = Path(folder) / path.name
-+        temporary.write_bytes(data)
-+        temporary.replace(path)
-+    return data
 +
 +
 +@tournaments.get("/campaign/japan/tournaments/")
@@ -3755,7 +3781,7 @@ index 0000000000000000000000000000000000000000..72590638b383928f1bd679b1f6783bff
 +    row = catalog().get(sha) or abort(404)
 +    try:
 +        raw = tournament_file(row)
-+    except (OSError, ValueError, URLError):
++    except (OSError, ValueError):
 +        abort(503)
 +    response = Response(raw, mimetype="application/octet-stream")
 +    response.headers.set("Content-Disposition", "attachment", filename=f"JP-{row['number']}-{sha[:8]}.pwt")
@@ -4066,12 +4092,20 @@ index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a85
 +}
 diff --git a/json_data/distribution_ui.json b/json_data/distribution_ui.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff7878f64e
+index 0000000000000000000000000000000000000000..10dd1a5641b8aa79a2a6d275b45d20262a28fc0d
 --- /dev/null
 +++ b/json_data/distribution_ui.json
-@@ -0,0 +1,466 @@
+@@ -0,0 +1,530 @@
 +{
 +  "zh": {
++    "queue_title": "当前实机接收队列",
++    "queue_refresh": "刷新队列",
++    "queue_order": "第 1 张是掌机下次新连接时会收到的礼物卡。",
++    "queue_empty": "当前没有待接收的配信。",
++    "queue_wake": "下次唤醒时一起送达",
++    "queue_later": "留待后续唤醒",
++    "queue_home": "请先将记录同步回自己的服务器，再用掌机接收。",
++    "queue_stale": "自动更新暂时失败，当前显示的是上次读取的队列。",
 +    "bulk_claim": "一键领取全部未领（{count} 张）",
 +    "bulk_help": "一键领取会把各页已确认未领、无需选版本的礼物加入等待队列。如果同一组只能领一个版本，请在列表里单独选择。",
 +    "choose_version": "请选择一个版本单独领取",
@@ -4130,6 +4164,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "按日版卡带收录。472 张礼物卡均有保存下来的卡片数据。配信画面的活动说明使用原卡标题代替缺失的现场文字。"
 +  },
 +  "en": {
++    "queue_title": "Cartridge delivery queue",
++    "queue_refresh": "Refresh queue",
++    "queue_order": "Card 1 is the next offer on a new DS connection.",
++    "queue_empty": "Nothing is waiting for delivery.",
++    "queue_wake": "Together at the next wake-up",
++    "queue_later": "Waiting for a later wake-up",
++    "queue_home": "Sync back to your home server before receiving on the DS.",
++    "queue_stale": "The queue could not refresh. The last result is still shown.",
 +    "bulk_claim": "Queue all unclaimed cards ({count})",
 +    "bulk_help": "Queue confirmed unclaimed cards from all pages. If only one version of a gift can be received, choose it individually in the list.",
 +    "choose_version": "Choose one version individually",
@@ -4188,6 +4230,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "Includes 472 archived Wonder Cards for Japanese-language cartridges. The original card title is used where the distribution-screen description is missing."
 +  },
 +  "ja": {
++    "queue_title": "実機の受信順",
++    "queue_refresh": "更新",
++    "queue_order": "次にDSで接続すると、1番のカードが提示されます。",
++    "queue_empty": "受け取り待ちの配信はありません。",
++    "queue_wake": "次に起こすときにまとめて受信",
++    "queue_later": "その後の起床時に受信",
++    "queue_home": "自分のサーバーへ同期してから、DSで受け取ってください。",
++    "queue_stale": "更新できませんでした。前回読み込んだ順番を表示しています。",
 +    "bulk_claim": "未受取のカードをすべて予約（{count}枚）",
 +    "bulk_help": "全ページから未受取と確認できたカードをまとめて予約します。どれか1種類だけ受け取れるプレゼントは、一覧から個別に選んでください。",
 +    "choose_version": "いずれか1種類を個別に選択",
@@ -4246,6 +4296,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "日本語版ソフト向けに保存されたふしぎなカード472枚を収録しています。配信時の説明文が残っていない箇所にはカードの原題を表示します。"
 +  },
 +  "fr": {
++    "queue_title": "File de réception de la console",
++    "queue_refresh": "Actualiser",
++    "queue_order": "La première carte sera proposée à la prochaine connexion de la DS.",
++    "queue_empty": "Aucune distribution en attente.",
++    "queue_wake": "Au prochain réveil, ensemble",
++    "queue_later": "En attente d’un réveil ultérieur",
++    "queue_home": "Synchronisez avec votre serveur avant de recevoir sur la DS.",
++    "queue_stale": "La mise à jour a échoué. La dernière file chargée reste affichée.",
 +    "bulk_claim": "Réserver toutes les cartes non reçues ({count})",
 +    "bulk_help": "Réservez sur toutes les pages les cartes confirmées comme non reçues. Si une seule variante peut être reçue, choisissez-la individuellement dans la liste.",
 +    "choose_version": "Choisissez une seule variante dans la liste",
@@ -4304,6 +4362,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "Ce catalogue contient 472 Cartes Miracle archivées pour les jeux en japonais. Le titre de la carte remplace le texte de distribution manquant."
 +  },
 +  "it": {
++    "queue_title": "Coda di ricezione del DS",
++    "queue_refresh": "Aggiorna",
++    "queue_order": "La prima scheda verrà proposta alla prossima connessione del DS.",
++    "queue_empty": "Nessun dono in attesa.",
++    "queue_wake": "Insieme al prossimo risveglio",
++    "queue_later": "In attesa di un risveglio successivo",
++    "queue_home": "Sincronizza con il tuo server prima di ricevere sul DS.",
++    "queue_stale": "Aggiornamento non riuscito. È mostrata l’ultima coda caricata.",
 +    "bulk_claim": "Prenota tutte le schede non ricevute ({count})",
 +    "bulk_help": "Prenota le schede confermate come non ricevute da tutte le pagine. Se puoi ricevere una sola versione di un dono, sceglila singolarmente nell’elenco.",
 +    "choose_version": "Scegli una versione singolarmente",
@@ -4362,6 +4428,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "Il catalogo include 472 Schede Segrete archiviate per i giochi in giapponese. Il titolo originale sostituisce le descrizioni di distribuzione mancanti."
 +  },
 +  "de": {
++    "queue_title": "Empfangsreihenfolge auf dem DS",
++    "queue_refresh": "Aktualisieren",
++    "queue_order": "Karte 1 wird bei der nächsten Verbindung des DS angeboten.",
++    "queue_empty": "Keine ausstehende Lieferung.",
++    "queue_wake": "Gemeinsam beim nächsten Aufwecken",
++    "queue_later": "Für ein späteres Aufwecken vorgemerkt",
++    "queue_home": "Synchronisiere vor dem Empfang auf dem DS mit deinem eigenen Server.",
++    "queue_stale": "Aktualisierung fehlgeschlagen. Die zuletzt geladene Reihenfolge wird angezeigt.",
 +    "bulk_claim": "Alle ausstehenden Karten vormerken ({count})",
 +    "bulk_help": "Merke aus allen Seiten die Karten vor, die du noch nicht erhalten hast. Kannst du nur eine Variante eines Geschenks empfangen, wähle sie einzeln in der Liste aus.",
 +    "choose_version": "Eine Variante einzeln auswählen",
@@ -4420,6 +4494,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "Der Katalog enthält 472 archivierte Wunderkarten für japanischsprachige Spiele. Bei fehlendem Verteilungstext erscheint der ursprüngliche Kartentitel."
 +  },
 +  "es": {
++    "queue_title": "Cola de recepción de la consola",
++    "queue_refresh": "Actualizar",
++    "queue_order": "La primera tarjeta se ofrecerá en la próxima conexión de la DS.",
++    "queue_empty": "No hay regalos pendientes.",
++    "queue_wake": "Juntos en el próximo despertar",
++    "queue_later": "Pendientes para otro despertar",
++    "queue_home": "Sincroniza con tu servidor antes de recibir los regalos en la DS.",
++    "queue_stale": "No se pudo actualizar. Se muestra la última cola consultada.",
 +    "bulk_claim": "Poner en cola todas las tarjetas sin recibir ({count})",
 +    "bulk_help": "Pon en cola las tarjetas pendientes de todas las páginas. Si solo puedes recibir una versión de un regalo, elígela por separado en la lista.",
 +    "choose_version": "Elige una versión por separado",
@@ -4478,6 +4560,14 @@ index 0000000000000000000000000000000000000000..1a4434fad98ed2a31fef7b6263b152ff
 +    "coverage": "El catálogo incluye 472 Tarjetas Misteriosas conservadas para juegos en japonés. El título original sustituye al texto de distribución que falta."
 +  },
 +  "ko": {
++    "queue_title": "실기 수신 순서",
++    "queue_refresh": "새로 고침",
++    "queue_order": "DS로 다시 접속하면 1번 카드부터 받을 수 있어요.",
++    "queue_empty": "받을 배포가 없어요.",
++    "queue_wake": "다음에 깨울 때 함께 수신",
++    "queue_later": "그 이후에 깨울 때 수신",
++    "queue_home": "본인의 서버에 동기화한 뒤 DS에서 받아 주세요.",
++    "queue_stale": "새로 고칠 수 없어 마지막으로 확인한 순서를 표시해요.",
 +    "bulk_claim": "미수령 카드 모두 예약 ({count}장)",
 +    "bulk_help": "모든 페이지에서 아직 받지 않은 것으로 확인된 카드를 한꺼번에 예약해요. 한 종류만 받을 수 있는 선물은 목록에서 직접 골라 주세요.",
 +    "choose_version": "한 종류를 골라 개별 예약",
@@ -6883,10 +6973,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143dde867ad
+index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329f9d152f1
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,322 @@
+@@ -0,0 +1,362 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -6926,7 +7016,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "Start the server PC in LAN mode and open Phone web address on its home page.",
 +    "phone_game": "Enter Dream World",
 +    "visit_title": "Visit a friend with your own save",
-+    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you."
++    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you.",
++    "device": "Device",
++    "physical": "Physical DS",
++    "emulator": "melonDS on this PC",
++    "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
++    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again."
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -6966,7 +7061,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "サーバーのPCでLANモードを起動し、ホームページの「スマホ用のURL」を開いてください。",
 +    "phone_game": "ドリームワールドへ",
 +    "visit_title": "自分のデータで友だちのサーバーへ",
-+    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。"
++    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。",
++    "device": "使用する機器",
++    "physical": "DS実機",
++    "emulator": "このPCのmelonDS",
++    "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
++    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。"
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7006,7 +7106,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "请在开服电脑上以局域网模式启动梦世界，打开电脑首页的「手机访问网址」。",
 +    "phone_game": "进入梦世界",
 +    "visit_title": "用自己的存档去朋友那里玩",
-+    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。"
++    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。",
++    "device": "使用设备",
++    "physical": "实体掌机",
++    "emulator": "本机 melonDS 模拟器",
++    "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
++    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。"
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7046,7 +7151,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "Sur le PC serveur, démarrez le mode réseau local et ouvrez Adresse pour mobile sur la page d’accueil.",
 +    "phone_game": "Entrer dans le Dream World",
 +    "visit_title": "Jouer chez un ami avec sa sauvegarde",
-+    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami."
++    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami.",
++    "device": "Appareil",
++    "physical": "Console DS",
++    "emulator": "melonDS sur ce PC",
++    "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
++    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez."
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7086,7 +7196,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "Avvia il server in modalità LAN sul PC e apri Indirizzo per il telefono nella pagina iniziale.",
 +    "phone_game": "Entra nel Dream World",
 +    "visit_title": "Visita un amico con il tuo salvataggio",
-+    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli."
++    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli.",
++    "device": "Dispositivo",
++    "physical": "Console DS",
++    "emulator": "melonDS su questo PC",
++    "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
++    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova."
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7126,7 +7241,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "Starte den Server auf dem PC im LAN-Modus und öffne auf der Startseite „Adresse fürs Smartphone“.",
 +    "phone_game": "Zur Traumwelt",
 +    "visit_title": "Mit dem eigenen Spielstand Freunde besuchen",
-+    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen."
++    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen.",
++    "device": "Gerät",
++    "physical": "DS-Konsole",
++    "emulator": "melonDS auf diesem PC",
++    "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
++    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut."
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7166,7 +7286,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "Inicia el servidor en modo LAN en el ordenador y abre Dirección para el móvil en su página de inicio.",
 +    "phone_game": "Entrar en Dream World",
 +    "visit_title": "Visitar a un amigo con tu partida",
-+    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles."
++    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles.",
++    "device": "Dispositivo",
++    "physical": "Consola DS",
++    "emulator": "melonDS en este PC",
++    "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
++    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo."
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7206,7 +7331,12 @@ index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143
 +    "phone_unavailable": "서버 PC에서 LAN 모드로 실행한 뒤 홈페이지의 휴대폰 접속 주소를 여세요.",
 +    "phone_game": "드림월드 입장",
 +    "visit_title": "내 저장 데이터로 친구 서버 방문하기",
-+    "visit": "Tailscale로 두 PC를 연결하고 안내에 따라 중계 프로그램을 실행하세요. 호스트는 Invite-Friend.cmd를 열어 발급한 일회용 초대 코드를 방문자에게 개인적으로 보내세요. 방문자는 자기 PC에서 Visit-Friend.cmd를 열고 자기 계정으로 로그인하세요. 플레이 중에는 동기화 창을 열어 두고 최종 동기화가 끝난 뒤 자기 서버에서 포켓몬을 깨우세요. 반대로 방문할 때는 역할을 바꾸세요."
++    "visit": "Tailscale로 두 PC를 연결하고 안내에 따라 중계 프로그램을 실행하세요. 호스트는 Invite-Friend.cmd를 열어 발급한 일회용 초대 코드를 방문자에게 개인적으로 보내세요. 방문자는 자기 PC에서 Visit-Friend.cmd를 열고 자기 계정으로 로그인하세요. 플레이 중에는 동기화 창을 열어 두고 최종 동기화가 끝난 뒤 자기 서버에서 포켓몬을 깨우세요. 반대로 방문할 때는 역할을 바꾸세요.",
++    "device": "기기",
++    "physical": "실제 DS",
++    "emulator": "이 PC의 melonDS",
++    "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
++    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요."
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -8589,10 +8719,10 @@ index 0000000000000000000000000000000000000000..53045b1a6bc960981ef253ce75e7eb3c
 +}
 diff --git a/json_data/tournament_ui.json b/json_data/tournament_ui.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b9b6dbb57
+index 0000000000000000000000000000000000000000..92a63a786526dae2800cadd9fdf08279821777d2
 --- /dev/null
 +++ b/json_data/tournament_ui.json
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,154 @@
 +{
 +  "zh": {
 +    "title": "日版 PWT 下载大会",
@@ -8610,7 +8740,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "请选择完整且校验通过的日版《黑2／白2》原始 .sav 文件。",
 +    "loading": "正在读取赛事文件…",
 +    "unavailable": "赛事文件获取或校验失败。",
-+    "already": "已有此编号的赛事。"
++    "already": "已有此编号的赛事。",
++    "wireless": "在日版《黑2／白2》的 PWT 会场选择联网下载大会。私服提供 9 项大会，少年组采用修正版。网页也保留了早期版文件。"
 +  },
 +  "ja": {
 +    "title": "日本版 PWT ダウンロードトーナメント",
@@ -8628,7 +8759,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "チェックサムが正しい日本版ブラック2・ホワイト2の .sav を選んでください。",
 +    "loading": "大会を読み込み中…",
 +    "unavailable": "大会ファイルを取得または検証できませんでした。",
-+    "already": "この番号の大会は登録済みです。"
++    "already": "この番号の大会は登録済みです。",
++    "wireless": "日本版『ブラック2・ホワイト2』のPWT会場でトーナメントのダウンロードを選んでください。9大会を配信し、ジュニア部門には修正版を使います。初期版のファイルも下の一覧から保存できます。"
 +  },
 +  "en": {
 +    "title": "Japanese PWT download tournaments",
@@ -8646,7 +8778,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "Select a valid Japanese Black 2 or White 2 raw .sav file with intact checksums.",
 +    "loading": "Loading tournament…",
 +    "unavailable": "Could not retrieve or verify the tournament.",
-+    "already": "This tournament number is already installed."
++    "already": "This tournament number is already installed.",
++    "wireless": "In Japanese Black 2 or White 2, choose the tournament download at the PWT. The server offers nine tournaments, including the corrected Junior Division event. The earlier file is also in the list below."
 +  },
 +  "fr": {
 +    "title": "Tournois PWT japonais",
@@ -8664,7 +8797,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "Choisissez une sauvegarde japonaise Noir 2 ou Blanc 2 valide.",
 +    "loading": "Chargement…",
 +    "unavailable": "Échec du chargement ou de la vérification.",
-+    "already": "Ce numéro est déjà installé."
++    "already": "Ce numéro est déjà installé.",
++    "wireless": "Dans une version japonaise de Noir 2 ou Blanc 2, choisissez le téléchargement au PWT. Le serveur propose neuf tournois, dont la version corrigée de la catégorie Junior. Le fichier initial reste disponible ci-dessous."
 +  },
 +  "es": {
 +    "title": "Torneos PWT japoneses",
@@ -8682,7 +8816,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "Selecciona una partida japonesa válida de Negro 2 o Blanco 2.",
 +    "loading": "Cargando…",
 +    "unavailable": "No se pudo obtener o verificar el torneo.",
-+    "already": "Este número ya está instalado."
++    "already": "Este número ya está instalado.",
++    "wireless": "En la versión japonesa de Negro 2 o Blanco 2, elige la descarga de torneos en el PWT. Hay nueve torneos, incluida la versión corregida de la categoría Júnior. El archivo anterior también está en la lista."
 +  },
 +  "de": {
 +    "title": "Japanische PWT-Downloadturniere",
@@ -8700,7 +8835,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "Wähle einen gültigen japanischen Spielstand aus Schwarz 2 oder Weiß 2.",
 +    "loading": "Wird geladen…",
 +    "unavailable": "Turnierdatei konnte nicht geladen oder geprüft werden.",
-+    "already": "Diese Turniernummer ist bereits installiert."
++    "already": "Diese Turniernummer ist bereits installiert.",
++    "wireless": "Wähle in einer japanischen Schwarzen oder Weißen Edition 2 beim PWT den Turnierdownload. Es gibt neun Turniere, darunter die korrigierte Junioren-Ausgabe. Die frühere Datei findest du unten."
 +  },
 +  "it": {
 +    "title": "Tornei PWT giapponesi",
@@ -8718,7 +8854,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "Scegli un salvataggio giapponese valido di Nero 2 o Bianco 2.",
 +    "loading": "Caricamento…",
 +    "unavailable": "Impossibile scaricare o verificare il torneo.",
-+    "already": "Questo numero è già installato."
++    "already": "Questo numero è già installato.",
++    "wireless": "Nelle versioni giapponesi di Nero 2 o Bianco 2, scegli il download dei tornei al PWT. Il server offre nove tornei, inclusa la versione corretta della categoria Junior. Il file precedente è disponibile qui sotto."
 +  },
 +  "ko": {
 +    "title": "일본판 PWT 다운로드 토너먼트",
@@ -8736,7 +8873,8 @@ index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b
 +    "invalid": "유효한 일본판 블랙 2 또는 화이트 2의 저장 파일을 선택하세요.",
 +    "loading": "대회를 불러오는 중…",
 +    "unavailable": "대회 파일을 받거나 확인할 수 없습니다.",
-+    "already": "같은 번호의 대회가 이미 있습니다."
++    "already": "같은 번호의 대회가 이미 있습니다.",
++    "wireless": "일본판 블랙 2·화이트 2의 PWT에서 대회 다운로드를 선택하세요. 주니어 부문 수정판을 포함해 대회 9개를 제공합니다. 초기판 파일은 아래 목록에서 받을 수 있습니다."
 +  }
 +}
 diff --git a/json_data/zh_web.json b/json_data/zh_web.json
@@ -16361,6 +16499,44 @@ index 0000000000000000000000000000000000000000..f9d4b4fc7804bf6343f29568a8f20388
 +
 +if __name__ == "__main__":
 +    main()
+diff --git a/static/distribution-queue.js b/static/distribution-queue.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..64401ac302588b0e63ac74464701304dbf77b465
+--- /dev/null
++++ b/static/distribution-queue.js
+@@ -0,0 +1,32 @@
++(() => {
++  let etag;
++  let loading = false;
++  async function refresh() {
++    if (document.hidden || loading) return;
++    loading = true;
++    const error = document.getElementById("queue-error");
++    try {
++      const response = await fetch(location.href, {
++        cache: "no-store",
++        headers: etag ? {"If-None-Match": etag} : {},
++      });
++      if (response.status !== 304) {
++        if (!response.ok) throw new Error("Queue unavailable");
++        const page = new DOMParser().parseFromString(await response.text(), "text/html");
++        const next = page.getElementById("receiver-queue");
++        if (!next) throw new Error("Missing queue");
++        const current = document.getElementById("receiver-queue");
++        if (!current.isEqualNode(next)) current.replaceWith(next);
++        etag = response.headers.get("ETag");
++      }
++      error.hidden = true;
++    } catch {
++      error.hidden = false;
++    } finally {
++      loading = false;
++    }
++  }
++  window.setInterval(refresh, 15000);
++  document.addEventListener("visibilitychange", refresh);
++  window.addEventListener("pageshow", event => { if (event.persisted) refresh(); });
++})();
 diff --git a/static/island-adventure.css b/static/island-adventure.css
 new file mode 100644
 index 0000000000000000000000000000000000000000..ecda260da09347fa61c936b22adc1a1834a77855
@@ -16685,10 +16861,10 @@ index 0000000000000000000000000000000000000000..94e1f6a154309d519984690a87cffe96
 +.guide-main .guide-note { margin: 12px 0 0; font-size: .92rem; color: #415347; }
 diff --git a/static/player-guide.js b/static/player-guide.js
 new file mode 100644
-index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4e7f5015f
+index 0000000000000000000000000000000000000000..8d0ae21c3eeb986b86de141ba523256e7b7fabf5
 --- /dev/null
 +++ b/static/player-guide.js
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,62 @@
 +(() => {
 +  const card = document.getElementById("dns");
 +  const message = document.getElementById("dns-message");
@@ -16696,7 +16872,18 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +  const refresh = document.getElementById("refresh-dns");
 +  const copy = document.getElementById("copy-dns");
 +
++  const device = document.getElementById("dns-device");
++  let generation = 0;
++  if (location.hash === "#melonDS") {
++    device.value = "melonDS";
++    card.scrollIntoView();
++  }
++
 +  async function check() {
++    const current = ++generation;
++    const emulator = device.value === "melonDS";
++    const offline = emulator ? card.dataset.emulatorOffline : card.dataset.offline;
++    document.getElementById("emulator-guide").hidden = !emulator;
 +    refresh.disabled = true;
 +    address.hidden = true;
 +    address.textContent = "";
@@ -16704,21 +16891,22 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +    copy.textContent = copy.dataset.copy;
 +    message.textContent = card.dataset.checking;
 +    try {
-+      const response = await fetch(card.dataset.endpoint, {cache: "no-store"});
++      const response = await fetch(emulator ? device.dataset.emulator : card.dataset.endpoint, {cache: "no-store"});
 +      if (!response.ok) throw new Error("DNS lookup unavailable");
 +      const result = await response.json();
++      if (generation !== current) return;
 +      if (result.status === "ready" && result.address) {
 +        address.textContent = result.address;
 +        address.hidden = false;
 +        copy.hidden = !navigator.clipboard?.writeText;
 +        message.textContent = card.dataset.ready;
 +      } else {
-+        message.textContent = result.status === "ambiguous" ? card.dataset.ambiguous : card.dataset.offline;
++        message.textContent = result.status === "ambiguous" && !emulator ? card.dataset.ambiguous : offline;
 +      }
 +    } catch {
-+      message.textContent = card.dataset.offline;
++      if (generation === current) message.textContent = offline;
 +    } finally {
-+      refresh.disabled = false;
++      if (generation === current) refresh.disabled = false;
 +    }
 +  }
 +
@@ -16735,6 +16923,7 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +      selection.addRange(range);
 +    }
 +  });
++  device.addEventListener("change", check);
 +  refresh.addEventListener("click", check);
 +  check();
 +})();
@@ -16946,12 +17135,70 @@ index 0000000000000000000000000000000000000000..b919bedcdf02236e3046a8d15e8785ba
 +<div class="actions"><button type="submit">{{ t.save }}</button></div>
 +</form>{% endif %}
 +</main></body></html>
+diff --git a/templates/distribution_queue.html b/templates/distribution_queue.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..0c63ffa73c0c92e15c666bc9d71882db22426826
+--- /dev/null
++++ b/templates/distribution_queue.html
+@@ -0,0 +1,52 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head>
++  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++  <title>{{ t.queue_title }} · Pokémon Dream World</title>
++  <link rel="stylesheet" href="{{ url_for('offline_friends.static', filename='island-friends.css') }}">
++  <style>
++    main{max-width:52rem;margin:1.5rem auto;padding:0 1rem}
++    nav{display:flex;flex-wrap:wrap;gap:1rem}section{margin:1.5rem 0}
++    ol,ul{padding-inline-start:2.5rem}li{padding:.45rem .25rem;border-bottom:1px solid #ccd8d0;overflow-wrap:anywhere}
++    li::marker{font-weight:bold}li form{display:inline-block;margin:.25rem .5rem}button{cursor:pointer}
++  </style>
++  <script defer src="{{ url_for('campaigns.static', filename='distribution-queue.js') }}"></script>
++</head>
++<body><main>
++  <nav><a href="{{ url_for('campaigns.index', kind='wonder') }}">← {{ t.title }}</a>
++    <a href="{{ url_for('campaigns.receiver_queue') }}">{{ t.queue_refresh }}</a>
++    <a href="/languages/?page=/campaign/queue/">Language</a></nav>
++  <h1>{{ t.queue_title }}</h1>
++  <div id="receiver-queue">
++    {% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
++    {% else %}
++    {% if warning %}<p>{{ t[warning] }}</p>{% endif %}
++    {% macro entries(keys, kind, numbered=true) %}
++      {% if numbered %}<ol>{% else %}<ul>{% endif %}
++      {% for key in keys %}{% set gift = catalog[key] %}
++        <li data-gift="{{ key }}">{% if gift.number %}#{{ gift.number }} · {% endif %}{{ gift_name(gift) }}
++          {% if kind == 'sent' or (kind == 'wonder' and not loop.first) %}
++          <form method="post" action="{{ url_for('campaigns.claim',key=key) }}">
++            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}">
++            <input type="hidden" name="next" value="1"><input type="hidden" name="from_queue" value="1">
++            <button type="submit">{{ t.prioritize }}</button>
++          </form>{% endif %}
++        </li>
++      {% endfor %}
++      {% if numbered %}</ol>{% else %}</ul>{% endif %}
++    {% endmacro %}
++    <section id="wonder"><h2>{{ t.wonder }} ({{ groups.wonder|length }})</h2>
++      {% if groups.wonder %}<p>{{ t.queue_order }}</p>{{ entries(groups.wonder, 'wonder') }}
++      {% else %}<p>{{ t.queue_empty }}</p>{% endif %}
++    </section>
++    {% if groups.sent %}<section id="sent"><h2>{{ t.sent }} ({{ groups.sent|length }})</h2>
++      {{ entries(groups.sent,'sent',false) }}</section>{% endif %}
++    <section id="dream"><h2>{{ t.dream }}</h2>
++      {% if groups.wake %}<h3>{{ t.queue_wake }}</h3>{{ entries(groups.wake,'wake') }}{% endif %}
++      {% if groups.later %}<h3>{{ t.queue_later }}</h3>{{ entries(groups.later,'later') }}{% endif %}
++      {% if not groups.wake and not groups.later %}<p>{{ t.queue_empty }}</p>{% endif %}
++    </section>
++    {% endif %}
++  </div>
++  <p id="queue-error" role="status" hidden>{{ t.queue_stale }}</p>
++</main></body></html>
 diff --git a/templates/distributions.html b/templates/distributions.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..d0207c79a86f6bb7b9978c7f51702ea7363958f8
+index 0000000000000000000000000000000000000000..74c4128ecaf290912000acafa55e7f891e7ee550
 --- /dev/null
 +++ b/templates/distributions.html
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,42 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head><meta charset="utf-8">
 +<meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ t.title }} · Pokémon Dream World</title>
@@ -16969,6 +17216,7 @@ index 0000000000000000000000000000000000000000..d0207c79a86f6bb7b9978c7f51702ea7
 +{% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
 +{% endif %}{% if japanese or card %}
 +{% if rom %}<p>{{ rom }}</p>{% endif %}
++{% if card %}<p><a href="{{ url_for('campaigns.receiver_queue') }}">{{ t.queue_title }}</a></p>{% endif %}
 +<nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=k,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>
 +{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.wake_timing }}</p><p>{{ t.eevee }}</p>{% endif %}
 +{% if card %}{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}{% endif %}
@@ -17200,10 +17448,10 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +</html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..e8b307605d7ab49c45cd76bd6d2c0a9b2b43171d
+index 0000000000000000000000000000000000000000..4f0af8ad44788df7ee9e69d76a6bfe3979e2a2ab
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,72 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -17229,8 +17477,14 @@ index 0000000000000000000000000000000000000000..e8b307605d7ab49c45cd76bd6d2c0a9b
 +      <a href="#distributions">{{ gifts.title }}</a>
 +    </nav>
 +    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
-+             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-checking="{{ t.checking }}">
++             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-emulator-offline="{{ t.emulator_offline }}" data-checking="{{ t.checking }}">
 +      <h2>{{ t.dns_title }}</h2>
++      <label for="dns-device">{{ t.device }}</label>
++      <select id="dns-device" data-emulator="{{ url_for('player_guide.local_emulator_dns') }}">
++        <option value="console">{{ t.physical }}</option>
++        <option value="melonDS">{{ t.emulator }}</option>
++      </select>
++      <p id="emulator-guide" hidden>{{ t.emulator_steps }}</p>
 +      <div role="status" aria-live="polite">
 +        <p id="dns-message">{{ t.checking }}</p>
 +        <output id="dns-address" hidden></output>
@@ -17239,7 +17493,7 @@ index 0000000000000000000000000000000000000000..e8b307605d7ab49c45cd76bd6d2c0a9b
 +        <button id="refresh-dns" type="button">{{ t.refresh }}</button>
 +        <button id="copy-dns" type="button" hidden data-copy="{{ t.copy }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
 +      </div>
-+      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.dns_title }}</a></noscript>
++      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.physical }}</a> · <a href="{{ url_for('player_guide.local_emulator_dns') }}">{{ t.emulator }}</a></noscript>
 +      <p class="guide-note"><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a></p>
 +    </section>
 +    <section id="console">
@@ -17293,7 +17547,7 @@ index 0000000000000000000000000000000000000000..50e9c9466a26cbc149897075115821f5
 +{% endif %}</main></body></html>
 diff --git a/templates/tournaments.html b/templates/tournaments.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..dda6168461367d6a3d5cdb8ba7e160ca9188cbf4
+index 0000000000000000000000000000000000000000..7ea6b82198f347361dbd199e20eb8a759f58ffcf
 --- /dev/null
 +++ b/templates/tournaments.html
 @@ -0,0 +1,13 @@
@@ -17303,7 +17557,7 @@ index 0000000000000000000000000000000000000000..dda6168461367d6a3d5cdb8ba7e160ca
 +<title>{{ t.title }}</title><link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
 +<script type="module" src="{{ url_for('.static',filename='tournaments.mjs') }}"></script></head>
 +<body><main><nav><a href="/campaign/japan/">← Pokémon Global Link</a><a href="/languages/?page=/campaign/japan/tournaments/">Language</a></nav>
-+<h1>{{ t.title }}</h1><p>{{ t.help }}</p>
++<h1>{{ t.title }}</h1><p>{{ t.wireless }}</p><p>{{ t.help }}</p>
 +<label>{{ t.choose }} <input id="save" type="file" accept=".sav"></label>
 +<p id="message" role="status"></p><a id="copy" hidden>{{ t.copy }}</a>
 +<ul>{% for row in rows %}<li><strong lang="ja">{{ row.title }}</strong>{% if '(Bug)' in row.file %} · {{ t.original }}{% endif %}
@@ -17370,14 +17624,15 @@ index 0000000000000000000000000000000000000000..6c4c9005b73dd7b4fdc52789717eb1f0
 +        server.close()
 diff --git a/tests/test_distributions.py b/tests/test_distributions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..b6651b15333ca6e2ff34f6ff4c35b8c5ec4ca3aa
+index 0000000000000000000000000000000000000000..d88971e0efe3fedced60d4b25e4c7d248bd6934d
 --- /dev/null
 +++ b/tests/test_distributions.py
-@@ -0,0 +1,409 @@
+@@ -0,0 +1,532 @@
 +"""Exercise the web, Game Sync and Mystery Gift entrances with disposable game data."""
 +import binascii
 +import hashlib
 +import io
++import re
 +import struct
 +from types import SimpleNamespace
 +
@@ -17689,6 +17944,71 @@ index 0000000000000000000000000000000000000000..b6651b15333ca6e2ff34f6ff4c35b8c5
 +    assert claim(wonder).status_code == 403
 +
 +
++def test_receiver_queue_matches_ds_order_and_frozen_wake(clients):
++    web, _ = clients
++    code = gsid_to_gscd(245)
++    PlayerManager().register_player(code, 21, 1)
++    accounts.link_gscd("QueueTrainer", code)
++    page = "/campaign/queue/"
++    wonder = [g for g in gifts.catalog().values() if g.number and gifts.compatible(g, 21, 1)]
++    a, b = wonder[0], next(g for g in wonder if g.group != wonder[0].group)
++    dreams = [g for g in gifts.catalog().values() if g.species and gifts.compatible(g, 21, 1)]
++    first = dreams[0]
++    second = next(g for g in dreams if g.group != first.group)
++    with db.transaction() as conn:
++        gifts.schema(conn)
++        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,1,'{}')", (code, "queue-wfc"))
++        for card in (a, b):
++            conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)",
++                         (code, card.group, card.key, card.key.encode()))
++        conn.execute("INSERT INTO distribution_orders VALUES('another','other','outside-queue','queued',x'01')")
++    for gift in (first, second):
++        assert gifts.queue(code, gift, 21, 1) == "queued"
++    # Nine occupied encounter slots leave room for just one more partner.
++    encounters = [dict(species=173,move=0,gender=1,form=0,animation=0)] * 9
++    db.update(code, "game_sync", lambda state: state.update(encounters=encounters))
++    assert 'data-gift=' not in web.get(page).text
++    with web.session_transaction() as s:
++        s.update(username="QueueTrainer", gscd=code)
++    def entries(html, section):
++        match = re.search(f'<section id="{section}">(.*?)</section>', html, re.S)
++        return re.findall(r'data-gift="([^"]+)"', match[1]) if match else []
++
++    initial = web.get(page)
++    assert initial.status_code == 200 and initial.cache_control.private
++    assert web.get(page, headers={"If-None-Match":initial.headers["ETag"]}).status_code == 304
++    assert entries(initial.text,"wonder") == [a.key, b.key]
++    assert entries(initial.text,"dream") == [first.key, second.key]
++    assert "outside-queue" not in initial.text and db.read(code, "game_sync")["encounters"] == encounters
++    with web.session_transaction() as s:
++        fields = dict(card=code, csrf=s["gift_csrf"], next="1", from_queue="1")
++    reordered = web.post("/campaign/claim/"+b.key, data=fields)
++    assert reordered.status_code == 303 and reordered.location == page
++    new = web.get(page, headers={"If-None-Match":initial.headers["ETag"]})
++    assert new.status_code == 200 and entries(new.text,"wonder") == [b.key, a.key]
++    f = dict(token="ds-session", rhgamecd="IRBJ", attr1="MYSTERY_J")
++    listing, status = gifts.download("queue-wfc", dict(f, action="list"))
++    name = listing.split("\t")[0]
++    assert status == 200 and name == "DW"+b.digest[:12]+".bin"
++    assert gifts.download("queue-wfc",dict(f, action="contents", contents=name)) == (b.key.encode(),200)
++    assert gifts.download("queue-wfc",dict(f, action="contents", contents=name)) == (b.key.encode(),200)
++    assert gifts.download("queue-wfc",dict(f, token="new", action="list"))[0].startswith("DW"+a.digest[:12])
++    # After download starts the stored batch takes precedence over the current free slots.
++    db.update(code, "game_sync", lambda state: state.update(pending_wake={"distribution_ids":[second.key]}))
++    current = web.get(page).text
++    assert entries(current,"wonder") == [a.key] and entries(current,"sent") == [b.key]
++    assert entries(current,"dream") == [second.key, first.key]
++    with db.transaction() as conn:
++        gifts.confirm_wake(conn, code, [second.key])
++        gifts.merge_album(conn, code, {str(b.number):"at_center"}, {b.signature:"at_center"})
++    db.update(code, "game_sync", lambda state: state.pop("pending_wake"))
++    done = web.get(page).text
++    assert entries(done,"dream") == [first.key] and b.key not in entries(done,"sent")
++    with web.session_transaction() as s:
++        s["username"] = "Other"
++    assert "data-gift=" not in web.get(page).text
++
++
 +def test_japanese_catalogue_and_game_filters(clients):
 +    web, _ = clients
 +    from api.distributions import labels
@@ -17783,6 +18103,63 @@ index 0000000000000000000000000000000000000000..b6651b15333ca6e2ff34f6ff4c35b8c5
 +        assert player.items == [DreamItem(202,3),DreamItem(204,1),DreamItem(205,1)]
 +        gifts.confirm_wake(conn,code,[game.key])
 +        assert gifts.add_to_wake(conn,player,10,3) == []
++
++
++def test_pwt_wireless_catalog_and_game_sync_creation(clients, monkeypatch):
++    from utils import pwt_archive
++    web, ds = clients
++
++    def auth(action, **fields):
++        response = ds.post("/ac", data=encode_form(dict(userid="3" * 13, passwd="qa", action=action, **fields)))
++        return decode_form(response.text)
++
++    auth("acctcreate")
++    dl_token = auth("SVCLOC", svc="9000")["servicetoken"]
++    game_token = auth("SVCLOC", svc="0000")["servicetoken"]
++
++    def download(action, token=dl_token, **fields):
++        params = dict(action=action, token=token, gamecd="IRAO", attr1="WBT_J", rhgamecd="IREJ")
++        return ds.post("/download", data=encode_form({**params, **fields}))
++
++    def record(row):
++        data = bytearray(4884)
++        struct.pack_into("<H", data, 8, row["number"])
++        struct.pack_into("<H", data, 0x1210, binascii.crc_hqx(data[:0x1210], 0xffff))
++        return bytes(data)
++
++    monkeypatch.setattr(pwt_archive, "tournament_file", record)
++    assert download("list", token="invalid").status_code == 401
++    assert download("count").data == b"1"
++    assert download("count", rhgamecd="IRDJ").data == b"1"
++    assert download("count", rhgamecd="IRAJ").data == b"0"
++    assert download("count", attr1="WBT_E").data == b"0"
++    assert download("list", offset="1").data.strip() == b""
++    assert download("list", num="0").data.strip() == b""
++    name, label, kind, _, _, size = download("list").text.strip().split("\t")
++    import base64
++    assert base64.b64decode(label.translate(str.maketrans("*.-", "=+/"))).decode("utf-16le")
++    assert kind == "WBT_J" and int(size) == 9 * 0x1214 + 4
++    payload = download("contents", contents=name, attr1="")
++    assert payload.status_code == 200 and payload.mimetype == "application/x-dsdl"
++    assert len(payload.data) == int(size)
++    rows = pwt_archive.current_events()
++    assert len({row["number"] for row in rows}) == 9 and not any("(Bug)" in row["file"] for row in rows)
++    assert payload.data[:-4] == b"".join(record(row)[:0x1214] for row in rows)
++    assert struct.unpack("<I", payload.data[-4:])[0] == binascii.crc_hqx(payload.data[:-4], 0xffff)
++    assert download("contents", contents=name, rhgamecd="IRBO").status_code == 404
++
++    def create(value, **params):
++        return ds.post("/dsio/gw", auth=(USERNAME, PASSWORD), data=str(value),
++                       query_string=dict(p="account.createdata", tok=game_token, **params))
++
++    def check(value):
++        return web.get("/api/", query_string=dict(p="pgl.member.profile.rom_check", gscd=gsid_to_gscd(value))).json
++
++    assert create(672, rom=20, langcode=1).data[:128] == bytes(128)
++    assert check(672) == {"rom_id": 20}
++    assert create(673).data[:128] == bytes(128)
++    assert create(-1).status_code == 200 and create(1 << 32).data[:128] != bytes(128)
++    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]
 diff --git a/tests/test_gen5_names.py b/tests/test_gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf8945de76
@@ -18789,7 +19166,7 @@ index 0000000000000000000000000000000000000000..e811da00c24768eecc2230054fb65f40
 +    assert practice._practice_movie.cache_info().hits >= 1
 diff --git a/tests/test_tournaments.py b/tests/test_tournaments.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..f855bd19c0bfbb64b0a5a66aa60ba6aecac0dcfe
+index 0000000000000000000000000000000000000000..c7fd59c1f5aa59d5fcb2a6ada32ad9ee91d7d5c1
 --- /dev/null
 +++ b/tests/test_tournaments.py
 @@ -0,0 +1,92 @@
@@ -18805,7 +19182,7 @@ index 0000000000000000000000000000000000000000..f855bd19c0bfbb64b0a5a66aa60ba6ae
 +
 +import pytest
 +
-+from api import tournaments
++from utils import pwt_archive as tournaments
 +from api.server import create_app
 +
 +
@@ -19123,10 +19500,10 @@ index 0000000000000000000000000000000000000000..acccdbad4a2d421ef806611e439b7351
 +        assert visits.read_snapshot(token)["revision"] in results
 diff --git a/tests/test_web_network.py b/tests/test_web_network.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..dc78d2877e52de37e4d30c6c3f5e3bde1769ce75
+index 0000000000000000000000000000000000000000..50c0150b714c93774670181077f8bfa23f8ef19b
 --- /dev/null
 +++ b/tests/test_web_network.py
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,94 @@
 +"""Exercise a running website through address changes using only loopback sockets."""
 +import ipaddress
 +import socket
@@ -19196,6 +19573,31 @@ index 0000000000000000000000000000000000000000..dc78d2877e52de37e4d30c6c3f5e3bde
 +        stop.set()
 +        server.join(timeout=5)
 +    assert not server.is_alive()
++
++
++def test_melonds_dns_uses_verified_loopback_or_active_lan(monkeypatch):
++    from types import SimpleNamespace
++    from dnslib import DNSRecord
++    from game_sync_server.entralinked.network.dns.server import FixedResolver
++    from utils import player_dns
++
++    def answers(address, name, kind):
++        request = DNSRecord.question(name, kind)
++        resolver = FixedResolver(address)
++        reply = resolver.resolve(request, SimpleNamespace(client_address=(address, 12345)))
++        return [rr.rdata for rr in reply.rr]
++
++    monkeypatch.setattr(player_dns, "_answers", answers)
++    assert player_dns.emulator_dns("127.0.0.1", "localhost") == {"status": "ready", "address": "10.64.0.1"}
++    assert player_dns.emulator_dns("127.64.0.2", "localhost")["address"] is None
++    assert player_dns.emulator_dns("192.168.1.14", "192.168.1.5")["address"] is None
++    lan = "192.168.1.5"
++    assert str(answers(lan, "nas.nintendowifi.net", "A")[0]) == lan
++    monkeypatch.setattr(player_dns, "_candidates", lambda: [lan])
++    monkeypatch.setattr(player_dns, "_answers", lambda address, name, kind: [] if address == "127.0.0.1" else answers(address, name, kind))
++    assert player_dns.emulator_dns("::1", "localhost") == {"status": "ready", "address": lan}
++    monkeypatch.setattr(player_dns, "_answers", lambda *args: [])
++    assert player_dns.emulator_dns("::1", "localhost") == {"status": "offline", "address": None}
 diff --git a/utils/account_manager.py b/utils/account_manager.py
 index ce8a908319d323d20284ec73bc043b4f7b1c38b4..fd88eb004882a6675dea49572a0b1a0ed9777d38 100644
 --- a/utils/account_manager.py
@@ -19437,10 +19839,10 @@ index dd7b2ce68d370a7e6c68ccc9a442549c351ea83d..e25c8d4f051e41d804f48e416998e6ae
      if accounts.claim_daily_bonus(account["username"], save_data.today_jst_str()) and session.get("gscd"):
 diff --git a/utils/distributions.py b/utils/distributions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc09fa12fdc
+index 0000000000000000000000000000000000000000..96f90911370dd1d7472bc552f9798cf8ae00b00a
 --- /dev/null
 +++ b/utils/distributions.py
-@@ -0,0 +1,465 @@
+@@ -0,0 +1,474 @@
 +"""Cartridge-scoped promotions and native Generation V Wonder Card deliveries."""
 +import binascii
 +import hashlib
@@ -19703,7 +20105,7 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +    return bytes(data)
 +
 +
-+def _delivery_target_error(conn, identity, rom, lang):
++def delivery_target_error(conn, identity, rom, lang):
 +    if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
 +        return "sync"
 +    if identity["wfc"] is not None and conn.execute(
@@ -19729,7 +20131,7 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +    """Append verified cards behind the existing queue. A retry only fills remaining gaps."""
 +    with db.transaction() as conn:
 +        identity, orders, album = state(conn, card)
-+        if error := _delivery_target_error(conn, identity, rom, lang):
++        if error := delivery_target_error(conn, identity, rom, lang):
 +            return error, 0, 0
 +        if album is None:
 +            return "unknown_help", 0, 0
@@ -19755,7 +20157,7 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +
 +    with db.transaction() as conn:
 +        identity, orders, album = state(conn, card)
-+        if error := _delivery_target_error(conn, identity, rom, lang):
++        if error := delivery_target_error(conn, identity, rom, lang):
 +            return error, 0, 0
 +        if album is None:
 +            return "unknown_help", 0, 0
@@ -19782,7 +20184,7 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +        if not compatible(gift, rom, lang):
 +            return "incompatible"
 +        if gift.number:
-+            if error := _delivery_target_error(conn, identity, rom, lang):
++            if error := delivery_target_error(conn, identity, rom, lang):
 +                return error
 +        current = status(gift, orders, album)
 +        if current != "available" and not (gift.number and current == "unknown"):
@@ -19822,12 +20224,16 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +    return "queued" if row else "incompatible"
 +
 +
++def wake_orders(conn, card):
++    return conn.execute("""SELECT o.gift,d.gender FROM distribution_orders o
++                              LEFT JOIN distribution_dream_options d USING (card,gift)
++                              WHERE o.card=? AND o.status='queued' AND o.payload IS NULL ORDER BY o.rowid""", (card,))
++
++
 +def add_to_wake(conn, player, capacity, item_capacity):
 +    schema(conn)
 +    selected = []
-+    for row in conn.execute("""SELECT o.gift,d.gender FROM distribution_orders o
-+                              LEFT JOIN distribution_dream_options d USING (card,gift)
-+                              WHERE o.card=? AND o.status='queued' AND o.payload IS NULL ORDER BY o.rowid""", (player.gscd,)):
++    for row in wake_orders(conn, player.gscd):
 +        gift = catalog().get(row["gift"])
 +        if not gift or gift.number or not compatible(gift, player.rom_id, player.langcode):
 +            continue
@@ -19855,6 +20261,17 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +    schema(conn)
 +    conn.executemany("UPDATE distribution_orders SET status='delivered' WHERE card=? AND gift=? AND status='queued'",
 +                     ((card, gift) for gift in selected))
++
++
++def wonder_queue(conn, card, token=None):
++    """A new DS session sees queued cards. The current token can also retry its sent card."""
++    return conn.execute("""SELECT o.gift FROM distribution_orders o LEFT JOIN distribution_next n
++                          ON n.card=o.card AND n.gift=o.gift WHERE o.card=?
++                          AND (o.status='queued' OR (o.status='sent' AND EXISTS
++                              (SELECT 1 FROM distribution_lists l WHERE l.card=o.card AND l.gift=o.gift
++                               AND l.token=? AND l.expires>=?)))
++                          AND o.payload IS NOT NULL ORDER BY (n.gift IS NOT NULL) DESC,o.rowid""",
++                        (card, token, int(time.time())))
 +
 +
 +def download(wfc, form):
@@ -19887,13 +20304,7 @@ index 0000000000000000000000000000000000000000..925b727c8e856903d9e296286e83bfc0
 +                                  (wfc, rom, lang)).fetchall()
 +        row = None
 +        if len(identities) == 1:
-+            row = conn.execute("""SELECT o.gift,o.payload FROM distribution_orders o LEFT JOIN distribution_next n
-+                               ON n.card=o.card AND n.gift=o.gift WHERE o.card=?
-+                               AND (o.status='queued' OR (o.status='sent' AND EXISTS
-+                                   (SELECT 1 FROM distribution_lists l WHERE l.card=o.card AND l.gift=o.gift
-+                                    AND l.token=? AND l.expires>=?)))
-+                               AND o.payload IS NOT NULL ORDER BY (n.gift IS NOT NULL) DESC,o.rowid LIMIT 1""",
-+                               (identities[0]["card"], token, int(time.time()))).fetchone()
++            row = wonder_queue(conn, identities[0]["card"], token).fetchone()
 +        if action == "count":
 +            return str(int(row is not None)), 200
 +        if action == "list":
@@ -21047,10 +21458,10 @@ index f21949b7b78bb7af757a3ba447f590d283e16de1..f5f02dd6cd5c59e1ded3585d004facef
      }
  
 diff --git a/utils/messages.py b/utils/messages.py
-index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026f3574559 100644
+index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c32280462468c044c322ffa982fe3b731c0f2011 100644
 --- a/utils/messages.py
 +++ b/utils/messages.py
-@@ -6,7 +6,39 @@ A message that a language doesn't have, or has as an empty string, falls back to
+@@ -6,8 +6,42 @@ A message that a language doesn't have, or has as an empty string, falls back to
  from config import DEFAULT_LANGUAGE, LANG
  
  MESSAGES: dict[str, dict[str, str]] = {
@@ -21062,6 +21473,7 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "暂时无法前往这座岛。",
 +        "unavailable_invitation": "这份梦友邀请已经失效。",
 +        "bad_gscd_length": "请输入有效的 {length} 位游戏同步 ID。",
++        "gsid_waiting_upload": "这个同步 ID 已登记。请在游戏内打开 C-Gear → Wi-Fi → 游戏同步，让一只宝可梦入睡并完成同步，再回来绑定。",
 +        "gscd_not_found": "没有找到这个游戏同步 ID。请核对后重试。",
 +        "gscd_already_yours": "这个游戏同步 ID 已经绑定到你的账号。",
 +        "gscd_already_taken": "这个游戏同步 ID 已经绑定到其他账号。",
@@ -21088,9 +21500,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "This island is unavailable.",
 +        "unavailable_invitation": "This Dream Pal request is unavailable.",
          "bad_gscd_length":    "Please enter a valid {length}-character Game Sync ID.",
++        "gsid_waiting_upload": "This ID is registered. Tuck in a Pokémon using C-Gear → Game Sync and finish syncing, then link the save here.",
          "gscd_not_found":     "We couldn't find that Game Sync ID. Please double-check it and try again.",
          "gscd_already_yours": "This Game Sync ID is already linked to your account.",
-@@ -27,6 +59,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "This Game Sync ID is already linked to another account.",
+@@ -27,7 +61,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "tuck_in_count":      "{count} times",
      },
      "ja": { # placeholder machine translation
@@ -21101,9 +21515,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "この島には遊びに行けません。",
 +        "unavailable_invitation": "このゆめともの申請は受け付けられません。",
          "bad_gscd_length":    "{length}文字の正しいゲームシンクIDコードを入力してください。",
++        "gsid_waiting_upload": "このIDは登録済みです。Cギア → Wi-Fi → ゲームシンクでポケモンを寝かせ、通信完了後にソフトを登録してください。",
          "gscd_not_found":     "そのゲームシンクIDコードは見つかりませんでした。もう一度確認してから入力してください。",
          "gscd_already_yours": "このゲームシンクIDコードは、すでにあなたのアカウントに登録されています。",
-@@ -44,6 +82,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "このゲームシンクIDコードは、すでに別のアカウントに登録されています。",
+@@ -44,7 +85,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "not_activated":      "このアカウントはまだ有効化されていません。メールに届いた有効化リンクを確認してください。",
      },
      "fr": {
@@ -21114,9 +21530,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "Cette île est indisponible.",
 +        "unavailable_invitation": "Cette demande d’amitié est indisponible.",
          "bad_gscd_length":    "Veuillez saisir un ID de Synchro-Jeu valide de {length} caractères.",
++        "gsid_waiting_upload": "Cet identifiant est enregistré. Endormez un Pokémon avec la Synchro-Jeu du C-Gear. Une fois la synchronisation terminée, associez la sauvegarde.",
          "gscd_not_found":     "Nous n'avons pas trouvé cet ID de Synchro-Jeu. Veuillez le vérifier et réessayer.",
          "gscd_already_yours": "Cet ID de Synchro-Jeu est déjà associé à votre compte.",
-@@ -61,6 +105,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "Cet ID de Synchro-Jeu est déjà associé à un autre compte.",
+@@ -61,7 +109,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "not_activated":      "Ce compte n'a pas encore été activé. Consultez votre boîte mail pour trouver le lien d'activation.",
      },
      "it": {
@@ -21127,9 +21545,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "Quest’isola non è disponibile.",
 +        "unavailable_invitation": "Questa richiesta di amicizia non è disponibile.",
          "bad_gscd_length":    "Inserisci un ID Sincrogioco valido di {length} caratteri.",
++        "gsid_waiting_upload": "Questo ID è registrato. Addormenta un Pokémon con il Sincrogioco del C-Gear e completa la sincronizzazione, poi collega il salvataggio.",
          "gscd_not_found":     "Non riusciamo a trovare quell'ID Sincrogioco. Ricontrollalo e riprova.",
          "gscd_already_yours": "Questo ID Sincrogioco è già associato al tuo account.",
-@@ -78,6 +128,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "Questo ID Sincrogioco è già associato a un altro account.",
+@@ -78,7 +133,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "not_activated":      "Questo account non è ancora attivo. Controlla la tua email per il link di attivazione.",
      },
      "de": {
@@ -21140,9 +21560,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "Diese Insel ist nicht erreichbar.",
 +        "unavailable_invitation": "Diese Freundschaftsanfrage ist nicht verfügbar.",
          "bad_gscd_length":    "Gib bitte eine gültige {length}-stellige ID für die Spielsynchro-Funktionen ein.",
++        "gsid_waiting_upload": "Diese ID ist registriert. Lass ein Pokémon per Spielsynchro im C-Gear einschlafen. Verknüpfe den Spielstand nach Abschluss der Synchronisierung.",
          "gscd_not_found":     "Wir konnten diese ID für die Spielsynchro-Funktionen nicht finden. Bitte überprüfe sie und versuch es erneut.",
          "gscd_already_yours": "Diese ID für die Spielsynchro-Funktionen ist bereits mit deinem Account verbunden.",
-@@ -95,6 +151,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "Diese ID für die Spielsynchro-Funktionen ist bereits mit einem anderen Account verbunden.",
+@@ -95,7 +157,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "not_activated":      "Dieser Account wurde noch nicht aktiviert. Überprüfe deine E-Mails auf den Aktivierungslink.",
      },
      "es": {
@@ -21153,9 +21575,11 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "Esta isla no está disponible.",
 +        "unavailable_invitation": "Esta solicitud de amistad no está disponible.",
          "bad_gscd_length":    "Por favor, introduce un ID para Sincronizar válido de {length} caracteres.",
++        "gsid_waiting_upload": "Este ID está registrado. Duerme a un Pokémon con la Sincronizar Juego del C-Gear y termina la sincronización antes de vincular la partida.",
          "gscd_not_found":     "No hemos podido encontrar ese ID para Sincronizar. Por favor, compruébalo e inténtalo de nuevo.",
          "gscd_already_yours": "Este ID para Sincronizar ya está vinculado a tu cuenta.",
-@@ -112,6 +174,12 @@ MESSAGES: dict[str, dict[str, str]] = {
+         "gscd_already_taken": "Este ID para Sincronizar ya está vinculado a otra cuenta.",
+@@ -112,7 +181,14 @@ MESSAGES: dict[str, dict[str, str]] = {
          "not_activated":      "Esta cuenta aún no ha sido activada. Revisa tu correo electrónico para encontrar el enlace de activación.",
      },
      "ko": {
@@ -21166,8 +21590,10 @@ index 80b55140b2eb8d1cf735c341ac2dbf0bbcca6421..c312a0d312ed627f8add84a339d03026
 +        "unavailable_island": "이 섬은 방문할 수 없습니다.",
 +        "unavailable_invitation": "이 꿈친구 신청은 처리할 수 없습니다.",
          "bad_gscd_length":    "유효한 {length}글자 수의 게임싱크 ID 코드를 입력해 주세요.",
++        "gsid_waiting_upload": "등록된 ID입니다. C기어의 게임싱크로 포켓몬을 재운 뒤 동기화가 끝나면 저장 데이터를 연결하세요.",
          "gscd_not_found":     "게임싱크 ID 코드를 찾을 수 없었습니다. 다시 한번 게임싱크 ID 코드를 확인하신 후 시도해 주세요.",
          "gscd_already_yours": "이 게임싱크 ID 코드는 이미 당신의 계정에 연결되어 있습니다.",
+         "gscd_already_taken": "이 게임싱크 ID 코드는 이미 다른 계정에 연결되어 있습니다.",
 diff --git a/utils/models.py b/utils/models.py
 index fca439a45b0601cb75041a25f012f761210c92f3..ed7b09e5349131577b5f79da9f5d21d946ad1afc 100644
 --- a/utils/models.py
@@ -21859,18 +22285,19 @@ index 8826c25c7362d58bfd58c36eadde6483f78f3404..c612eeb5019d349ca15f29061b220c4e
          # and that copy has no shiny field. AVM2 class objects are dynamic, so setting
 diff --git a/utils/player_dns.py b/utils/player_dns.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..b100bf9802447a9b85cadec69d6e48b3ece1dd37
+index 0000000000000000000000000000000000000000..658cb8284feb7765d7cc0086eb2878fa63d7683f
 --- /dev/null
 +++ b/utils/player_dns.py
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,76 @@
 +"""Find the DS-facing DNS listener on the computer showing the local guide."""
 +import ipaddress
 +import os
 +import socket
 +from contextlib import suppress
 +
-+from dnslib import QTYPE, DNSError, DNSRecord
++from dnslib import DNSError, DNSRecord
 +
++from game_sync_server.entralinked.network.dns.server import MELONDS_HOST
 +from utils.web_network import LOCAL_HOSTS, same_web_lan
 +
 +PRIVATE_LAN = tuple(ipaddress.IPv4Network(prefix) for prefix in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
@@ -21893,8 +22320,8 @@ index 0000000000000000000000000000000000000000..b100bf9802447a9b85cadec69d6e48b3
 +    return any(address in network for network in PRIVATE_LAN)
 +
 +
-+def _is_serving(ip: str) -> bool:
-+    query = DNSRecord.question(STATUS_NAME, "TXT")
++def _answers(ip: str, name: str, kind: str):
++    query = DNSRecord.question(name, kind)
 +    try:
 +        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
 +            # A candidate must actually belong to this computer. Never probe other LAN devices.
@@ -21904,11 +22331,25 @@ index 0000000000000000000000000000000000000000..b100bf9802447a9b85cadec69d6e48b3
 +            probe.send(query.pack())
 +            reply = DNSRecord.parse(probe.recv(512))
 +        if reply.header.id != query.header.id or not reply.header.qr or reply.header.rcode or reply.q != query.q:
-+            return False
-+        marker = [f"dreamworld-dns-v1 {ip}".encode("ascii")]
-+        return any(rr.rname == query.q.qname and rr.rtype == QTYPE.TXT and rr.rdata.data == marker for rr in reply.rr)
++            return []
++        return [rr.rdata for rr in reply.rr if rr.rname == query.q.qname and rr.rtype == query.q.qtype]
 +    except (OSError, DNSError):
-+        return False
++        return []
++
++
++def _is_serving(ip: str) -> bool:
++    marker = [f"dreamworld-dns-v1 {ip}".encode("ascii")]
++    return any(answer.data == marker for answer in _answers(ip, STATUS_NAME, "TXT"))
++
++
++def emulator_dns(peer: str | None, host: str | None) -> dict:
++    if peer not in ("127.0.0.1", "::1") or host not in LOCAL_HOSTS:
++        return {"status": "ambiguous", "address": None}
++    if _is_serving("127.0.0.1"):
++        answers = _answers("127.0.0.1", "nas.nintendowifi.net", "A")
++        if any(str(answer) == MELONDS_HOST for answer in answers):
++            return {"status": "ready", "address": MELONDS_HOST}
++    return get_player_dns(peer, host)
 +
 +
 +def get_player_dns(peer: str | None, web_host: str | None = "localhost") -> dict[str, str | None]:
@@ -22023,6 +22464,93 @@ index 0000000000000000000000000000000000000000..70b4087799bda039f9dd6bab09ccd759
 +
 +AVATAR_IDS = tuple(sorted(int(file.stem) for file in _ARTWORK.glob("*.png")
 +                          if file.stem.isdigit() and avatar_name(int(file.stem))))
+diff --git a/utils/pwt_archive.py b/utils/pwt_archive.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9dba1224b7dba5e6539cf67316627f5476b5de5e
+--- /dev/null
++++ b/utils/pwt_archive.py
+@@ -0,0 +1,81 @@
++"""Read verified Japanese tournament archives for the browser and the DS."""
++import hashlib
++import tempfile
++from base64 import b64encode
++from binascii import crc_hqx
++from functools import cache
++from pathlib import Path
++from struct import pack
++from urllib.parse import quote
++from urllib.request import urlopen
++
++
++from config import SAVE_DIR
++from utils.data import load_json_data
++
++ARCHIVE = (
++    "https://raw.githubusercontent.com/projectpokemon/EventsGallery/"
++    "f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/World%20Tournaments/JPN/"
++)
++
++
++@cache
++def catalog() -> dict:
++    return {row["sha"]: row for row in load_json_data("japanese_tournaments")}
++
++
++def _valid(data, sha) -> bool:
++    return len(data) == 4884 and hashlib.sha1(b"blob 4884\0" + data).hexdigest() == sha
++
++
++def tournament_file(row) -> bytes:
++    sha = row["sha"]
++    path = SAVE_DIR / "tournament-cache" / (sha + ".pwt")
++    if path.is_file():
++        with path.open("rb") as source:
++            data = source.read(4885)
++        if _valid(data, sha):
++            return data
++    with urlopen(ARCHIVE + quote(row["file"]), timeout=8) as source:
++        data = source.read(4885)
++    if not _valid(data, sha):
++        raise ValueError("Archive verification failed.")
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with tempfile.TemporaryDirectory(dir=path.parent) as folder:
++        temporary = Path(folder) / path.name
++        temporary.write_bytes(data)
++        temporary.replace(path)
++    return data
++
++
++WBT_NAME = "PWT_J.bin"
++RECORD_SIZE = 0x1214
++
++
++def current_events():
++    # The archive also holds the superseded Junior Division distribution.
++    return [row for row in catalog().values() if "(Bug)" not in row["file"]]
++
++
++def wireless_download(form):
++    """Nintendo DLS WBT catalogue, including its UTF-16LE label and bundle CRC."""
++    action = form.get("action")
++    target = form.get("rhgamecd")
++    allowed = target in (None, "", "IREJ", "IRDJ") and form.get("attr1", "") in ("", "WBT_J")
++    if action == "count":
++        return str(int(allowed)), 200
++    if action == "list":
++        if not allowed or form.get("offset", "0") not in ("0", "") or form.get("num") == "0":
++            return "\r\n", 200
++        title = b64encode("ダウンロードトーナメント".encode("utf-16le")).decode().translate(str.maketrans("=+/", "*.-"))
++        size = RECORD_SIZE * len(current_events()) + 4
++        return f"{WBT_NAME}\t{title}\tWBT_J\t\t\t{size}\r\n", 200
++    if action != "contents":
++        return b"", 400
++    if not allowed or form.get("contents") != WBT_NAME:
++        return b"", 404
++    try:
++        records = b"".join(tournament_file(row)[:RECORD_SIZE] for row in current_events())
++    except (OSError, ValueError):
++        return b"", 503
++    return records + pack("<I", crc_hqx(records, 0xFFFF)), 200
 diff --git a/utils/save_data.py b/utils/save_data.py
 index d5e6ffa959ba89c632a86b6c2249a4647c357ccd..0cb599fac9a73b29524e2d8bc7407e8c6d31125c 100644
 --- a/utils/save_data.py

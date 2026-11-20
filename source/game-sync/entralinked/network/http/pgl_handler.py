@@ -240,7 +240,7 @@ class PglHandler:
                 rom=_optional_int("rom"),
                 langcode=_optional_int("langcode"),
             )
-        except (KeyError, ValueError):  # a parameter is missing or isn't a number
+        except (KeyError, ValueError, OverflowError):  # missing, non-numeric or outside the wire range
             logger.exception("Malformed PGL request")
             return "", HTTPStatus.BAD_REQUEST
 
@@ -472,11 +472,11 @@ class PglHandler:
 
         try:
             gscd = gsid_utility.gsid_to_gscd(int(raw_body))
-        except ValueError:
+        except (ValueError, OverflowError):
             logger.debug("[account.createdata] Rejecting invalid Game Sync ID: %s", raw_body)
             return PglStatus.INVALID_GAME_SYNC_ID, b""
 
-        return self._register(gscd, None, None), b""
+        return self._register(gscd, req.rom, req.langcode), b""
 
     def _register(self, gscd: str | None, rom_id: int | None, langcode: int | None) -> PglStatus:
         if gscd is None or not gsid_utility.is_valid_gscd(gscd):

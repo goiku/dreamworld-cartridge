@@ -102,7 +102,7 @@ _LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/
 
 def _language_page() -> str:
     source = request.args.get("page") or urlsplit(request.referrer or "").path
-    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/"} | {f"/practice/{n}/" for n in range(1,13)}
+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/"} | {f"/practice/{n}/" for n in range(1,13)}
     return source if source in allowed else "/"
 
 

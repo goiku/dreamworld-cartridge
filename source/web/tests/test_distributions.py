@@ -2,6 +2,7 @@
 import binascii
 import hashlib
 import io
+import re
 import struct
 from types import SimpleNamespace
 
@@ -313,6 +314,71 @@ def test_authenticated_distribution(clients, monkeypatch):
     assert claim(wonder).status_code == 403
 
 
+def test_receiver_queue_matches_ds_order_and_frozen_wake(clients):
+    web, _ = clients
+    code = gsid_to_gscd(245)
+    PlayerManager().register_player(code, 21, 1)
+    accounts.link_gscd("QueueTrainer", code)
+    page = "/campaign/queue/"
+    wonder = [g for g in gifts.catalog().values() if g.number and gifts.compatible(g, 21, 1)]
+    a, b = wonder[0], next(g for g in wonder if g.group != wonder[0].group)
+    dreams = [g for g in gifts.catalog().values() if g.species and gifts.compatible(g, 21, 1)]
+    first = dreams[0]
+    second = next(g for g in dreams if g.group != first.group)
+    with db.transaction() as conn:
+        gifts.schema(conn)
+        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,1,'{}')", (code, "queue-wfc"))
+        for card in (a, b):
+            conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)",
+                         (code, card.group, card.key, card.key.encode()))
+        conn.execute("INSERT INTO distribution_orders VALUES('another','other','outside-queue','queued',x'01')")
+    for gift in (first, second):
+        assert gifts.queue(code, gift, 21, 1) == "queued"
+    # Nine occupied encounter slots leave room for just one more partner.
+    encounters = [dict(species=173,move=0,gender=1,form=0,animation=0)] * 9
+    db.update(code, "game_sync", lambda state: state.update(encounters=encounters))
+    assert 'data-gift=' not in web.get(page).text
+    with web.session_transaction() as s:
+        s.update(username="QueueTrainer", gscd=code)
+    def entries(html, section):
+        match = re.search(f'<section id="{section}">(.*?)</section>', html, re.S)
+        return re.findall(r'data-gift="([^"]+)"', match[1]) if match else []
+
+    initial = web.get(page)
+    assert initial.status_code == 200 and initial.cache_control.private
+    assert web.get(page, headers={"If-None-Match":initial.headers["ETag"]}).status_code == 304
+    assert entries(initial.text,"wonder") == [a.key, b.key]
+    assert entries(initial.text,"dream") == [first.key, second.key]
+    assert "outside-queue" not in initial.text and db.read(code, "game_sync")["encounters"] == encounters
+    with web.session_transaction() as s:
+        fields = dict(card=code, csrf=s["gift_csrf"], next="1", from_queue="1")
+    reordered = web.post("/campaign/claim/"+b.key, data=fields)
+    assert reordered.status_code == 303 and reordered.location == page
+    new = web.get(page, headers={"If-None-Match":initial.headers["ETag"]})
+    assert new.status_code == 200 and entries(new.text,"wonder") == [b.key, a.key]
+    f = dict(token="ds-session", rhgamecd="IRBJ", attr1="MYSTERY_J")
+    listing, status = gifts.download("queue-wfc", dict(f, action="list"))
+    name = listing.split("\t")[0]
+    assert status == 200 and name == "DW"+b.digest[:12]+".bin"
+    assert gifts.download("queue-wfc",dict(f, action="contents", contents=name)) == (b.key.encode(),200)
+    assert gifts.download("queue-wfc",dict(f, action="contents", contents=name)) == (b.key.encode(),200)
+    assert gifts.download("queue-wfc",dict(f, token="new", action="list"))[0].startswith("DW"+a.digest[:12])
+    # After download starts the stored batch takes precedence over the current free slots.
+    db.update(code, "game_sync", lambda state: state.update(pending_wake={"distribution_ids":[second.key]}))
+    current = web.get(page).text
+    assert entries(current,"wonder") == [a.key] and entries(current,"sent") == [b.key]
+    assert entries(current,"dream") == [second.key, first.key]
+    with db.transaction() as conn:
+        gifts.confirm_wake(conn, code, [second.key])
+        gifts.merge_album(conn, code, {str(b.number):"at_center"}, {b.signature:"at_center"})
+    db.update(code, "game_sync", lambda state: state.pop("pending_wake"))
+    done = web.get(page).text
+    assert entries(done,"dream") == [first.key] and b.key not in entries(done,"sent")
+    with web.session_transaction() as s:
+        s["username"] = "Other"
+    assert "data-gift=" not in web.get(page).text
+
+
 def test_japanese_catalogue_and_game_filters(clients):
     web, _ = clients
     from api.distributions import labels
@@ -407,3 +473,60 @@ def test_berry_sets_use_one_destination_and_all_fit(clients):
         assert player.items == [DreamItem(202,3),DreamItem(204,1),DreamItem(205,1)]
         gifts.confirm_wake(conn,code,[game.key])
         assert gifts.add_to_wake(conn,player,10,3) == []
+
+
+def test_pwt_wireless_catalog_and_game_sync_creation(clients, monkeypatch):
+    from utils import pwt_archive
+    web, ds = clients
+
+    def auth(action, **fields):
+        response = ds.post("/ac", data=encode_form(dict(userid="3" * 13, passwd="qa", action=action, **fields)))
+        return decode_form(response.text)
+
+    auth("acctcreate")
+    dl_token = auth("SVCLOC", svc="9000")["servicetoken"]
+    game_token = auth("SVCLOC", svc="0000")["servicetoken"]
+
+    def download(action, token=dl_token, **fields):
+        params = dict(action=action, token=token, gamecd="IRAO", attr1="WBT_J", rhgamecd="IREJ")
+        return ds.post("/download", data=encode_form({**params, **fields}))
+
+    def record(row):
+        data = bytearray(4884)
+        struct.pack_into("<H", data, 8, row["number"])
+        struct.pack_into("<H", data, 0x1210, binascii.crc_hqx(data[:0x1210], 0xffff))
+        return bytes(data)
+
+    monkeypatch.setattr(pwt_archive, "tournament_file", record)
+    assert download("list", token="invalid").status_code == 401
+    assert download("count").data == b"1"
+    assert download("count", rhgamecd="IRDJ").data == b"1"
+    assert download("count", rhgamecd="IRAJ").data == b"0"
+    assert download("count", attr1="WBT_E").data == b"0"
+    assert download("list", offset="1").data.strip() == b""
+    assert download("list", num="0").data.strip() == b""
+    name, label, kind, _, _, size = download("list").text.strip().split("\t")
+    import base64
+    assert base64.b64decode(label.translate(str.maketrans("*.-", "=+/"))).decode("utf-16le")
+    assert kind == "WBT_J" and int(size) == 9 * 0x1214 + 4
+    payload = download("contents", contents=name, attr1="")
+    assert payload.status_code == 200 and payload.mimetype == "application/x-dsdl"
+    assert len(payload.data) == int(size)
+    rows = pwt_archive.current_events()
+    assert len({row["number"] for row in rows}) == 9 and not any("(Bug)" in row["file"] for row in rows)
+    assert payload.data[:-4] == b"".join(record(row)[:0x1214] for row in rows)
+    assert struct.unpack("<I", payload.data[-4:])[0] == binascii.crc_hqx(payload.data[:-4], 0xffff)
+    assert download("contents", contents=name, rhgamecd="IRBO").status_code == 404
+
+    def create(value, **params):
+        return ds.post("/dsio/gw", auth=(USERNAME, PASSWORD), data=str(value),
+                       query_string=dict(p="account.createdata", tok=game_token, **params))
+
+    def check(value):
+        return web.get("/api/", query_string=dict(p="pgl.member.profile.rom_check", gscd=gsid_to_gscd(value))).json
+
+    assert create(672, rom=20, langcode=1).data[:128] == bytes(128)
+    assert check(672) == {"rom_id": 20}
+    assert create(673).data[:128] == bytes(128)
+    assert create(-1).status_code == 200 and create(1 << 32).data[:128] != bytes(128)
+    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]

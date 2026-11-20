@@ -601,7 +601,7 @@ index 17bb301f5c1b6e2b1b1bf796846c18b02e6d368a..7cb0dc7f83bc30128ca335b6056d0390
 +                    if address == peer and expiry > now]
 +            return pids[0] if len(pids) == 1 else None
 diff --git a/entralinked/network/dns/server.py b/entralinked/network/dns/server.py
-index 33291c17b940553e5686f4bf3e629718f6345481..81d092634de77bd9048c7c063bd8f6df62a6d391 100644
+index 33291c17b940553e5686f4bf3e629718f6345481..5573849bea7fb57c60e8539508273fcbbdaac434 100644
 --- a/entralinked/network/dns/server.py
 +++ b/entralinked/network/dns/server.py
 @@ -1,7 +1,8 @@
@@ -614,19 +614,33 @@ index 33291c17b940553e5686f4bf3e629718f6345481..81d092634de77bd9048c7c063bd8f6df
  from dnslib.server import BaseResolver, DNSHandler, DNSRecord, DNSServer
  
  logger = logging.getLogger(__name__)
-@@ -19,7 +20,10 @@ class FixedResolver(BaseResolver):
+@@ -9,6 +10,9 @@ logger = logging.getLogger(__name__)
+ DNS_PORT = 53  # the DS is only given an address, so the port can't change
+ 
+ 
++MELONDS_HOST = "10.64.0.1"  # melonDS 1.1 Net_Slirp::kServerIP
++
++
+ class FixedResolver(BaseResolver):
+     """Resolves every A query to one address."""
+ 
+@@ -19,8 +23,13 @@ class FixedResolver(BaseResolver):
          """Answer one query."""
          reply = request.reply()
  
 -        if request.q.qtype == QTYPE.A:
+-            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
 +        if (request.q.qtype == QTYPE.TXT and str(request.q.qname).lower() == "guide-status.dreamworld.invalid."
 +                and handler.client_address[0] == self.host_address):
 +            reply.add_answer(RR(request.q.qname, QTYPE.TXT, rdata=TXT(f"dreamworld-dns-v1 {self.host_address}"), ttl=0))
 +        elif request.q.qtype == QTYPE.A:
-             reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
++            # Slirp routes this guest address to the server on the host loopback.
++            address = MELONDS_HOST if self.host_address == "127.0.0.1" else self.host_address
++            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(address), ttl=0))
          else:
              logger.warning("Unsupported record type in DNS question: %s", request.q.qtype)
-@@ -30,13 +34,14 @@ class FixedResolver(BaseResolver):
+ 
+@@ -30,13 +39,14 @@ class FixedResolver(BaseResolver):
  class DnsServer:
      """Runs the resolver on UDP port 53."""
  
@@ -1500,7 +1514,7 @@ index a0380387951fa293ebfce026ef57777a64d9eca9..25f3bd18acba7a7a904b2373ebce3b82
          if self.server_thread is not None:
              self.server_thread.join()
 diff --git a/entralinked/network/http/dls_handler.py b/entralinked/network/http/dls_handler.py
-index ab6ac2ae69843749de45d7252e6ad684fdd7b543..04fb8609d18e6fa1c1706e36c82b0946dad55c2e 100644
+index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa3751f02957 100644
 --- a/entralinked/network/http/dls_handler.py
 +++ b/entralinked/network/http/dls_handler.py
 @@ -6,9 +6,11 @@ import logging
@@ -1511,17 +1525,26 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..04fb8609d18e6fa1c1706e36c82b0946
 +from flask import Blueprint, Response, request
  from flask.typing import ResponseReturnValue
  
-+from utils import distributions
++from utils import distributions, pwt_archive
 +
  from ...context import Context
  from ...model.dlc.dlc import dlc_list_string
  from ...utility.url_encoded_form import decode_form
-@@ -53,20 +55,29 @@ class DlsHandler:
+@@ -16,6 +18,8 @@ from ...utility.url_encoded_form import decode_form
+ logger = logging.getLogger(__name__)
+ 
+ SERVICE = "dls1.nintendowifi.net"
++
++
+ @dataclass
+ class DlsRequest:
+     token: str
+@@ -53,27 +57,36 @@ class DlsHandler:
                  action=form["action"],
                  dlc_type=dlc_type,
                  language=language or None,
 -                dlc_index=int(form["attr2"]) if form.get("attr2") else None,
-+                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type != "MYSTERY" else None,
++                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type not in ("MYSTERY", "WBT") else None,
                  dlc_name=form.get("contents"),
              )
          except (KeyError, ValueError):
@@ -1536,18 +1559,32 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..04fb8609d18e6fa1c1706e36c82b0946
              logger.debug("Rejecting DLS request because the service session has expired")
              return "", HTTPStatus.UNAUTHORIZED
  
-+        if dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
+-        handler = self._actions.get(dls_request.action)
+-
+-        if handler is None:
+-            logger.error("Invalid DLS request action: %s", dls_request.action)
+-            return "", HTTPStatus.BAD_REQUEST
+-
+-        return handler(dls_request)
++        if dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
++            content, status = pwt_archive.wireless_download(form)
++        elif dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
 +            content, status = distributions.download(session.user.id, form)
-+            is_file = status == 200 and dls_request.action == "contents"
-+            response = Response(content, status=status, mimetype="application/x-dsdl" if is_file else "text/plain")
-+            response.headers["X-DLS-Host"] = f"http://{SERVICE}/"
-+            if is_file:
-+                response.headers.set("Content-Disposition", "attachment", filename=dls_request.dlc_name)
-+            return response
++        else:
++            handler = self._actions.get(dls_request.action)
++            if handler is None:
++                return "", HTTPStatus.BAD_REQUEST
++            return handler(dls_request)
 +
-         handler = self._actions.get(dls_request.action)
++        is_file = status == 200 and dls_request.action == "contents"
++        response = Response(content, status=status, mimetype="application/x-dsdl" if is_file else "text/plain")
++        response.headers["X-DLS-Host"] = f"http://{SERVICE}/"
++        if is_file:
++            response.headers.set("Content-Disposition", "attachment", filename=dls_request.dlc_name)
++        return response
  
-         if handler is None:
+     def handle_retrieve_dlc_list(self, req: DlsRequest) -> ResponseReturnValue:
+         """List the DLC of a type."""
 diff --git a/entralinked/network/http/gts_handler.py b/entralinked/network/http/gts_handler.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b061535da296e4
@@ -1816,7 +1853,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
          self.server_thread.start()
 diff --git a/entralinked/network/http/pgl_handler.py b/entralinked/network/http/pgl_handler.py
-index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..0ebe0daaf3d8dbca30b5463544d1d1a2f4bf94f3 100644
+index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..ae93c509f3ca4f90a7ba9f0e121d9828a80259eb 100644
 --- a/entralinked/network/http/pgl_handler.py
 +++ b/entralinked/network/http/pgl_handler.py
 @@ -1,4 +1,5 @@
@@ -1894,7 +1931,12 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..0ebe0daaf3d8dbca30b5463544d1d1a2
      padding = MAX_ITEMS - len(items)
      return (struct.pack(f"<{len(items)}H", *(item.pokeitem_id for item in items)) + bytes(padding * 2)
              + bytes(item.item_cnt for item in items) + bytes(padding))
-@@ -235,7 +244,7 @@ class PglHandler:
+@@ -231,11 +240,11 @@ class PglHandler:
+                 rom=_optional_int("rom"),
+                 langcode=_optional_int("langcode"),
+             )
+-        except (KeyError, ValueError):  # a parameter is missing or isn't a number
++        except (KeyError, ValueError, OverflowError):  # missing, non-numeric or outside the wire range
              logger.exception("Malformed PGL request")
              return "", HTTPStatus.BAD_REQUEST
  
@@ -2076,6 +2118,20 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..0ebe0daaf3d8dbca30b5463544d1d1a2
          return PglStatus.OK, b""
  
      def handle_create_account(self, req: PglRequest) -> tuple[PglStatus, bytes]:
+@@ -408,11 +472,11 @@ class PglHandler:
+ 
+         try:
+             gscd = gsid_utility.gsid_to_gscd(int(raw_body))
+-        except ValueError:
++        except (ValueError, OverflowError):
+             logger.debug("[account.createdata] Rejecting invalid Game Sync ID: %s", raw_body)
+             return PglStatus.INVALID_GAME_SYNC_ID, b""
+ 
+-        return self._register(gscd, None, None), b""
++        return self._register(gscd, req.rom, req.langcode), b""
+ 
+     def _register(self, gscd: str | None, rom_id: int | None, langcode: int | None) -> PglStatus:
+         if gscd is None or not gsid_utility.is_valid_gscd(gscd):
 @@ -431,9 +495,10 @@ class PglHandler:
          now = save_data.now_jst_str()
          timestamp = int(datetime.now().timestamp())

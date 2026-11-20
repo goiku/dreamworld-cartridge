@@ -13,7 +13,7 @@ from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
 from utils import save_data
 from utils.constants import PlayerStatus
 from utils.data import load_json_data
-from utils.player_dns import get_player_dns
+from utils.player_dns import emulator_dns, get_player_dns
 from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
 
 player_guide = Blueprint("player_guide", __name__, url_prefix="/player-guide",
@@ -52,6 +52,13 @@ def phone() -> str:
 @player_guide.get("/dns.json")
 def dns() -> Response:
     response = jsonify(get_player_dns(request.remote_addr, urlsplit(request.host_url).hostname))
+    response.cache_control.no_store = True
+    return response
+
+
+@player_guide.get("/emulator-dns.json")
+def local_emulator_dns() -> Response:
+    response = jsonify(emulator_dns(request.remote_addr, urlsplit(request.host_url).hostname))
     response.cache_control.no_store = True
     return response
 

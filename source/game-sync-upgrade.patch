@@ -1,5 +1,5 @@
 diff --git a/entralinked/network/dns/server.py b/entralinked/network/dns/server.py
-index 434e739c362d8dbbf89934a8db470cc786630c39..81d092634de77bd9048c7c063bd8f6df62a6d391 100644
+index 434e739c362d8dbbf89934a8db470cc786630c39..5573849bea7fb57c60e8539508273fcbbdaac434 100644
 --- a/entralinked/network/dns/server.py
 +++ b/entralinked/network/dns/server.py
 @@ -1,8 +1,8 @@
@@ -13,15 +13,29 @@ index 434e739c362d8dbbf89934a8db470cc786630c39..81d092634de77bd9048c7c063bd8f6df
  from dnslib.server import BaseResolver, DNSHandler, DNSRecord, DNSServer
  
  logger = logging.getLogger(__name__)
-@@ -20,7 +20,10 @@ class FixedResolver(BaseResolver):
+@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
+ DNS_PORT = 53  # the DS is only given an address, so the port can't change
+ 
+ 
++MELONDS_HOST = "10.64.0.1"  # melonDS 1.1 Net_Slirp::kServerIP
++
++
+ class FixedResolver(BaseResolver):
+     """Resolves every A query to one address."""
+ 
+@@ -20,8 +23,13 @@ class FixedResolver(BaseResolver):
          """Answer one query."""
          reply = request.reply()
  
 -        if request.q.qtype == QTYPE.A:
+-            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
 +        if (request.q.qtype == QTYPE.TXT and str(request.q.qname).lower() == "guide-status.dreamworld.invalid."
 +                and handler.client_address[0] == self.host_address):
 +            reply.add_answer(RR(request.q.qname, QTYPE.TXT, rdata=TXT(f"dreamworld-dns-v1 {self.host_address}"), ttl=0))
 +        elif request.q.qtype == QTYPE.A:
-             reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
++            # Slirp routes this guest address to the server on the host loopback.
++            address = MELONDS_HOST if self.host_address == "127.0.0.1" else self.host_address
++            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(address), ttl=0))
          else:
              logger.warning("Unsupported record type in DNS question: %s", request.q.qtype)
+ 

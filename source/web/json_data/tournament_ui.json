@@ -15,7 +15,8 @@
     "invalid": "请选择完整且校验通过的日版《黑2／白2》原始 .sav 文件。",
     "loading": "正在读取赛事文件…",
     "unavailable": "赛事文件获取或校验失败。",
-    "already": "已有此编号的赛事。"
+    "already": "已有此编号的赛事。",
+    "wireless": "在日版《黑2／白2》的 PWT 会场选择联网下载大会。私服提供 9 项大会，少年组采用修正版。网页也保留了早期版文件。"
   },
   "ja": {
     "title": "日本版 PWT ダウンロードトーナメント",
@@ -33,7 +34,8 @@
     "invalid": "チェックサムが正しい日本版ブラック2・ホワイト2の .sav を選んでください。",
     "loading": "大会を読み込み中…",
     "unavailable": "大会ファイルを取得または検証できませんでした。",
-    "already": "この番号の大会は登録済みです。"
+    "already": "この番号の大会は登録済みです。",
+    "wireless": "日本版『ブラック2・ホワイト2』のPWT会場でトーナメントのダウンロードを選んでください。9大会を配信し、ジュニア部門には修正版を使います。初期版のファイルも下の一覧から保存できます。"
   },
   "en": {
     "title": "Japanese PWT download tournaments",
@@ -51,7 +53,8 @@
     "invalid": "Select a valid Japanese Black 2 or White 2 raw .sav file with intact checksums.",
     "loading": "Loading tournament…",
     "unavailable": "Could not retrieve or verify the tournament.",
-    "already": "This tournament number is already installed."
+    "already": "This tournament number is already installed.",
+    "wireless": "In Japanese Black 2 or White 2, choose the tournament download at the PWT. The server offers nine tournaments, including the corrected Junior Division event. The earlier file is also in the list below."
   },
   "fr": {
     "title": "Tournois PWT japonais",
@@ -69,7 +72,8 @@
     "invalid": "Choisissez une sauvegarde japonaise Noir 2 ou Blanc 2 valide.",
     "loading": "Chargement…",
     "unavailable": "Échec du chargement ou de la vérification.",
-    "already": "Ce numéro est déjà installé."
+    "already": "Ce numéro est déjà installé.",
+    "wireless": "Dans une version japonaise de Noir 2 ou Blanc 2, choisissez le téléchargement au PWT. Le serveur propose neuf tournois, dont la version corrigée de la catégorie Junior. Le fichier initial reste disponible ci-dessous."
   },
   "es": {
     "title": "Torneos PWT japoneses",
@@ -87,7 +91,8 @@
     "invalid": "Selecciona una partida japonesa válida de Negro 2 o Blanco 2.",
     "loading": "Cargando…",
     "unavailable": "No se pudo obtener o verificar el torneo.",
-    "already": "Este número ya está instalado."
+    "already": "Este número ya está instalado.",
+    "wireless": "En la versión japonesa de Negro 2 o Blanco 2, elige la descarga de torneos en el PWT. Hay nueve torneos, incluida la versión corregida de la categoría Júnior. El archivo anterior también está en la lista."
   },
   "de": {
     "title": "Japanische PWT-Downloadturniere",
@@ -105,7 +110,8 @@
     "invalid": "Wähle einen gültigen japanischen Spielstand aus Schwarz 2 oder Weiß 2.",
     "loading": "Wird geladen…",
     "unavailable": "Turnierdatei konnte nicht geladen oder geprüft werden.",
-    "already": "Diese Turniernummer ist bereits installiert."
+    "already": "Diese Turniernummer ist bereits installiert.",
+    "wireless": "Wähle in einer japanischen Schwarzen oder Weißen Edition 2 beim PWT den Turnierdownload. Es gibt neun Turniere, darunter die korrigierte Junioren-Ausgabe. Die frühere Datei findest du unten."
   },
   "it": {
     "title": "Tornei PWT giapponesi",
@@ -123,7 +129,8 @@
     "invalid": "Scegli un salvataggio giapponese valido di Nero 2 o Bianco 2.",
     "loading": "Caricamento…",
     "unavailable": "Impossibile scaricare o verificare il torneo.",
-    "already": "Questo numero è già installato."
+    "already": "Questo numero è già installato.",
+    "wireless": "Nelle versioni giapponesi di Nero 2 o Bianco 2, scegli il download dei tornei al PWT. Il server offre nove tornei, inclusa la versione corretta della categoria Junior. Il file precedente è disponibile qui sotto."
   },
   "ko": {
     "title": "일본판 PWT 다운로드 토너먼트",
@@ -141,6 +148,7 @@
     "invalid": "유효한 일본판 블랙 2 또는 화이트 2의 저장 파일을 선택하세요.",
     "loading": "대회를 불러오는 중…",
     "unavailable": "대회 파일을 받거나 확인할 수 없습니다.",
-    "already": "같은 번호의 대회가 이미 있습니다."
+    "already": "같은 번호의 대회가 이미 있습니다.",
+    "wireless": "일본판 블랙 2·화이트 2의 PWT에서 대회 다운로드를 선택하세요. 주니어 부문 수정판을 포함해 대회 9개를 제공합니다. 초기판 파일은 아래 목록에서 받을 수 있습니다."
   }
 }

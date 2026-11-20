@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "d7be6f01035b7ce8232249a9bb1eaf33a6cc288cdb4d120926d5c0c5d28c57ef",
+    "patch_sha256": "4516f84999cb315e1ec69130685eb9357fb52ebab438ab1865ac9ab9b9d979d8",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -21,11 +21,12 @@
       },
       "api/distributions.py": {
         "before": null,
-        "after": "d3e1ff378d8f050f979f3b39a404defc8904df02ff83771db6acc00948adf88f",
+        "after": "0e886c8d6b36cddd5117b3bc65f170d618b4f0c1a3591960ab6c1cb39eab23a8",
         "previous": [
           "0b648ef0e0e5099c6005f26d96806c631ee51d688d49d86d0ce7e8f525d84392",
           "ad44daa6b9dcd42bf3ce48310f8db1086ca55b2c0168fe40c579aec2b15f3f66",
           "c6716fdb4d474150031266ee76858e61b7e96b41247edfc79a6ab8f0bec0471f",
+          "d3e1ff378d8f050f979f3b39a404defc8904df02ff83771db6acc00948adf88f",
           "f86ec89565e56e62783fcdd67ce56e1142308cd5f3a136f2b90337d29114d433"
         ]
       },
@@ -101,7 +102,10 @@
       },
       "api/pgl_member.py": {
         "before": "c0ce282b798388942e7bcbdb89356cf95cf801e8d00b8d26e9a86f15ea81d7ce",
-        "after": "2905795fd0bb43071035f7312f4dbfa652368dc967ccedc5388fdf0270c742bb"
+        "after": "261242e7552fb0229bede790e580e3ace3512505418f845d9d227a14fd609a58",
+        "previous": [
+          "2905795fd0bb43071035f7312f4dbfa652368dc967ccedc5388fdf0270c742bb"
+        ]
       },
       "api/pgl_pals.py": {
         "before": null,
@@ -125,11 +129,12 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "6bdb7523954d330a145ca50c2bc81078e749753faffbd3f1f9776717e706f8c5",
+        "after": "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e",
         "previous": [
           "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
           "59fff65f72d36f027cd8a2d3838cce0fd730f36075da3df1bec6c195b07f8b50",
+          "6bdb7523954d330a145ca50c2bc81078e749753faffbd3f1f9776717e706f8c5",
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
           "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49"
         ]
@@ -140,14 +145,15 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "ef538d88e25182a0532479ae8ad7b7b6223be48f98755b189be82bce0ad731e7",
+        "after": "b2f5e44504cc98dfbfc9cb5f0091213ce53822bbf893af14546d604133ac9a21",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
           "c92242e33027847db310f551b1794a6fb8076991ac913534ccfd289df4cfb392",
-          "e0e17654cd8dbf879fcadc050339034197d9abd77c7152f5cc972f72dc8f70bf"
+          "e0e17654cd8dbf879fcadc050339034197d9abd77c7152f5cc972f72dc8f70bf",
+          "ef538d88e25182a0532479ae8ad7b7b6223be48f98755b189be82bce0ad731e7"
         ]
       },
       "api/signup.py": {
@@ -160,7 +166,10 @@
       },
       "api/tournaments.py": {
         "before": null,
-        "after": "7b36f5e5a40ad20e17b74edf82225a9114542852b4f3be5b6de895717e699429"
+        "after": "7563daeae8ef8bf6a5dab5c6542aa5197eda6281036d9f652a439ab43648ebb5",
+        "previous": [
+          "7b36f5e5a40ad20e17b74edf82225a9114542852b4f3be5b6de895717e699429"
+        ]
       },
       "api/visit_sync.py": {
         "before": null,
@@ -180,8 +189,9 @@
       },
       "json_data/distribution_ui.json": {
         "before": null,
-        "after": "559072ddacb89dcc5359495c6840c2bce52914c9ef08f4b1ae16b7ceeab5d39d",
+        "after": "72d98b6250b5bfed68d771012ceb572f2e62d6fda83e55e5a88b27ec37cd6942",
         "previous": [
+          "559072ddacb89dcc5359495c6840c2bce52914c9ef08f4b1ae16b7ceeab5d39d",
           "5efc930e53093ca2daa2f744bacbbfd33d8959a987f2a7c5ef539933e4758b22",
           "96755bfb1c611b09c43fa6e4e0a60388c0a383425deb6ad05474f7932d7695f5",
           "dded4c412cd5a3943a9a1d13ab8b806c0574e8d4c63b6a95232750d5d717a6cd",
@@ -232,10 +242,11 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1",
+        "after": "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
         "previous": [
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
-          "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898"
+          "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898",
+          "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1"
         ]
       },
       "json_data/pokemon.json": {
@@ -252,7 +263,10 @@
       },
       "json_data/tournament_ui.json": {
         "before": null,
-        "after": "0e35963dae651b20a325ebdae0feb22e644e1753f04b956758c00686f8b66658"
+        "after": "537ecc3cbbb41e74222946ae3110d70944294788a49dc67d680cf879051edce5",
+        "previous": [
+          "0e35963dae651b20a325ebdae0feb22e644e1753f04b956758c00686f8b66658"
+        ]
       },
       "json_data/zh_web.json": {
         "before": null,
@@ -405,6 +419,10 @@
         "before": null,
         "after": "1c3e06889228d38315494913022dec9ac7891afffba51654d3a5c4c50435d063"
       },
+      "static/distribution-queue.js": {
+        "before": null,
+        "after": "dcebcef6b4e7f2cfc53f01a4097e161e60628355afc8f094cc43e1708a128679"
+      },
       "static/island-adventure.css": {
         "before": null,
         "after": "dcf94be88e55a39cb6be30d4edc8a8df4df2410a61e0bea237289b1204ac441d"
@@ -431,7 +449,10 @@
       },
       "static/player-guide.js": {
         "before": null,
-        "after": "486393a829d73834397513ce8d1520c0cdf2904b724ec3abb6d4e5867842d479"
+        "after": "1e766a8071154b3c65baadd9dd2a5bf68a66e98d9e71068dd4146f2e3c035a75",
+        "previous": [
+          "486393a829d73834397513ce8d1520c0cdf2904b724ec3abb6d4e5867842d479"
+        ]
       },
       "static/practice.css": {
         "before": null,
@@ -453,13 +474,18 @@
         "before": null,
         "after": "05a19b9b548dd1f5ed7a557ad85e36b12af7ff874a6977963c06a7d4368f99d0"
       },
+      "templates/distribution_queue.html": {
+        "before": null,
+        "after": "a272bf520e7da427327158c463a1eb8486ba9335a57350aa1253bc65849a89d5"
+      },
       "templates/distributions.html": {
         "before": null,
-        "after": "52241686a22c65168c768b81922b2e6b03d302be6d01f79e9d20ed763a5418af",
+        "after": "4ff68b8a276a0e6b3c35d3a3e307b850f4fa6be862d33c72829a2ab9a367143b",
         "previous": [
           "09e9686fea5cd67962fc2e34ccc58c997c5f097bf26c729ffc3cfec2ce88def6",
           "2cbaf4e2db7da50fc5a55dcfc0471ad9300b791df53ca008911d4537cdf5400a",
           "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5",
+          "52241686a22c65168c768b81922b2e6b03d302be6d01f79e9d20ed763a5418af",
           "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763",
           "b7434332b09b6eb8c617fb7c7e602626daa5825e2fca71ba7da5324990ebd43a"
         ]
@@ -497,10 +523,11 @@
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
+        "after": "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
         "previous": [
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
-          "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f"
+          "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
+          "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811"
         ]
       },
       "templates/practice.html": {
@@ -509,7 +536,10 @@
       },
       "templates/tournaments.html": {
         "before": null,
-        "after": "f2ad57b71e99b70699d1861532fc3412b025f297b8dd7edbc6081eabb15bb54f"
+        "after": "1e73aed7449a8ca2340d5e443101b05fe90fb155f1f7fdca2fdf48c82befdb43",
+        "previous": [
+          "f2ad57b71e99b70699d1861532fc3412b025f297b8dd7edbc6081eabb15bb54f"
+        ]
       },
       "tests/test_customize.py": {
         "before": null,
@@ -517,11 +547,12 @@
       },
       "tests/test_distributions.py": {
         "before": null,
-        "after": "f8dbe07ac4f9c9bbcb2733e099cc4660bc17895cebb75322e121dfaaf4f8d6cb",
+        "after": "85d73e54dd8a81ba766c54a83024c40e136d5ba3d7cbfb4628af393069b3d307",
         "previous": [
           "43db9d321f3cd5b02be43206daa7c6dc8e9d4c831e15bc2b03c3d8229c3ee1bb",
           "8df1fb12f3e38bbb6007c18d2d6c7c15dfe290bf6b88b1004f0d4fc8a62ac3b0",
-          "921fe1eeb2da01f5e721ff21fa9e12dda93077182fab5af9afc2a8b93a8418bc"
+          "921fe1eeb2da01f5e721ff21fa9e12dda93077182fab5af9afc2a8b93a8418bc",
+          "f8dbe07ac4f9c9bbcb2733e099cc4660bc17895cebb75322e121dfaaf4f8d6cb"
         ]
       },
       "tests/test_gen5_names.py": {
@@ -562,7 +593,10 @@
       },
       "tests/test_tournaments.py": {
         "before": null,
-        "after": "8bd456ddb5d55029960eee84424c4d55d2e4a97099db1b4e67a65c91d08765dd"
+        "after": "730b8078b203d6a35ebc71d438765a5b83df420c3f84b0361a11454db066960f",
+        "previous": [
+          "8bd456ddb5d55029960eee84424c4d55d2e4a97099db1b4e67a65c91d08765dd"
+        ]
       },
       "tests/test_travel_promotions.py": {
         "before": null,
@@ -577,7 +611,10 @@
       },
       "tests/test_web_network.py": {
         "before": null,
-        "after": "dc3abcb6bc0a446c9ea9868fa08cb177af114cfe9a549bdee0a7f32bd9315d06"
+        "after": "a17bf024b8038d1bc88becaa225753fd1c188a5b34ee481b79137f9cef8c4d45",
+        "previous": [
+          "dc3abcb6bc0a446c9ea9868fa08cb177af114cfe9a549bdee0a7f32bd9315d06"
+        ]
       },
       "utils/account_manager.py": {
         "before": "7be3a794b8fa6936d4b8983c520893050866e0ab3eebf363ccffc5e82102db1a",
@@ -593,10 +630,11 @@
       },
       "utils/distributions.py": {
         "before": null,
-        "after": "609857373b97b2d2aa29126272422a859bbed679f969b46938c6a3e7e1c35762",
+        "after": "69f5b11b91a5c0d566639c80f127aab4c799a10b3e9343c67fdc360805fe9972",
         "previous": [
           "036f45589898d0a0ace5e1d4ed060ce499cf90338df1f7b28c4ac10b70f66110",
           "188819c63a206daae93019e941b7c9d5c42c19c3d10fc060e8dd3036ae9b22d3",
+          "609857373b97b2d2aa29126272422a859bbed679f969b46938c6a3e7e1c35762",
           "e3fa2cf4dbb7eebc9a13f3d2c9b12c0dcbda11a58a02ea49f516eccadd95f870",
           "f8777a5a9679321994898f3f6813fa44639016c9cb2bd660cd187713dbb895a6"
         ]
@@ -645,9 +683,10 @@
       },
       "utils/messages.py": {
         "before": "96fadb64497694f0ba47cf0ccd6865772eb5bc0ef4165c0a886771a3f600b116",
-        "after": "cb89bfea3dcf4b6fb26a49683dd53876419215ea48266ec3db4072e938c97c3f",
+        "after": "e72c63dadf0d2dc6a7e20dd137108372a1aca2343dfb9218e213dea7dd76b1bb",
         "previous": [
-          "6d5ac4ce1fd54a8e06dfdde074c6b4826d580eaccfa2886c7462bc09abad8f7f"
+          "6d5ac4ce1fd54a8e06dfdde074c6b4826d580eaccfa2886c7462bc09abad8f7f",
+          "cb89bfea3dcf4b6fb26a49683dd53876419215ea48266ec3db4072e938c97c3f"
         ]
       },
       "utils/models.py": {
@@ -681,8 +720,9 @@
       },
       "utils/player_dns.py": {
         "before": null,
-        "after": "45e4c086042d0a4623f5108568fab578acaa31e144a956b91a7acf1549ab9585",
+        "after": "a154bc3c8bfa7ad2a8c00165e110fce448f9db013716b78d9b8ca3d3c59f8b7a",
         "previous": [
+          "45e4c086042d0a4623f5108568fab578acaa31e144a956b91a7acf1549ab9585",
           "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
         ]
       },
@@ -693,6 +733,10 @@
       "utils/profile_avatars.py": {
         "before": null,
         "after": "4d164e13b63b27dcff46f027ce9ff0f0985c4fa4bb173c19f69f447c1ff800e9"
+      },
+      "utils/pwt_archive.py": {
+        "before": null,
+        "after": "fc422a97324547ffaa45b562f888cf26fd64081049739e25afde99684151b00c"
       },
       "utils/save_data.py": {
         "before": "d88d9523e4fe60f16b4d9240584ac38fb20b61f39e6e1819886500c13212fe5d",
@@ -741,7 +785,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "f4625cc0cb7c0351d83c09744b89f4bc10abfff157e629576fece47d8f58c52a",
+      "sha256": "26d3753f715a9208005f9324be43dd4768db303c84b3657f14753558b6b1825c",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -751,7 +795,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "f78cd788de9905aadb09ffd019af0cef3e32c080f482953657c86f201fca635d",
+    "patch_sha256": "8cae1513297c4d7740add8d2bbea4715ce68841aed37198bcb928de922ccadec",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -797,7 +841,10 @@
       },
       "entralinked/network/dns/server.py": {
         "before": "8af9789ee0e0de1009d9b5d9560dd02c4f45e82d219c95aab53d41dddb83f218",
-        "after": "bcc832f685b40c0b1b32f4f42180c64aadbe7bd4e8723adb32dd462d698d898f"
+        "after": "6d53875dee34f6555f8e8d7afd553338680ecffb24be3cb32067b3c2b774876d",
+        "previous": [
+          "bcc832f685b40c0b1b32f4f42180c64aadbe7bd4e8723adb32dd462d698d898f"
+        ]
       },
       "entralinked/network/gamespy/codec.py": {
         "before": "b85e96e6289638952fda519a0f10b3a3d15cca6e0fab7117f29e926c0be85fb4",
@@ -833,9 +880,10 @@
       },
       "entralinked/network/http/dls_handler.py": {
         "before": "27ba0af63526528eb019692b2d559b20bfd94755454afaf7867d51ac02882d08",
-        "after": "1d5dedc7eadc16c980c7224854fd930588f3985181f0f4a83375e4aa6a7b4f68",
+        "after": "b281985bbb02c0a114878b4b02ce55ef7ce635690961bcc33973c4bb5d91aa5a",
         "previous": [
-          "11b9c8998f740e16e06140980d3e6a2eb3c61bc0655956ab959fda1354d41ec4"
+          "11b9c8998f740e16e06140980d3e6a2eb3c61bc0655956ab959fda1354d41ec4",
+          "1d5dedc7eadc16c980c7224854fd930588f3985181f0f4a83375e4aa6a7b4f68"
         ]
       },
       "entralinked/network/http/gts_handler.py": {
@@ -848,9 +896,10 @@
       },
       "entralinked/network/http/pgl_handler.py": {
         "before": "5ddc52ce816112c081362a965d2f496522a09a1b81ef70cb0b16751bcb3c0837",
-        "after": "84ccf10e889770ca94325a226922398baa07d1cbe556883a5c1e1aa14a8908b1",
+        "after": "f34015b88eff7c66bbc2df27561e7bc822c7ff4b70b4b1e27408b4223a78d51d",
         "previous": [
           "1f776935d1b13e188392ff50b0a748419afe667bb62c2b6b8b73489316763287",
+          "84ccf10e889770ca94325a226922398baa07d1cbe556883a5c1e1aa14a8908b1",
           "a604262c37f2b5fc05610ba8141f4ee6a03f05078799b48aad70a45b46a8026e",
           "ca35ea8236a54770019627a27c14ffdd1a70a2dab460d4af0951647802388981"
         ]
@@ -898,7 +947,7 @@
     },
     "upgrade": {
       "patch": "game-sync-upgrade.patch",
-      "sha256": "23bfafe5f2e38847d31ac7dfaaba013a5e5206fea0ca3a9d8352f398e5847dd3",
+      "sha256": "65c47662dc98aa8fd6fcf889a4bbe3ff24d071a06c2663017cff6c6850ab4994",
       "from": {
         "entralinked/network/dns/server.py": "ebcf9190c9ab47b7969a394ed04a31cc1a1570ba685fa1b250e2f892301999ea"
       }

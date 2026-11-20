@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 DNS_PORT = 53  # the DS is only given an address, so the port can't change
 
 
+MELONDS_HOST = "10.64.0.1"  # melonDS 1.1 Net_Slirp::kServerIP
+
+
 class FixedResolver(BaseResolver):
     """Resolves every A query to one address."""
 
@@ -24,7 +27,9 @@ class FixedResolver(BaseResolver):
                 and handler.client_address[0] == self.host_address):
             reply.add_answer(RR(request.q.qname, QTYPE.TXT, rdata=TXT(f"dreamworld-dns-v1 {self.host_address}"), ttl=0))
         elif request.q.qtype == QTYPE.A:
-            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
+            # Slirp routes this guest address to the server on the host loopback.
+            address = MELONDS_HOST if self.host_address == "127.0.0.1" else self.host_address
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(address), ttl=0))
         else:
             logger.warning("Unsupported record type in DNS question: %s", request.q.qtype)
 

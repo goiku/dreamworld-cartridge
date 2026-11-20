@@ -3,20 +3,23 @@ import secrets
 import unicodedata
 from functools import cache
 
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, make_response, redirect, render_template, request, session, url_for
 
 from api.native_islands import resident
 from api.pgl_pals import current_save
 from utils.visit_storage import GUEST_PREFIX
 from config import LANG
+from game_sync_server.entralinked.model.player.player import Player
 from game_sync_server.entralinked.model.save_file import SaveFile, SaveFileError
+from game_sync_server.entralinked.network.http.pgl_handler import MAX_ENCOUNTERS, MAX_ITEMS
 from game_sync_server.entralinked.utility.db_manager import db
 from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
 from utils import distributions as gifts
 from utils import save_data, text
 from utils.data import load_json_data
 
-campaigns = Blueprint("campaigns", __name__, template_folder="../templates")
+campaigns = Blueprint("campaigns", __name__, template_folder="../templates",
+                      static_folder="../static", static_url_path="/campaign/assets")
 PAGE_SIZE = 24
 
 
@@ -64,6 +67,49 @@ def _campaign_card():
     return current_save()
 
 
+def _gift_name(gift):
+    if gift.japanese_title and LANG == "ja":
+        return gift.japanese_title
+    return gift.name or text.lookup_str("pokemon", gift.species)
+
+
+@campaigns.get("/campaign/queue/")
+def receiver_queue():
+    card = _campaign_card()
+    groups = {}
+    warning = None
+    if card:
+        with db.transaction() as conn:
+            ident, orders, _ = gifts.state(conn, card)
+            saved = db.read_full_state(card)
+            member = saved[0]["member"] if saved and saved[0] else {}
+            warning = gifts.delivery_target_error(conn, ident, member.get("rom_id"), member.get("langcode"))
+            if session.get("visit_guest"):
+                warning = "queue_home"
+            groups["wonder"] = [r["gift"] for r in gifts.wonder_queue(conn, card)]
+            groups["sent"] = [r["gift"] for r in orders.values() if r["status"] == "sent"]
+            waiting = [r["gift"] for r in gifts.wake_orders(conn, card)]
+            batch = []
+            if waiting and member:
+                pending = (saved[1] or {}).get("pending_wake")
+                if pending:
+                    batch = pending.get("distribution_ids", [])
+                else:
+                    # Work on a detached player. Previewing the next wake must never reserve a delivery.
+                    batch = gifts.add_to_wake(conn, Player.from_saved(card, *saved), MAX_ENCOUNTERS, MAX_ITEMS)
+            included = set(batch)
+            groups["wake"] = batch
+            groups["later"] = [key for key in waiting if key not in included]
+    response = make_response(render_template("distribution_queue.html", card=card, groups=groups,
+                             catalog=gifts.catalog(), gift_name=_gift_name, t=labels(), lang=LANG, warning=warning,
+                             csrf=session.setdefault("gift_csrf", secrets.token_hex(24)) if card else None))
+    response.cache_control.private = True
+    response.cache_control.no_cache = True
+    response.vary.add("Cookie")
+    response.add_etag()
+    return response.make_conditional(request)
+
+
 def _listing(japanese):
     card = _campaign_card()
     member = save_data.read_member(card) if card else {}
@@ -95,9 +141,7 @@ def _listing(japanese):
                     continue
             elif not eligible:
                 continue
-            name = gift.name or text.lookup_str("pokemon", gift.species)
-            if gift.japanese_title and LANG == "ja":
-                name = gift.japanese_title
+            name = _gift_name(gift)
             details = []
             noun = "item" if gift.card_type == 2 else "pokemon"
             if gift.card_type:
@@ -158,7 +202,10 @@ def claim(key):
     gift = gifts.catalog().get(key) or abort(404)
     member = save_data.read_member(card)
     if request.form.get("next") == "1":
-        return _return("wonder", gifts.prioritize(card, gift), gift.key)
+        result = gifts.prioritize(card, gift)
+        if request.form.get("from_queue") == "1" and result == "queued":
+            return redirect(url_for("campaigns.receiver_queue"), code=303)
+        return _return("wonder", result, gift.key)
     try:
         gender = int(request.form["gender"]) if "gender" in request.form else None
         result = gifts.queue(card, gift, member.get("rom_id"), member.get("langcode"), gender,

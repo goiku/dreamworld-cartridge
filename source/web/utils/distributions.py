@@ -260,7 +260,7 @@ def pack_card(raw, gift, lang):
     return bytes(data)
 
 
-def _delivery_target_error(conn, identity, rom, lang):
+def delivery_target_error(conn, identity, rom, lang):
     if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
         return "sync"
     if identity["wfc"] is not None and conn.execute(
@@ -286,7 +286,7 @@ def queue_unclaimed_cards(card, rom, lang):
     """Append verified cards behind the existing queue. A retry only fills remaining gaps."""
     with db.transaction() as conn:
         identity, orders, album = state(conn, card)
-        if error := _delivery_target_error(conn, identity, rom, lang):
+        if error := delivery_target_error(conn, identity, rom, lang):
             return error, 0, 0
         if album is None:
             return "unknown_help", 0, 0
@@ -312,7 +312,7 @@ def queue_unclaimed_cards(card, rom, lang):
 
     with db.transaction() as conn:
         identity, orders, album = state(conn, card)
-        if error := _delivery_target_error(conn, identity, rom, lang):
+        if error := delivery_target_error(conn, identity, rom, lang):
             return error, 0, 0
         if album is None:
             return "unknown_help", 0, 0
@@ -339,7 +339,7 @@ def queue(card, gift, rom, lang, gender=None, *, chest=False):
         if not compatible(gift, rom, lang):
             return "incompatible"
         if gift.number:
-            if error := _delivery_target_error(conn, identity, rom, lang):
+            if error := delivery_target_error(conn, identity, rom, lang):
                 return error
         current = status(gift, orders, album)
         if current != "available" and not (gift.number and current == "unknown"):
@@ -379,12 +379,16 @@ def prioritize(card, gift):
     return "queued" if row else "incompatible"
 
 
+def wake_orders(conn, card):
+    return conn.execute("""SELECT o.gift,d.gender FROM distribution_orders o
+                              LEFT JOIN distribution_dream_options d USING (card,gift)
+                              WHERE o.card=? AND o.status='queued' AND o.payload IS NULL ORDER BY o.rowid""", (card,))
+
+
 def add_to_wake(conn, player, capacity, item_capacity):
     schema(conn)
     selected = []
-    for row in conn.execute("""SELECT o.gift,d.gender FROM distribution_orders o
-                              LEFT JOIN distribution_dream_options d USING (card,gift)
-                              WHERE o.card=? AND o.status='queued' AND o.payload IS NULL ORDER BY o.rowid""", (player.gscd,)):
+    for row in wake_orders(conn, player.gscd):
         gift = catalog().get(row["gift"])
         if not gift or gift.number or not compatible(gift, player.rom_id, player.langcode):
             continue
@@ -412,6 +416,17 @@ def confirm_wake(conn, card, selected):
     schema(conn)
     conn.executemany("UPDATE distribution_orders SET status='delivered' WHERE card=? AND gift=? AND status='queued'",
                      ((card, gift) for gift in selected))
+
+
+def wonder_queue(conn, card, token=None):
+    """A new DS session sees queued cards. The current token can also retry its sent card."""
+    return conn.execute("""SELECT o.gift FROM distribution_orders o LEFT JOIN distribution_next n
+                          ON n.card=o.card AND n.gift=o.gift WHERE o.card=?
+                          AND (o.status='queued' OR (o.status='sent' AND EXISTS
+                              (SELECT 1 FROM distribution_lists l WHERE l.card=o.card AND l.gift=o.gift
+                               AND l.token=? AND l.expires>=?)))
+                          AND o.payload IS NOT NULL ORDER BY (n.gift IS NOT NULL) DESC,o.rowid""",
+                        (card, token, int(time.time())))
 
 
 def download(wfc, form):
@@ -444,13 +459,7 @@ def download(wfc, form):
                                   (wfc, rom, lang)).fetchall()
         row = None
         if len(identities) == 1:
-            row = conn.execute("""SELECT o.gift,o.payload FROM distribution_orders o LEFT JOIN distribution_next n
-                               ON n.card=o.card AND n.gift=o.gift WHERE o.card=?
-                               AND (o.status='queued' OR (o.status='sent' AND EXISTS
-                                   (SELECT 1 FROM distribution_lists l WHERE l.card=o.card AND l.gift=o.gift
-                                    AND l.token=? AND l.expires>=?)))
-                               AND o.payload IS NOT NULL ORDER BY (n.gift IS NOT NULL) DESC,o.rowid LIMIT 1""",
-                               (identities[0]["card"], token, int(time.time()))).fetchone()
+            row = wonder_queue(conn, identities[0]["card"], token).fetchone()
         if action == "count":
             return str(int(row is not None)), 200
         if action == "list":

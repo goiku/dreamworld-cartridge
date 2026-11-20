@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ t.queue_title }} · Pokémon Dream World</title>
+  <link rel="stylesheet" href="{{ url_for('offline_friends.static', filename='island-friends.css') }}">
+  <style>
+    main{max-width:52rem;margin:1.5rem auto;padding:0 1rem}
+    nav{display:flex;flex-wrap:wrap;gap:1rem}section{margin:1.5rem 0}
+    ol,ul{padding-inline-start:2.5rem}li{padding:.45rem .25rem;border-bottom:1px solid #ccd8d0;overflow-wrap:anywhere}
+    li::marker{font-weight:bold}li form{display:inline-block;margin:.25rem .5rem}button{cursor:pointer}
+  </style>
+  <script defer src="{{ url_for('campaigns.static', filename='distribution-queue.js') }}"></script>
+</head>
+<body><main>
+  <nav><a href="{{ url_for('campaigns.index', kind='wonder') }}">← {{ t.title }}</a>
+    <a href="{{ url_for('campaigns.receiver_queue') }}">{{ t.queue_refresh }}</a>
+    <a href="/languages/?page=/campaign/queue/">Language</a></nav>
+  <h1>{{ t.queue_title }}</h1>
+  <div id="receiver-queue">
+    {% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
+    {% else %}
+    {% if warning %}<p>{{ t[warning] }}</p>{% endif %}
+    {% macro entries(keys, kind, numbered=true) %}
+      {% if numbered %}<ol>{% else %}<ul>{% endif %}
+      {% for key in keys %}{% set gift = catalog[key] %}
+        <li data-gift="{{ key }}">{% if gift.number %}#{{ gift.number }} · {% endif %}{{ gift_name(gift) }}
+          {% if kind == 'sent' or (kind == 'wonder' and not loop.first) %}
+          <form method="post" action="{{ url_for('campaigns.claim',key=key) }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}">
+            <input type="hidden" name="next" value="1"><input type="hidden" name="from_queue" value="1">
+            <button type="submit">{{ t.prioritize }}</button>
+          </form>{% endif %}
+        </li>
+      {% endfor %}
+      {% if numbered %}</ol>{% else %}</ul>{% endif %}
+    {% endmacro %}
+    <section id="wonder"><h2>{{ t.wonder }} ({{ groups.wonder|length }})</h2>
+      {% if groups.wonder %}<p>{{ t.queue_order }}</p>{{ entries(groups.wonder, 'wonder') }}
+      {% else %}<p>{{ t.queue_empty }}</p>{% endif %}
+    </section>
+    {% if groups.sent %}<section id="sent"><h2>{{ t.sent }} ({{ groups.sent|length }})</h2>
+      {{ entries(groups.sent,'sent',false) }}</section>{% endif %}
+    <section id="dream"><h2>{{ t.dream }}</h2>
+      {% if groups.wake %}<h3>{{ t.queue_wake }}</h3>{{ entries(groups.wake,'wake') }}{% endif %}
+      {% if groups.later %}<h3>{{ t.queue_later }}</h3>{{ entries(groups.later,'later') }}{% endif %}
+      {% if not groups.wake and not groups.later %}<p>{{ t.queue_empty }}</p>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+  <p id="queue-error" role="status" hidden>{{ t.queue_stale }}</p>
+</main></body></html>

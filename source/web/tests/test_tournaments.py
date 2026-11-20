@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from api import tournaments
+from utils import pwt_archive as tournaments
 from api.server import create_app
 
 

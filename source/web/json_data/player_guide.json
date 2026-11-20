@@ -37,7 +37,12 @@
     "phone_unavailable": "Start the server PC in LAN mode and open Phone web address on its home page.",
     "phone_game": "Enter Dream World",
     "visit_title": "Visit a friend with your own save",
-    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you."
+    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you.",
+    "device": "Device",
+    "physical": "Physical DS",
+    "emulator": "melonDS on this PC",
+    "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
+    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again."
   },
   "ja": {
     "wake_title": "ポケモンを起こせます",
@@ -77,7 +82,12 @@
     "phone_unavailable": "サーバーのPCでLANモードを起動し、ホームページの「スマホ用のURL」を開いてください。",
     "phone_game": "ドリームワールドへ",
     "visit_title": "自分のデータで友だちのサーバーへ",
-    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。"
+    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。",
+    "device": "使用する機器",
+    "physical": "DS実機",
+    "emulator": "このPCのmelonDS",
+    "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
+    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。"
   },
   "zh": {
     "wake_title": "宝可梦正在等待唤醒",
@@ -117,7 +127,12 @@
     "phone_unavailable": "请在开服电脑上以局域网模式启动梦世界，打开电脑首页的「手机访问网址」。",
     "phone_game": "进入梦世界",
     "visit_title": "用自己的存档去朋友那里玩",
-    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。"
+    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。",
+    "device": "使用设备",
+    "physical": "实体掌机",
+    "emulator": "本机 melonDS 模拟器",
+    "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
+    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。"
   },
   "fr": {
     "wake_title": "Votre Pokémon peut être réveillé",
@@ -157,7 +172,12 @@
     "phone_unavailable": "Sur le PC serveur, démarrez le mode réseau local et ouvrez Adresse pour mobile sur la page d’accueil.",
     "phone_game": "Entrer dans le Dream World",
     "visit_title": "Jouer chez un ami avec sa sauvegarde",
-    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami."
+    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami.",
+    "device": "Appareil",
+    "physical": "Console DS",
+    "emulator": "melonDS sur ce PC",
+    "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
+    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez."
   },
   "it": {
     "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -197,7 +217,12 @@
     "phone_unavailable": "Avvia il server in modalità LAN sul PC e apri Indirizzo per il telefono nella pagina iniziale.",
     "phone_game": "Entra nel Dream World",
     "visit_title": "Visita un amico con il tuo salvataggio",
-    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli."
+    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli.",
+    "device": "Dispositivo",
+    "physical": "Console DS",
+    "emulator": "melonDS su questo PC",
+    "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
+    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova."
   },
   "de": {
     "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -237,7 +262,12 @@
     "phone_unavailable": "Starte den Server auf dem PC im LAN-Modus und öffne auf der Startseite „Adresse fürs Smartphone“.",
     "phone_game": "Zur Traumwelt",
     "visit_title": "Mit dem eigenen Spielstand Freunde besuchen",
-    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen."
+    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen.",
+    "device": "Gerät",
+    "physical": "DS-Konsole",
+    "emulator": "melonDS auf diesem PC",
+    "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
+    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut."
   },
   "es": {
     "wake_title": "Tu Pokémon está listo para despertar",
@@ -277,7 +307,12 @@
     "phone_unavailable": "Inicia el servidor en modo LAN en el ordenador y abre Dirección para el móvil en su página de inicio.",
     "phone_game": "Entrar en Dream World",
     "visit_title": "Visitar a un amigo con tu partida",
-    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles."
+    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles.",
+    "device": "Dispositivo",
+    "physical": "Consola DS",
+    "emulator": "melonDS en este PC",
+    "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
+    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo."
   },
   "ko": {
     "wake_title": "포켓몬을 깨울 수 있어요",
@@ -317,6 +352,11 @@
     "phone_unavailable": "서버 PC에서 LAN 모드로 실행한 뒤 홈페이지의 휴대폰 접속 주소를 여세요.",
     "phone_game": "드림월드 입장",
     "visit_title": "내 저장 데이터로 친구 서버 방문하기",
-    "visit": "Tailscale로 두 PC를 연결하고 안내에 따라 중계 프로그램을 실행하세요. 호스트는 Invite-Friend.cmd를 열어 발급한 일회용 초대 코드를 방문자에게 개인적으로 보내세요. 방문자는 자기 PC에서 Visit-Friend.cmd를 열고 자기 계정으로 로그인하세요. 플레이 중에는 동기화 창을 열어 두고 최종 동기화가 끝난 뒤 자기 서버에서 포켓몬을 깨우세요. 반대로 방문할 때는 역할을 바꾸세요."
+    "visit": "Tailscale로 두 PC를 연결하고 안내에 따라 중계 프로그램을 실행하세요. 호스트는 Invite-Friend.cmd를 열어 발급한 일회용 초대 코드를 방문자에게 개인적으로 보내세요. 방문자는 자기 PC에서 Visit-Friend.cmd를 열고 자기 계정으로 로그인하세요. 플레이 중에는 동기화 창을 열어 두고 최종 동기화가 끝난 뒤 자기 서버에서 포켓몬을 깨우세요. 반대로 방문할 때는 역할을 바꾸세요.",
+    "device": "기기",
+    "physical": "실제 DS",
+    "emulator": "이 PC의 melonDS",
+    "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
+    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요."
   }
 }

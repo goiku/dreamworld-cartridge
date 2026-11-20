@@ -5,7 +5,18 @@
   const refresh = document.getElementById("refresh-dns");
   const copy = document.getElementById("copy-dns");
 
+  const device = document.getElementById("dns-device");
+  let generation = 0;
+  if (location.hash === "#melonDS") {
+    device.value = "melonDS";
+    card.scrollIntoView();
+  }
+
   async function check() {
+    const current = ++generation;
+    const emulator = device.value === "melonDS";
+    const offline = emulator ? card.dataset.emulatorOffline : card.dataset.offline;
+    document.getElementById("emulator-guide").hidden = !emulator;
     refresh.disabled = true;
     address.hidden = true;
     address.textContent = "";
@@ -13,21 +24,22 @@
     copy.textContent = copy.dataset.copy;
     message.textContent = card.dataset.checking;
     try {
-      const response = await fetch(card.dataset.endpoint, {cache: "no-store"});
+      const response = await fetch(emulator ? device.dataset.emulator : card.dataset.endpoint, {cache: "no-store"});
       if (!response.ok) throw new Error("DNS lookup unavailable");
       const result = await response.json();
+      if (generation !== current) return;
       if (result.status === "ready" && result.address) {
         address.textContent = result.address;
         address.hidden = false;
         copy.hidden = !navigator.clipboard?.writeText;
         message.textContent = card.dataset.ready;
       } else {
-        message.textContent = result.status === "ambiguous" ? card.dataset.ambiguous : card.dataset.offline;
+        message.textContent = result.status === "ambiguous" && !emulator ? card.dataset.ambiguous : offline;
       }
     } catch {
-      message.textContent = card.dataset.offline;
+      if (generation === current) message.textContent = offline;
     } finally {
-      refresh.disabled = false;
+      if (generation === current) refresh.disabled = false;
     }
   }
 
@@ -44,6 +56,7 @@
       selection.addRange(range);
     }
   });
+  device.addEventListener("change", check);
   refresh.addEventListener("click", check);
   check();
 })();

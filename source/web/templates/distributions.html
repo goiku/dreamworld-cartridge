@@ -15,6 +15,7 @@
 {% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
 {% endif %}{% if japanese or card %}
 {% if rom %}<p>{{ rom }}</p>{% endif %}
+{% if card %}<p><a href="{{ url_for('campaigns.receiver_queue') }}">{{ t.queue_title }}</a></p>{% endif %}
 <nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=k,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>
 {% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.wake_timing }}</p><p>{{ t.eevee }}</p>{% endif %}
 {% if card %}{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}{% endif %}

@@ -23,8 +23,14 @@
       <a href="#distributions">{{ gifts.title }}</a>
     </nav>
     <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
-             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-checking="{{ t.checking }}">
+             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-emulator-offline="{{ t.emulator_offline }}" data-checking="{{ t.checking }}">
       <h2>{{ t.dns_title }}</h2>
+      <label for="dns-device">{{ t.device }}</label>
+      <select id="dns-device" data-emulator="{{ url_for('player_guide.local_emulator_dns') }}">
+        <option value="console">{{ t.physical }}</option>
+        <option value="melonDS">{{ t.emulator }}</option>
+      </select>
+      <p id="emulator-guide" hidden>{{ t.emulator_steps }}</p>
       <div role="status" aria-live="polite">
         <p id="dns-message">{{ t.checking }}</p>
         <output id="dns-address" hidden></output>
@@ -33,7 +39,7 @@
         <button id="refresh-dns" type="button">{{ t.refresh }}</button>
         <button id="copy-dns" type="button" hidden data-copy="{{ t.copy }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
       </div>
-      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.dns_title }}</a></noscript>
+      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.physical }}</a> · <a href="{{ url_for('player_guide.local_emulator_dns') }}">{{ t.emulator }}</a></noscript>
       <p class="guide-note"><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a></p>
     </section>
     <section id="console">

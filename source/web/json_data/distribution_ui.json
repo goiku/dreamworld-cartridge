@@ -1,5 +1,13 @@
 {
   "zh": {
+    "queue_title": "当前实机接收队列",
+    "queue_refresh": "刷新队列",
+    "queue_order": "第 1 张是掌机下次新连接时会收到的礼物卡。",
+    "queue_empty": "当前没有待接收的配信。",
+    "queue_wake": "下次唤醒时一起送达",
+    "queue_later": "留待后续唤醒",
+    "queue_home": "请先将记录同步回自己的服务器，再用掌机接收。",
+    "queue_stale": "自动更新暂时失败，当前显示的是上次读取的队列。",
     "bulk_claim": "一键领取全部未领（{count} 张）",
     "bulk_help": "一键领取会把各页已确认未领、无需选版本的礼物加入等待队列。如果同一组只能领一个版本，请在列表里单独选择。",
     "choose_version": "请选择一个版本单独领取",
@@ -58,6 +66,14 @@
     "coverage": "按日版卡带收录。472 张礼物卡均有保存下来的卡片数据。配信画面的活动说明使用原卡标题代替缺失的现场文字。"
   },
   "en": {
+    "queue_title": "Cartridge delivery queue",
+    "queue_refresh": "Refresh queue",
+    "queue_order": "Card 1 is the next offer on a new DS connection.",
+    "queue_empty": "Nothing is waiting for delivery.",
+    "queue_wake": "Together at the next wake-up",
+    "queue_later": "Waiting for a later wake-up",
+    "queue_home": "Sync back to your home server before receiving on the DS.",
+    "queue_stale": "The queue could not refresh. The last result is still shown.",
     "bulk_claim": "Queue all unclaimed cards ({count})",
     "bulk_help": "Queue confirmed unclaimed cards from all pages. If only one version of a gift can be received, choose it individually in the list.",
     "choose_version": "Choose one version individually",
@@ -116,6 +132,14 @@
     "coverage": "Includes 472 archived Wonder Cards for Japanese-language cartridges. The original card title is used where the distribution-screen description is missing."
   },
   "ja": {
+    "queue_title": "実機の受信順",
+    "queue_refresh": "更新",
+    "queue_order": "次にDSで接続すると、1番のカードが提示されます。",
+    "queue_empty": "受け取り待ちの配信はありません。",
+    "queue_wake": "次に起こすときにまとめて受信",
+    "queue_later": "その後の起床時に受信",
+    "queue_home": "自分のサーバーへ同期してから、DSで受け取ってください。",
+    "queue_stale": "更新できませんでした。前回読み込んだ順番を表示しています。",
     "bulk_claim": "未受取のカードをすべて予約（{count}枚）",
     "bulk_help": "全ページから未受取と確認できたカードをまとめて予約します。どれか1種類だけ受け取れるプレゼントは、一覧から個別に選んでください。",
     "choose_version": "いずれか1種類を個別に選択",
@@ -174,6 +198,14 @@
     "coverage": "日本語版ソフト向けに保存されたふしぎなカード472枚を収録しています。配信時の説明文が残っていない箇所にはカードの原題を表示します。"
   },
   "fr": {
+    "queue_title": "File de réception de la console",
+    "queue_refresh": "Actualiser",
+    "queue_order": "La première carte sera proposée à la prochaine connexion de la DS.",
+    "queue_empty": "Aucune distribution en attente.",
+    "queue_wake": "Au prochain réveil, ensemble",
+    "queue_later": "En attente d’un réveil ultérieur",
+    "queue_home": "Synchronisez avec votre serveur avant de recevoir sur la DS.",
+    "queue_stale": "La mise à jour a échoué. La dernière file chargée reste affichée.",
     "bulk_claim": "Réserver toutes les cartes non reçues ({count})",
     "bulk_help": "Réservez sur toutes les pages les cartes confirmées comme non reçues. Si une seule variante peut être reçue, choisissez-la individuellement dans la liste.",
     "choose_version": "Choisissez une seule variante dans la liste",
@@ -232,6 +264,14 @@
     "coverage": "Ce catalogue contient 472 Cartes Miracle archivées pour les jeux en japonais. Le titre de la carte remplace le texte de distribution manquant."
   },
   "it": {
+    "queue_title": "Coda di ricezione del DS",
+    "queue_refresh": "Aggiorna",
+    "queue_order": "La prima scheda verrà proposta alla prossima connessione del DS.",
+    "queue_empty": "Nessun dono in attesa.",
+    "queue_wake": "Insieme al prossimo risveglio",
+    "queue_later": "In attesa di un risveglio successivo",
+    "queue_home": "Sincronizza con il tuo server prima di ricevere sul DS.",
+    "queue_stale": "Aggiornamento non riuscito. È mostrata l’ultima coda caricata.",
     "bulk_claim": "Prenota tutte le schede non ricevute ({count})",
     "bulk_help": "Prenota le schede confermate come non ricevute da tutte le pagine. Se puoi ricevere una sola versione di un dono, sceglila singolarmente nell’elenco.",
     "choose_version": "Scegli una versione singolarmente",
@@ -290,6 +330,14 @@
     "coverage": "Il catalogo include 472 Schede Segrete archiviate per i giochi in giapponese. Il titolo originale sostituisce le descrizioni di distribuzione mancanti."
   },
   "de": {
+    "queue_title": "Empfangsreihenfolge auf dem DS",
+    "queue_refresh": "Aktualisieren",
+    "queue_order": "Karte 1 wird bei der nächsten Verbindung des DS angeboten.",
+    "queue_empty": "Keine ausstehende Lieferung.",
+    "queue_wake": "Gemeinsam beim nächsten Aufwecken",
+    "queue_later": "Für ein späteres Aufwecken vorgemerkt",
+    "queue_home": "Synchronisiere vor dem Empfang auf dem DS mit deinem eigenen Server.",
+    "queue_stale": "Aktualisierung fehlgeschlagen. Die zuletzt geladene Reihenfolge wird angezeigt.",
     "bulk_claim": "Alle ausstehenden Karten vormerken ({count})",
     "bulk_help": "Merke aus allen Seiten die Karten vor, die du noch nicht erhalten hast. Kannst du nur eine Variante eines Geschenks empfangen, wähle sie einzeln in der Liste aus.",
     "choose_version": "Eine Variante einzeln auswählen",
@@ -348,6 +396,14 @@
     "coverage": "Der Katalog enthält 472 archivierte Wunderkarten für japanischsprachige Spiele. Bei fehlendem Verteilungstext erscheint der ursprüngliche Kartentitel."
   },
   "es": {
+    "queue_title": "Cola de recepción de la consola",
+    "queue_refresh": "Actualizar",
+    "queue_order": "La primera tarjeta se ofrecerá en la próxima conexión de la DS.",
+    "queue_empty": "No hay regalos pendientes.",
+    "queue_wake": "Juntos en el próximo despertar",
+    "queue_later": "Pendientes para otro despertar",
+    "queue_home": "Sincroniza con tu servidor antes de recibir los regalos en la DS.",
+    "queue_stale": "No se pudo actualizar. Se muestra la última cola consultada.",
     "bulk_claim": "Poner en cola todas las tarjetas sin recibir ({count})",
     "bulk_help": "Pon en cola las tarjetas pendientes de todas las páginas. Si solo puedes recibir una versión de un regalo, elígela por separado en la lista.",
     "choose_version": "Elige una versión por separado",
@@ -406,6 +462,14 @@
     "coverage": "El catálogo incluye 472 Tarjetas Misteriosas conservadas para juegos en japonés. El título original sustituye al texto de distribución que falta."
   },
   "ko": {
+    "queue_title": "실기 수신 순서",
+    "queue_refresh": "새로 고침",
+    "queue_order": "DS로 다시 접속하면 1번 카드부터 받을 수 있어요.",
+    "queue_empty": "받을 배포가 없어요.",
+    "queue_wake": "다음에 깨울 때 함께 수신",
+    "queue_later": "그 이후에 깨울 때 수신",
+    "queue_home": "본인의 서버에 동기화한 뒤 DS에서 받아 주세요.",
+    "queue_stale": "새로 고칠 수 없어 마지막으로 확인한 순서를 표시해요.",
     "bulk_claim": "미수령 카드 모두 예약 ({count}장)",
     "bulk_help": "모든 페이지에서 아직 받지 않은 것으로 확인된 카드를 한꺼번에 예약해요. 한 종류만 받을 수 있는 선물은 목록에서 직접 골라 주세요.",
     "choose_version": "한 종류를 골라 개별 예약",
