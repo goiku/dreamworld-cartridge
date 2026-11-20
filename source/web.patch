@@ -41,10 +41,10 @@ index 0000000000000000000000000000000000000000..d6410bee02aa695c3623b5f06f87af3f
 +pause
 diff --git a/api/distributions.py b/api/distributions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..1e110692bb0dcf234eee3cb8cd2827fdd57a803e
+index 0000000000000000000000000000000000000000..7600b1b0836c2e47b37d8c2ea47d27eb5bb76243
 --- /dev/null
 +++ b/api/distributions.py
-@@ -0,0 +1,179 @@
+@@ -0,0 +1,188 @@
 +"""Promotions for the cartridge linked to the signed-in resident."""
 +import secrets
 +import unicodedata
@@ -53,6 +53,8 @@ index 0000000000000000000000000000000000000000..1e110692bb0dcf234eee3cb8cd2827fd
 +from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 +
 +from api.native_islands import resident
++from api.pgl_pals import current_save
++from utils.visit_storage import GUEST_PREFIX
 +from config import LANG
 +from game_sync_server.entralinked.model.save_file import SaveFile, SaveFileError
 +from game_sync_server.entralinked.utility.db_manager import db
@@ -102,8 +104,15 @@ index 0000000000000000000000000000000000000000..1e110692bb0dcf234eee3cb8cd2827fd
 +    return unicodedata.normalize("NFKC", value).casefold().strip()
 +
 +
++def _campaign_card():
++    username = session.get("username") or ""
++    if bool(session.get("visit_guest")) != username.startswith(GUEST_PREFIX):
++        return None
++    return current_save()
++
++
 +def _listing(japanese):
-+    card = resident()
++    card = _campaign_card()
 +    member = save_data.read_member(card) if card else {}
 +    rom, lang = member.get("rom_id"), member.get("langcode")
 +    kind = "wonder" if request.args.get("kind") == "wonder" else "dream"
@@ -178,7 +187,7 @@ index 0000000000000000000000000000000000000000..1e110692bb0dcf234eee3cb8cd2827fd
 +    response = render_template("distributions.html", t=labels(), lang=LANG, kind=kind, mode=mode, card=card,
 +                               japanese=japanese, endpoint=request.endpoint, search=search, version=version,
 +                               versions=versions, count=len(rows),
-+                               ident=ident, album_known=album is not None, rom=text.lookup_str("game", rom),
++                               ident=ident, home_card=not session.get("visit_guest"), album_known=album is not None, rom=text.lookup_str("game", rom),
 +                               rows=rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE], page=page, pages=pages,
 +                               csrf=session.setdefault("gift_csrf", secrets.token_hex(24)),
 +                               notice=session.pop("gift_notice", None))
@@ -187,7 +196,7 @@ index 0000000000000000000000000000000000000000..1e110692bb0dcf234eee3cb8cd2827fd
 +
 +@campaigns.post("/campaign/claim/<key>")
 +def claim(key):
-+    card = resident()
++    card = _campaign_card()
 +    _post(card)
 +    gift = gifts.catalog().get(key) or abort(404)
 +    member = save_data.read_member(card)
@@ -1000,10 +1009,10 @@ index 0000000000000000000000000000000000000000..c297355ea4d0b1d67c8dc55644944c02
 +                     (card, session["island_browser"]))
 diff --git a/api/offline_friends.py b/api/offline_friends.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e78bef49566c5982ec3a4908f55aeb4ee6dedc25
+index 0000000000000000000000000000000000000000..996c1b1e1b4739c9847f8b142210c939ece83331
 --- /dev/null
 +++ b/api/offline_friends.py
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,221 @@
 +"""A home cartridge's cached islands, share controls, native room links, and visitor log."""
 +import hashlib
 +import json
@@ -1018,6 +1027,7 @@ index 0000000000000000000000000000000000000000..e78bef49566c5982ec3a4908f55aeb4e
 +from api.pgl_pals import dream_pals
 +from config import LANG
 +from utils import island_peers as peers
++from utils import island_actions as actions, managers, text
 +from utils import offline_islands as islands
 +from utils.data import load_json_data
 +from utils.island_art import house_thumbnail
@@ -1167,10 +1177,33 @@ index 0000000000000000000000000000000000000000..e78bef49566c5982ec3a4908f55aeb4e
 +
 +@offline_friends.get("/<island_id>/profile")
 +def profile(island_id: str) -> str:
-+    doc = _snapshot(_card(), island_id)
++    card = _card()
++    doc = _snapshot(card, island_id)
 +    content = doc["content"]
++    paired = any(row["island"] == island_id for row in peers.link_rows(card))
++    active = paired and actions.compatible(card,island_id)
++    stock = [(item["pokeitem_id"],item["item_cnt"]) for item in managers.get_chest(card).data["list"]
++             if item["item_cnt"] > 0] if active else []
 +    return render_template("island_profile.html", doc=doc, owner=content["profile"]["pgl_name"],
-+                           groups=groups(content, LANG, _labels[LANG]))
++                           groups=groups(content, LANG, _labels[LANG]), interactive=active, stock=stock,
++                           ui=load_json_data("island_actions")[LANG], item_name=lambda n:text.lookup_str("item", n),
++                           history=actions.history(card,island_id) if paired else [],
++                           full=managers.CropManager.FULL_DIRT_HP, ripe=managers.CropManager.GROWTH_STAGES,
++                           csrf=session.setdefault("island_csrf",secrets.token_hex(24)))
++
++
++@offline_friends.post("/<island_id>/interact")
++def interact(island_id: str) -> WerkzeugResponse:
++    card = _card()
++    _check_form()
++    _snapshot(card,island_id)
++    try:
++        peers.request_interaction(card,island_id,int(request.form["version"]),request.form["kind"],
++                                  int(request.form["slot"]),request.form.get("payment",type=int))
++        notice = "saved"
++    except (ValueError,KeyError):
++        notice = "changed"
++    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions"),303)
 +
 +
 +@offline_friends.get("/native/<identifier>")
@@ -2977,10 +3010,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..ecc45cf1b3f470d773c8eb6cafc4d7c9d90243b6
+index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386947861c4
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,114 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3059,6 +3092,8 @@ index 0000000000000000000000000000000000000000..ecc45cf1b3f470d773c8eb6cafc4d7c9
 +        friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
 +        from api.distributions import title
 +        friends_link += f'<a href="/campaign/">{escape(title())}</a>'
++        from api.practice import labels as practice_labels
++        friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
 +    tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
 +    banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
 +              f'{friends_link}'
@@ -3093,11 +3128,128 @@ index 0000000000000000000000000000000000000000..ecc45cf1b3f470d773c8eb6cafc4d7c9
 +        data = data[:at.start()] + banner.encode("ascii", "xmlcharrefreplace") + data[at.start():]
 +        response.set_data(data)
 +    return response
+diff --git a/api/practice.py b/api/practice.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a82859cdb023
+--- /dev/null
++++ b/api/practice.py
+@@ -0,0 +1,111 @@
++"""Public arcade. Only local movie and translation files are accessed by these routes."""
++
++import base64
++import hashlib
++import re
++import struct
++import zlib
++from functools import cache
++
++from flask import Blueprint, Response, abort, render_template, request, send_file
++
++from config import ASSET_LANG, LANG, ROOT_DIR
++from utils.assets import SHARED_DIR
++from utils.data import load_json_data
++from utils.text import lookup_str
++
++practice = Blueprint(
++    "practice", __name__, template_folder="../templates", static_folder="../static", static_url_path="/practice/assets"
++)
++GAME_COUNT = 12
++
++
++@cache
++def labels() -> dict:
++    return load_json_data("practice")[LANG]
++
++
++@practice.get("/practice/")
++@practice.get("/practice/<int:number>/")
++def arcade(number=None) -> str:
++    if number is not None and not 1 <= number <= GAME_COUNT:
++        abort(404)
++    return render_template(
++        "practice.html",
++        t=labels(),
++        number=number,
++        lang=LANG,
++        movie_lang=ASSET_LANG,
++        buddy=lookup_str("pokemon", 494) if number == 6 else labels()["buddy"],
++    )
++
++
++def _tag(code, data) -> bytes:
++    size = len(data)
++    header = struct.pack("<H", (code << 6) | min(63, size))
++    return header + (struct.pack("<I", size) if size >= 63 else b"") + data
++
++
++@cache
++def _practice_movie() -> bytes:
++    # Keep the original game classes and library symbols, including Pokémon Seek's
++    # nine courses. Replace only the root timeline with the practice controller.
++    source = (SHARED_DIR / "src/swf/pdw/assets/pdw_island.swf").read_bytes()
++    raw = zlib.decompress(source[8:]) if source[:3] == b"CWS" else source[8:]
++    start = (5 + 4 * (raw[0] >> 3) + 7) // 8 + 4
++    out = bytearray(raw[: start - 2] + b"\x01\x00")
++    offset = start
++    while offset < len(raw):
++        (word,) = struct.unpack_from("<H", raw, offset)
++        offset += 2
++        kind, size = divmod(word, 64)
++        if size == 63:
++            (size,) = struct.unpack_from("<I", raw, offset)
++            offset += 4
++        body = raw[offset : offset + size]
++        offset += size
++        if kind == 76:
++            (count,) = struct.unpack_from("<H", body)
++            entries = []
++            pos = 2
++            for _ in range(count):
++                end = body.index(0, pos + 2) + 1
++                if body[pos : pos + 2] != b"\x00\x00":
++                    entries.append(body[pos:end])
++                pos = end
++            body = struct.pack("<H", len(entries)) + b"".join(entries)
++        if kind not in {0, 1, 4, 5, 12, 15, 26, 28, 43, 70, 89, 94}:
++            out.extend(_tag(kind, body))
++    abc = base64.b64decode((ROOT_DIR / "scripts/practice/practice.abc.b64").read_bytes().strip(), validate=True)
++    out.extend(_tag(82, b"\x01\x00\x00\x00Practice\x00" + abc))
++    out.extend(_tag(76, b"\x01\x00\x00\x00Practice\x00") + _tag(1, b"") + _tag(0, b""))
++    return b"CWS" + source[3:4] + struct.pack("<I", len(out) + 8) + zlib.compress(out)
++
++
++@practice.get("/practice/player.swf")
++@practice.get("/practice/pdw/assets/game/player.swf")
++def player() -> Response:
++    response = Response(_practice_movie(), mimetype="application/x-shockwave-flash")
++    response.add_etag()
++    return response.make_conditional(request)
++
++
++@practice.get("/practice/pdw/assets/game/<filename>")
++def cafe_component(filename) -> Response:
++    directory = SHARED_DIR / "src/swf/pdw/assets/game"
++    if filename == "count.swf":
++        return send_file(directory / filename)
++    match = re.fullmatch(r"game(?:5|11)(pm|p1|ta|fr|cp)\.swf", filename)
++    if not match:
++        abort(404)
++    path = directory / filename
++    # Some archive editions place the same empty movie under four aliases.
++    # The matching original component movies are also present under their working names.
++    aliases = {"pm": "PokecafePokemon.swf", "p1": "p1_.swf", "ta": "tamagedake.swf", "fr": "frametest.swf"}
++    if match[1] in aliases and (
++        not path.exists()
++        or hashlib.sha256(path.read_bytes()).hexdigest()
++        == "8a9aeeb3091575e936f2bdff35cef36671791fd6c82a4f87cbbfa99a4e7ef711"
++    ):
++        path = directory / aliases[match[1]]
++    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a4740a6cb 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe31b1f21c 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,25 @@ import atexit
+@@ -7,18 +7,27 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -3113,6 +3265,8 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a
 +from api.island_peers import island_peers
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
++from api.practice import practice
++from api.tournaments import tournaments
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
 -from config import get_secret_key
@@ -3127,7 +3281,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +45,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +47,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -3137,7 +3291,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +60,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +62,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -3150,17 +3304,18 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +93,79 @@ def api_post() -> Response:
+@@ -81,25 +95,80 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
 +_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/"}
++                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
 +
 +
 +def _language_page() -> str:
 +    source = request.args.get("page") or urlsplit(request.referrer or "").path
-+    return source if source in _LANGUAGE_PAGES else "/"
++    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/"} | {f"/practice/{n}/" for n in range(1,13)}
++    return source if source in allowed else "/"
 +
 +
 +@site.get("/languages/")
@@ -3235,12 +3390,14 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..df5dfff81b1e0833fb06a641ab44113a
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +187,12 @@ def create_app() -> Flask:
+@@ -121,6 +190,14 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
++    app.register_blueprint(practice)
++    app.register_blueprint(tournaments)
 +    app.register_blueprint(visit_sync)
 +    app.register_blueprint(offline_friends)
 +    app.register_blueprint(island_peers)
@@ -3406,6 +3563,86 @@ index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..445d54622b49ec6dd0e7a76ac80aea08
          "pgl.news.news_list",
      ),
      "POST": (
+diff --git a/api/tournaments.py b/api/tournaments.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..72590638b383928f1bd679b1f6783bff9b757746
+--- /dev/null
++++ b/api/tournaments.py
+@@ -0,0 +1,74 @@
++"""Offer verified Japanese PWT files. The player's save stays inside their browser."""
++
++import hashlib
++import tempfile
++from functools import cache
++from pathlib import Path
++from urllib.error import URLError
++from urllib.parse import quote
++from urllib.request import urlopen
++
++from flask import Blueprint, Response, abort, render_template
++
++from config import LANG, SAVE_DIR
++from utils.data import load_json_data
++
++tournaments = Blueprint(
++    "tournaments",
++    __name__,
++    template_folder="../templates",
++    static_folder="../static",
++    static_url_path="/campaign/pwt/assets",
++)
++ARCHIVE = (
++    "https://raw.githubusercontent.com/projectpokemon/EventsGallery/"
++    "f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/World%20Tournaments/JPN/"
++)
++
++
++@cache
++def catalog() -> dict:
++    return {row["sha"]: row for row in load_json_data("japanese_tournaments")}
++
++
++def _valid(data, sha) -> bool:
++    return len(data) == 4884 and hashlib.sha1(b"blob 4884\0" + data).hexdigest() == sha
++
++
++def tournament_file(row) -> bytes:
++    sha = row["sha"]
++    path = SAVE_DIR / "tournament-cache" / (sha + ".pwt")
++    if path.is_file():
++        with path.open("rb") as source:
++            data = source.read(4885)
++        if _valid(data, sha):
++            return data
++    with urlopen(ARCHIVE + quote(row["file"]), timeout=8) as source:
++        data = source.read(4885)
++    if not _valid(data, sha):
++        raise ValueError("Archive verification failed.")
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with tempfile.TemporaryDirectory(dir=path.parent) as folder:
++        temporary = Path(folder) / path.name
++        temporary.write_bytes(data)
++        temporary.replace(path)
++    return data
++
++
++@tournaments.get("/campaign/japan/tournaments/")
++def index() -> str:
++    return render_template(
++        "tournaments.html", lang=LANG, t=load_json_data("tournament_ui")[LANG], rows=catalog().values()
++    )
++
++
++@tournaments.get("/campaign/japan/tournaments/<sha>.pwt")
++def download(sha) -> Response:
++    row = catalog().get(sha) or abort(404)
++    try:
++        raw = tournament_file(row)
++    except (OSError, ValueError, URLError):
++        abort(503)
++    response = Response(raw, mimetype="application/octet-stream")
++    response.headers.set("Content-Disposition", "attachment", filename=f"JP-{row['number']}-{sha[:8]}.pwt")
++    return response
 diff --git a/api/visit_sync.py b/api/visit_sync.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..8d53388851c195f9e76f184ee9eb8b5466891e74
@@ -4973,6 +5210,110 @@ index 0000000000000000000000000000000000000000..409c4f500dd36ea716fc64a19f839ff7
 +["SPA","0150 BWB2W2 - VER2013 Shiny Giratina (SPA).pgf","1957e2ab63919cf1edb0059e3d5b41d28d394666",240,"61cc61493dafde429f036ad27a7809f87bb5a9bf","038b2676bb45412004703506e9387c7fef80b7822554e4a41ee5f4820953d693",150],
 +["SPA","0155 BWB2W2 - WORLD13 Smeargle (SPA).pgf","15cf17965e9b9282d590ae7d2c77c9fb2e9d5c1a",240,"","ad15afa75545a4bddfa737439079afa33234651d5596165cb74525ea17e7a47c",155],
 +["SPA","2046 BW - Item Liberty Pass (SPA).pgf","f2dcf9937816b8981564fb7c3f2ed0bdf834d885",48,"0d8dc4bdb3110e114cb1e2c31dc93e9cce6976d4","23df607be9a9bef8e07c457d7e862f8a34d2badfde1e0a5ce741fd7c829ff72b",2046]]
+diff --git a/json_data/island_actions.json b/json_data/island_actions.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fba2de8eab
+--- /dev/null
++++ b/json_data/island_actions.json
+@@ -0,0 +1,98 @@
++{
++  "zh": {
++    "title": "好友互动",
++    "hint": "下一次双方联网同步时结算。交换时会先留出你选的道具；如果货架已变动，道具会退还。",
++    "water": "浇水",
++    "trade": "交换",
++    "offer": "我付出",
++    "saved": "已记录，等待同步。",
++    "changed": "小岛或背包有变化，请重新选择。",
++    "pending": "待同步",
++    "accepted": "已完成",
++    "declined": "未能完成"
++  },
++  "ja": {
++    "title": "友だちの島でお手伝い",
++    "hint": "次に両方のサーバーがつながると反映されます。交換用の道具は先に確保し、交換できなかった場合は返します。",
++    "water": "水やり",
++    "trade": "交換",
++    "offer": "渡す道具",
++    "saved": "記録しました。次の同期をお待ちください。",
++    "changed": "島や持ち物を確認して選び直してください。",
++    "pending": "同期待ち",
++    "accepted": "完了",
++    "declined": "不成立"
++  },
++  "en": {
++    "title": "Help on this island",
++    "hint": "Both servers settle requests on their next connection. Your offered item is reserved and returned if the trade falls through.",
++    "water": "Water",
++    "trade": "Trade for",
++    "offer": "Give",
++    "saved": "Request recorded for the next sync.",
++    "changed": "Check the island and your inventory, then choose again.",
++    "pending": "Pending sync",
++    "accepted": "Completed",
++    "declined": "Declined"
++  },
++  "fr": {
++    "title": "Aider sur cette île",
++    "hint": "Les demandes seront traitées à la prochaine connexion des deux serveurs. L’objet proposé est réservé puis rendu si l’échange échoue.",
++    "water": "Arroser",
++    "trade": "Recevoir",
++    "offer": "Donner",
++    "saved": "Demande enregistrée.",
++    "changed": "Vérifiez l’île et votre inventaire.",
++    "pending": "En attente",
++    "accepted": "Terminé",
++    "declined": "Refusé"
++  },
++  "es": {
++    "title": "Ayudar en esta isla",
++    "hint": "Las solicitudes se procesan cuando ambos servidores vuelvan a conectarse. Si el intercambio falla, recuperarás el objeto reservado.",
++    "water": "Regar",
++    "trade": "Recibir",
++    "offer": "Entregar",
++    "saved": "Solicitud guardada.",
++    "changed": "Comprueba la isla y el inventario.",
++    "pending": "Pendiente",
++    "accepted": "Completado",
++    "declined": "Rechazado"
++  },
++  "de": {
++    "title": "Auf dieser Insel helfen",
++    "hint": "Die Anfragen werden bei der nächsten Verbindung beider Server verarbeitet. Scheitert der Tausch, erhältst du deinen reservierten Gegenstand zurück.",
++    "water": "Gießen",
++    "trade": "Eintauschen gegen",
++    "offer": "Anbieten",
++    "saved": "Anfrage gespeichert.",
++    "changed": "Prüfe die Insel und deinen Beutel.",
++    "pending": "Ausstehend",
++    "accepted": "Abgeschlossen",
++    "declined": "Abgelehnt"
++  },
++  "it": {
++    "title": "Aiuta su quest’isola",
++    "hint": "Le richieste saranno elaborate alla prossima connessione dei due server. Se lo scambio fallisce, riavrai lo strumento riservato.",
++    "water": "Annaffia",
++    "trade": "Ricevi",
++    "offer": "Offri",
++    "saved": "Richiesta registrata.",
++    "changed": "Controlla l’isola e l’inventario.",
++    "pending": "In attesa",
++    "accepted": "Completato",
++    "declined": "Rifiutato"
++  },
++  "ko": {
++    "title": "친구의 섬에서 돕기",
++    "hint": "두 서버가 다시 연결될 때 처리됩니다. 교환할 도구는 미리 보관하고 교환이 취소되면 돌려줍니다.",
++    "water": "물 주기",
++    "trade": "교환으로 받기",
++    "offer": "줄 도구",
++    "saved": "요청을 저장했습니다.",
++    "changed": "섬과 소지품을 확인하고 다시 선택하세요.",
++    "pending": "동기화 대기",
++    "accepted": "완료",
++    "declined": "거절됨"
++  }
++}
 diff --git a/json_data/island_adventure.json b/json_data/island_adventure.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..00a605185763abcfac709e071d028e0246c2635c
@@ -5384,6 +5725,84 @@ index 0000000000000000000000000000000000000000..906b42116592b27f1d5af9f34f46a905
 +  ["challenge-2013-03", "2013 インターナショナルチャレンジ March", "2013 International Challenge · March", [212]],
 +  ["challenge-2013-04", "2013 インターナショナルチャレンジ April", "2013 International Challenge · April", [201, 203]],
 +  ["challenge-2013-06", "2013 インターナショナルチャレンジ June", "2013 International Challenge · June", [202, 204, 205]]
++]
+diff --git a/json_data/japanese_tournaments.json b/json_data/japanese_tournaments.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5e3f8b60e868404d353cbb0e1dd54dbdc14129fd
+--- /dev/null
++++ b/json_data/japanese_tournaments.json
+@@ -0,0 +1,72 @@
++[
++  {
++    "file": "00001 - 2012 VGC Japan Representatives (JPN).pwt",
++    "title": "２０１２にほんだいひょうにちょうせん",
++    "sha": "ae4ccd3e56f4d9adfdbfde56ea7c887eab5cc4ba",
++    "number": 1,
++    "crc": 2278
++  },
++  {
++    "file": "00002 - Challenge Champion Lance (JPN).pwt",
++    "title": "チャンピオン　ワタルにちょうせん！",
++    "sha": "431f90cabee2ba2396a33d5cb6f64d6c9def0e65",
++    "number": 2,
++    "crc": 15812
++  },
++  {
++    "file": "00003 - Gym Leaders Assemble (JPN).pwt",
++    "title": "しゅうけつ！ジムリーダー！",
++    "sha": "554c4d16747f0a57846f16b9406e1557ccff6c16",
++    "number": 3,
++    "crc": 48806
++  },
++  {
++    "file": "00004 - Legendary Rotation Battle (JPN).pwt",
++    "title": "でんせつの　ローテーションバトル！",
++    "sha": "08b6ca0b1d8e75346e25f52b5e6b6a89bcee70fb",
++    "number": 4,
++    "crc": 4601
++  },
++  {
++    "file": "00005 - Battle of Legendary Pokemon (JPN).pwt",
++    "title": "でんせつのポケモンどうしのたたかい",
++    "sha": "3c0cc441aaa25537e418e4f69c0dc6c1f81c74cb",
++    "number": 5,
++    "crc": 39496
++  },
++  {
++    "file": "00009 - You Can Challenge the Unova League (JPN).pwt",
++    "title": "イッシュリーグに　キミもちょうせん！",
++    "sha": "aa8ea3f306d54e3f4c3a873aa38302316b7285c7",
++    "number": 9,
++    "crc": 38227
++  },
++  {
++    "file": "10001 - 2012 Junior Division Challenge (Bug) (JPN).pwt",
++    "title": "ジュニアせかいおうじゃに　いどめ！",
++    "sha": "a207206e67e3526be74cc733679f818c4deb7924",
++    "number": 10001,
++    "crc": 33962
++  },
++  {
++    "file": "10001 - 2012 Junior Division Challenge (JPN).pwt",
++    "title": "ジュニアせかいおうじゃに　いどめ！！",
++    "sha": "f509c38298c0486daa8ccd9a1c4cbcb4985b0285",
++    "number": 10001,
++    "crc": 4601
++  },
++  {
++    "file": "10002 - 2012 Senior Division Challenge (JPN).pwt",
++    "title": "シニアせかいおうじゃに　いどめ！",
++    "sha": "e781e111b3bc2a3f50482d1e2cbb9f21b7158ceb",
++    "number": 10002,
++    "crc": 33951
++  },
++  {
++    "file": "10003 - 2012 Masters Division Challenge (JPN).pwt",
++    "title": "マスターせかいおうじゃに　いどめ！",
++    "sha": "036652433a89c4d3ede3964baa6c0fb62f66aa31",
++    "number": 10003,
++    "crc": 7869
++  }
 +]
 diff --git a/json_data/offline_islands_ui.json b/json_data/offline_islands_ui.json
 new file mode 100644
@@ -7499,6 +7918,206 @@ index 5a62360967cb5c55b2df56bf6fb5e0f8661bed73..8c0ceddffff85dbb9a566bb76e3e2acd
      "special_moves": [240, 114, 352],
      "level": 37,
      "gender_ratio": [0, 1]
+diff --git a/json_data/practice.json b/json_data/practice.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51ef7f98c9
+--- /dev/null
++++ b/json_data/practice.json
+@@ -0,0 +1,194 @@
++{
++  "zh": {
++    "title": "小游戏试玩",
++    "intro": "无需登录或让宝可梦入睡。直接选一款游戏，试玩成绩和道具只在本局有效。",
++    "home": "梦世界",
++    "buddy": "皮宝宝",
++    "loading": "正在载入小游戏…",
++    "done": "本局已结束。",
++    "error": "小游戏加载失败，请重新打开本局。",
++    "replay": "再玩一次",
++    "games": [
++      "寻找宝可梦",
++      "堆冰淇淋",
++      "天空竞速",
++      "吼鲸王喷水",
++      "宝可梦咖啡馆·送饮料",
++      "比克提尼的宝箱",
++      "吹灭蜡烛",
++      "收集宝石",
++      "冰上甜点争夺战",
++      "滑板飞越湖面",
++      "宝可梦餐厅·送饮料",
++      "喷火龙的宝箱"
++    ]
++  },
++  "ja": {
++    "title": "ミニゲーム体験",
++    "intro": "ログインやポケモンの寝かしつけは不要です。好きなゲームを選んでください。体験中の得点や道具は今回のプレイだけで使います。",
++    "home": "ポケモンドリームワールド",
++    "buddy": "ピィ",
++    "loading": "読み込み中…",
++    "done": "今回のプレイは終了しました。",
++    "error": "読み込みに失敗しました。もう一度開いてください。",
++    "replay": "もう一度遊ぶ",
++    "games": [
++      "迷子のポケモンを探そう",
++      "アイスクリームを作ろう",
++      "空を飛ぼう",
++      "ホエルオーと遊ぼう",
++      "ポケモンカフェ・ドリンク運び",
++      "ビクティニの宝箱",
++      "ろうそく消し",
++      "宝石あつめ",
++      "ひやひやスイーツキャッチ",
++      "ボード遊び",
++      "ポケモンビストロ・ドリンク運び",
++      "リザードンの宝箱"
++    ]
++  },
++  "en": {
++    "title": "Minigame practice",
++    "intro": "Pick any game without signing in or tucking in a Pokémon. Practice items and scores last for this round.",
++    "home": "Dream World",
++    "buddy": "Cleffa",
++    "loading": "Loading game…",
++    "done": "Round complete.",
++    "error": "The game could not load. Please open the round again.",
++    "replay": "Play again",
++    "games": [
++      "Pokémon Seek",
++      "Ice Cream Scoop",
++      "Sky Race",
++      "Wailord’s Water Spout",
++      "Pokémon Café · Serve Drinks",
++      "Victini’s Treasure Box",
++      "Blow Out Candles",
++      "Gem Collector",
++      "Frozen Treat Sweep",
++      "Skip Across the Lake",
++      "Pokémon Bistro · Serve Drinks",
++      "Charizard’s Treasure Box"
++    ]
++  },
++  "fr": {
++    "title": "Mini-jeux en libre accès",
++    "intro": "Choisissez un jeu sans vous connecter ni endormir de Pokémon. Les objets et les scores sont limités à cette partie.",
++    "home": "Monde des Rêves",
++    "buddy": "Mélo",
++    "loading": "Chargement…",
++    "done": "Partie terminée.",
++    "error": "Impossible de charger le jeu. Réessayez.",
++    "replay": "Rejouer",
++    "games": [
++      "Chercher un Pokémon",
++      "Tour de glace",
++      "Course aérienne",
++      "Jouer avec Wailord",
++      "Café Pokémon · servir des boissons",
++      "Le coffre de Victini",
++      "Souffler les bougies",
++      "Collecter des gemmes",
++      "Desserts sur glace",
++      "Traverser le lac",
++      "Bistrot Pokémon · servir des boissons",
++      "Le coffre de Dracaufeu"
++    ]
++  },
++  "de": {
++    "title": "Minispiele ausprobieren",
++    "intro": "Wähle ein Spiel, ohne dich anzumelden oder ein Pokémon schlafen zu legen. Punkte und Items gelten nur für diese Runde.",
++    "home": "Traumwelt",
++    "buddy": "Pii",
++    "loading": "Spiel wird geladen…",
++    "done": "Die Runde ist beendet.",
++    "error": "Das Spiel konnte nicht geladen werden. Öffne die Runde erneut.",
++    "replay": "Erneut spielen",
++    "games": [
++      "Pokémon suchen",
++      "Eis stapeln",
++      "Himmelsrennen",
++      "Mit Wailord spielen",
++      "Pokémon-Café · Getränke servieren",
++      "Victinis Schatztruhe",
++      "Kerzen auspusten",
++      "Edelsteine sammeln",
++      "Süßigkeiten auf dem Eis",
++      "Über den See gleiten",
++      "Pokémon-Bistro · Getränke servieren",
++      "Gluraks Schatztruhe"
++    ]
++  },
++  "es": {
++    "title": "Probar los minijuegos",
++    "intro": "Elige un juego sin iniciar sesión ni dormir a un Pokémon. Los objetos y puntos solo cuentan en esta partida.",
++    "home": "Mundo de los Sueños",
++    "buddy": "Cleffa",
++    "loading": "Cargando…",
++    "done": "Partida terminada.",
++    "error": "No se ha podido cargar el juego. Vuelve a abrirlo.",
++    "replay": "Volver a jugar",
++    "games": [
++      "Busca al Pokémon",
++      "Torre de helado",
++      "Carrera aérea",
++      "Juega con Wailord",
++      "Café Pokémon · servir bebidas",
++      "El cofre de Victini",
++      "Apaga las velas",
++      "Recoge gemas",
++      "Dulces sobre hielo",
++      "Cruza el lago",
++      "Bistró Pokémon · servir bebidas",
++      "El cofre de Charizard"
++    ]
++  },
++  "it": {
++    "title": "Prova i minigiochi",
++    "intro": "Scegli un gioco senza accedere o addormentare un Pokémon. Punti e strumenti valgono solo per questa partita.",
++    "home": "Mondo dei Sogni",
++    "buddy": "Cleffa",
++    "loading": "Caricamento…",
++    "done": "Partita terminata.",
++    "error": "Impossibile caricare il gioco. Riapri la partita.",
++    "replay": "Gioca ancora",
++    "games": [
++      "Cerca il Pokémon",
++      "Torre di gelato",
++      "Corsa in cielo",
++      "Gioca con Wailord",
++      "Caffè Pokémon · servi le bevande",
++      "Lo scrigno di Victini",
++      "Spegni le candele",
++      "Raccogli le gemme",
++      "Dolci sul ghiaccio",
++      "Attraversa il lago",
++      "Bistrot Pokémon · servi le bevande",
++      "Lo scrigno di Charizard"
++    ]
++  },
++  "ko": {
++    "title": "미니게임 체험",
++    "intro": "로그인하거나 포켓몬을 재우지 않아도 원하는 게임을 고를 수 있습니다. 체험 점수와 도구는 이번 판에서만 사용합니다.",
++    "home": "포켓몬 드림월드",
++    "buddy": "삐",
++    "loading": "불러오는 중…",
++    "done": "이번 판이 끝났습니다.",
++    "error": "게임을 불러오지 못했습니다. 다시 열어 주세요.",
++    "replay": "다시 하기",
++    "games": [
++      "포켓몬 찾기",
++      "아이스크림 쌓기",
++      "하늘 경주",
++      "고래왕과 놀기",
++      "포켓몬 카페 · 음료 나르기",
++      "비크티니의 보물상자",
++      "촛불 끄기",
++      "보석 모으기",
++      "얼음 위 디저트",
++      "보드로 호수 건너기",
++      "포켓몬 비스트로 · 음료 나르기",
++      "리자몽의 보물상자"
++    ]
++  }
++}
 diff --git a/json_data/profile_avatar_forms.json b/json_data/profile_avatar_forms.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..53045b1a6bc960981ef253ce75e7eb3c64d50759
@@ -7681,6 +8300,158 @@ index 0000000000000000000000000000000000000000..53045b1a6bc960981ef253ce75e7eb3c
 +    "864": "凯路迪欧（觉悟的样子）",
 +    "865": "美洛耶塔（歌声形态）",
 +    "866": "美洛耶塔（舞步形态）"
++  }
++}
+diff --git a/json_data/tournament_ui.json b/json_data/tournament_ui.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6991b46d867494b25a8a43167e5fd47b9b6dbb57
+--- /dev/null
++++ b/json_data/tournament_ui.json
+@@ -0,0 +1,146 @@
++{
++  "zh": {
++    "title": "日版 PWT 下载大会",
++    "help": "适用于日版《黑2／白2》。可下载原始赛事文件，也可选择自己的 512 KiB 存档备份，生成带赛事的新副本。文件在浏览器内处理，最多使用三个空位。",
++    "choose": "选择 .sav 备份",
++    "copy": "下载最新存档副本",
++    "original": "早期版本",
++    "file": "下载赛事文件",
++    "add": "加入存档副本",
++    "installed": "已安装",
++    "related": "已装同编号的另一版本",
++    "ready": "存档已识别，请选择赛事。",
++    "saved": "已生成副本。继续添加时会保留刚才选的赛事。",
++    "full": "没有可用空位，请在游戏里整理后重新备份。",
++    "invalid": "请选择完整且校验通过的日版《黑2／白2》原始 .sav 文件。",
++    "loading": "正在读取赛事文件…",
++    "unavailable": "赛事文件获取或校验失败。",
++    "already": "已有此编号的赛事。"
++  },
++  "ja": {
++    "title": "日本版 PWT ダウンロードトーナメント",
++    "help": "日本版ブラック2・ホワイト2用です。大会ファイルを入手するか、512 KiB のセーブデータを選んで大会入りのコピーを作れます。セーブはブラウザー内で処理し、空き枠だけを使用します（全3枠）。",
++    "choose": "セーブのバックアップ (.sav)",
++    "copy": "最新のセーブコピーを保存",
++    "original": "初期版",
++    "file": "大会ファイルを保存",
++    "add": "コピーに追加",
++    "installed": "登録済み",
++    "related": "同じ番号の別版あり",
++    "ready": "セーブを確認しました。大会を選んでください。",
++    "saved": "コピーを作成しました。続けて追加する大会もこのコピーに入ります。",
++    "full": "空き枠がありません。ゲーム内で整理してバックアップし直してください。",
++    "invalid": "チェックサムが正しい日本版ブラック2・ホワイト2の .sav を選んでください。",
++    "loading": "大会を読み込み中…",
++    "unavailable": "大会ファイルを取得または検証できませんでした。",
++    "already": "この番号の大会は登録済みです。"
++  },
++  "en": {
++    "title": "Japanese PWT download tournaments",
++    "help": "For Japanese Black 2 and White 2. Download a tournament file, or open a 512 KiB save backup to create a copy with tournaments installed. Your save stays in the browser. Only empty slots are used, up to three.",
++    "choose": "Open a .sav backup",
++    "copy": "Download latest save copy",
++    "original": "Early release",
++    "file": "Download tournament",
++    "add": "Add to save copy",
++    "installed": "Installed",
++    "related": "Another revision installed",
++    "ready": "Save recognized. Choose a tournament.",
++    "saved": "Copy ready. Further selections accumulate in this copy.",
++    "full": "No empty slot. Manage tournaments in the game and make a new backup.",
++    "invalid": "Select a valid Japanese Black 2 or White 2 raw .sav file with intact checksums.",
++    "loading": "Loading tournament…",
++    "unavailable": "Could not retrieve or verify the tournament.",
++    "already": "This tournament number is already installed."
++  },
++  "fr": {
++    "title": "Tournois PWT japonais",
++    "help": "Pour les versions japonaises de Noir 2 et Blanc 2. Téléchargez un tournoi ou ouvrez une sauvegarde de 512 Kio pour en créer une copie dans votre navigateur. Seuls les emplacements libres sont utilisés (trois au total).",
++    "choose": "Ouvrir une sauvegarde .sav",
++    "copy": "Télécharger la dernière copie",
++    "original": "Première version",
++    "file": "Télécharger le tournoi",
++    "add": "Ajouter à la copie",
++    "installed": "Installé",
++    "related": "Autre version installée",
++    "ready": "Choisissez un tournoi.",
++    "saved": "Copie prête. Les prochains choix s’y ajoutent.",
++    "full": "Aucun emplacement libre.",
++    "invalid": "Choisissez une sauvegarde japonaise Noir 2 ou Blanc 2 valide.",
++    "loading": "Chargement…",
++    "unavailable": "Échec du chargement ou de la vérification.",
++    "already": "Ce numéro est déjà installé."
++  },
++  "es": {
++    "title": "Torneos PWT japoneses",
++    "help": "Para Negro 2 y Blanco 2 japoneses. Descarga un torneo o abre una copia de 512 KiB para crear otro archivo en tu navegador. Solo se usan espacios libres, hasta tres.",
++    "choose": "Abrir copia .sav",
++    "copy": "Descargar la última copia",
++    "original": "Versión inicial",
++    "file": "Descargar torneo",
++    "add": "Añadir a la copia",
++    "installed": "Instalado",
++    "related": "Otra versión instalada",
++    "ready": "Elige un torneo.",
++    "saved": "Copia lista. Los siguientes torneos se añadirán a esta copia.",
++    "full": "No hay espacios libres.",
++    "invalid": "Selecciona una partida japonesa válida de Negro 2 o Blanco 2.",
++    "loading": "Cargando…",
++    "unavailable": "No se pudo obtener o verificar el torneo.",
++    "already": "Este número ya está instalado."
++  },
++  "de": {
++    "title": "Japanische PWT-Downloadturniere",
++    "help": "Für japanische Editionen von Schwarz 2 und Weiß 2. Lade das Turnier herunter oder öffne eine 512-KiB-Sicherung für eine neue Kopie im Browser. Nur freie Plätze werden belegt, höchstens drei.",
++    "choose": "Spielstand öffnen (.sav)",
++    "copy": "Neueste Kopie herunterladen",
++    "original": "Frühere Fassung",
++    "file": "Turnier herunterladen",
++    "add": "Zur Kopie hinzufügen",
++    "installed": "Installiert",
++    "related": "Andere Fassung installiert",
++    "ready": "Wähle ein Turnier.",
++    "saved": "Kopie erstellt. Weitere Turniere werden dieser Kopie hinzugefügt.",
++    "full": "Kein freier Platz.",
++    "invalid": "Wähle einen gültigen japanischen Spielstand aus Schwarz 2 oder Weiß 2.",
++    "loading": "Wird geladen…",
++    "unavailable": "Turnierdatei konnte nicht geladen oder geprüft werden.",
++    "already": "Diese Turniernummer ist bereits installiert."
++  },
++  "it": {
++    "title": "Tornei PWT giapponesi",
++    "help": "Per Nero 2 e Bianco 2 giapponesi. Scarica un torneo o apri un salvataggio da 512 KiB per crearne una copia nel browser. Sono utilizzati solo gli spazi liberi, fino a tre.",
++    "choose": "Apri un backup .sav",
++    "copy": "Scarica l’ultima copia",
++    "original": "Prima versione",
++    "file": "Scarica il torneo",
++    "add": "Aggiungi alla copia",
++    "installed": "Installato",
++    "related": "Altra versione installata",
++    "ready": "Scegli un torneo.",
++    "saved": "Copia pronta. Gli altri tornei verranno aggiunti a questa copia.",
++    "full": "Non ci sono spazi liberi.",
++    "invalid": "Scegli un salvataggio giapponese valido di Nero 2 o Bianco 2.",
++    "loading": "Caricamento…",
++    "unavailable": "Impossibile scaricare o verificare il torneo.",
++    "already": "Questo numero è già installato."
++  },
++  "ko": {
++    "title": "일본판 PWT 다운로드 토너먼트",
++    "help": "일본판 블랙 2와 화이트 2용입니다. 대회 파일을 받거나 512 KiB 저장 파일을 열어 대회를 추가한 사본을 만들 수 있습니다. 브라우저에서 처리하며 세 자리 중 빈자리만 사용합니다.",
++    "choose": "저장 파일 백업 열기 (.sav)",
++    "copy": "최신 사본 받기",
++    "original": "초기 버전",
++    "file": "대회 파일 받기",
++    "add": "사본에 추가",
++    "installed": "설치됨",
++    "related": "같은 번호의 다른 버전 설치됨",
++    "ready": "대회를 선택하세요.",
++    "saved": "사본을 만들었습니다. 다음 대회도 이 사본에 추가됩니다.",
++    "full": "빈자리가 없습니다.",
++    "invalid": "유효한 일본판 블랙 2 또는 화이트 2의 저장 파일을 선택하세요.",
++    "loading": "대회를 불러오는 중…",
++    "unavailable": "대회 파일을 받거나 확인할 수 없습니다.",
++    "already": "같은 번호의 대회가 이미 있습니다."
 +  }
 +}
 diff --git a/json_data/zh_web.json b/json_data/zh_web.json
@@ -14691,6 +15462,185 @@ index 0000000000000000000000000000000000000000..a036e13a71f93238506f24dc19a63e6f
 +
 +if __name__ == "__main__":
 +    main()
+diff --git a/scripts/practice/CompilePractice.java b/scripts/practice/CompilePractice.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f7c6f548019de58bddcca4b437eb1c125edc1b6f
+--- /dev/null
++++ b/scripts/practice/CompilePractice.java
+@@ -0,0 +1,27 @@
++import java.io.OutputStream;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.Base64;
++import java.util.zip.ZipFile;
++import com.jpexs.decompiler.flash.SWF;
++import com.jpexs.decompiler.flash.abc.ABC;
++import com.jpexs.decompiler.flash.abc.avm2.parser.script.AbcIndexing;
++import com.jpexs.decompiler.flash.abc.avm2.parser.script.ActionScript3Parser;
++import com.jpexs.decompiler.flash.tags.ABCContainerTag;
++
++// java -cp "path/to/ffdec/lib/*" CompilePractice.java playerglobal.swc Practice.as practice.abc.b64
++public class CompilePractice {
++    public static void main(String[] args) throws Exception {
++        try (ZipFile sdk = new ZipFile(args[0])) {
++            SWF globals = new SWF(sdk.getInputStream(sdk.getEntry("library.swf")), false);
++            AbcIndexing index = new AbcIndexing();
++            for (ABCContainerTag tag : globals.getAbcList()) index.addAbc(tag.getABC());
++            ABC abc = new ABC(null);
++            index.selectAbc(abc);
++            new ActionScript3Parser(index).addScript(Files.readString(Path.of(args[1])), "Practice.as", 0, 0, "Practice", abc);
++            try (OutputStream out = Base64.getEncoder().wrap(Files.newOutputStream(Path.of(args[2])))) {
++                abc.saveToStream(out);
++            }
++        }
++    }
++}
+diff --git a/scripts/practice/Practice.as b/scripts/practice/Practice.as
+new file mode 100644
+index 0000000000000000000000000000000000000000..a65b5108bb6424ae4c9b7afc53c78a654ba33ce4
+--- /dev/null
++++ b/scripts/practice/Practice.as
+@@ -0,0 +1,132 @@
++package {
++    import flash.display.DisplayObject;
++    import flash.display.Loader;
++    import flash.display.MovieClip;
++    import flash.events.Event;
++    import flash.events.IOErrorEvent;
++    import flash.external.ExternalInterface;
++    import flash.geom.PerspectiveProjection;
++    import flash.net.URLRequest;
++    import flash.utils.getDefinitionByName;
++
++    // Runs in a new movie per visit. The only inputs come from the practice page.
++    public class Practice extends MovieClip {
++        private var bridge:Object;
++        private var pokemon:Object;
++        private var chest:Object;
++        private var course:Object;
++        private var fonts:Loader;
++        private var game:Loader;
++        private var number:int;
++        private var language:String;
++        private const common:String = "/src/swf/theme/assets/common/";
++        private const assets:String = "/src/swf/pdw/assets/";
++
++        public function Practice() {
++            super();
++            stop();
++            addEventListener(Event.ADDED_TO_STAGE, begin);
++            if (stage) begin(null);
++        }
++
++        private function begin(event:Event):void {
++            removeEventListener(Event.ADDED_TO_STAGE, begin);
++            addEventListener(Event.ADDED, prepareRoot, true);
++            stage.addEventListener(Event.ADDED_TO_STAGE, prepareRoot, true, 1000);
++            number = int(loaderInfo.parameters.game);
++            language = String(loaderInfo.parameters.lang);
++            if (number < 1 || number > 12 || "|ja|en|fr|it|de|es|ko|".indexOf("|"+language+"|") < 0) return;
++            bridge = getDefinitionByName("common.gameBridge");
++            pokemon = getDefinitionByName("bfp.common.PokemonBridge");
++            chest = getDefinitionByName("bfp.chest.chestBridge");
++            pokemon["lang"] = language;
++            pokemon["PATH"] = common;
++            pokemon["rootMC"] = this;
++            pokemon["POKEMONPATH"] = "/src/swf/theme/assets/global/parts/pokemon/scaled";
++            pokemon["POKEMONPATH2"] = "/src/swf/theme/assets/global/parts/pokemon/scaled2";
++            bridge["myPokemonId"] = number == 6 ? 643 : 25;
++            bridge["myFormId"] = 0;
++            bridge["encountPokemonId"] = number == 6 ? 494 : 173;
++            bridge["encountFormId"] = 0;
++            bridge["encountPokemonName"] = String(loaderInfo.parameters.buddy);
++            bridge["romID"] = 21;
++            bridge["areaNo"] = 3;
++            bridge["langCode"] = language;
++            bridge["pauseFlag"] = false;
++            bridge["addEventListener"]("closeGame", finished);
++            bridge["addEventListener"]("finishGame", finished);
++            chest["addEventListener"]("open_chest", practiceBerry);
++            fonts = new Loader();
++            fonts.contentLoaderInfo.addEventListener(Event.COMPLETE, fontReady);
++            fonts.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, failed);
++            fonts.load(new URLRequest(common + "font.swf"));
++        }
++
++        private function practiceBerry(event:Event):void {
++            chest["selectedItemData"] = {pokeitem_id:155, item_cnt:1};
++            chest["dispatchEvent"](new Event("selected_yes"));
++        }
++
++        private function prepareRoot(event:Event):void {
++            var child:DisplayObject = event.target as DisplayObject;
++            if (child && child.root && !child.root.transform.perspectiveProjection)
++                child.root.transform.perspectiveProjection = new PerspectiveProjection();
++        }
++
++        private function fontReady(event:Event):void {
++            var font:Object = getDefinitionByName("bfp.common.FontManager");
++            font["init"]();
++            pokemon["addEventListener"]("RENDER_LOADED", ready);
++            pokemon["standalone"](common + "poke.swf");
++        }
++
++        private function ready(event:Event):void {
++            pokemon["removeEventListener"]("RENDER_LOADED", ready);
++            if (number == 1) {
++                var builder:Class = getDefinitionByName("bfp.pdw.yumeshima.buildBg") as Class;
++                course = new builder();
++                course["areaNo"] = 3;
++                course["addEventListener"]("initialized", loadGame);
++                course["create"](assets + "area/template3.swf");
++            } else {
++                loadGame(null);
++            }
++        }
++
++        private function loadGame(event:Event):void {
++            if (course) bridge["courseData"] = course["courseDataMain"]["mainDataArray"];
++            var suffix:String = number == 4 ? "." + language : "";
++            game = new Loader();
++            game.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, failed);
++            game.contentLoaderInfo.addEventListener(Event.COMPLETE, showGame);
++            game.load(new URLRequest(assets + "game/game" + number + suffix + ".swf"));
++            addChild(game);
++        }
++
++        private function showGame(event:Event):void {
++            game.content.transform.perspectiveProjection = new PerspectiveProjection();
++            if (number == 5 || number == 11)
++                addEventListener(Event.ENTER_FRAME, startCafe);
++            if (ExternalInterface.available) ExternalInterface.call("practiceStatus", "playing");
++        }
++
++        // A fully cached load can signal completion before the café's first-frame
++        // script calls stop(). Resume once that frame has initialized its text area.
++        private function startCafe(event:Event):void {
++            var movie:MovieClip = game.content as MovieClip;
++            if (movie.currentFrame == 1) {
++                if (movie.framesLoaded < 2 || !movie["_textArea"] || !movie["_textArea"]["text"].length) return;
++                movie.gotoAndPlay(2);
++            }
++            removeEventListener(Event.ENTER_FRAME, startCafe);
++        }
++
++        private function finished(event:Event):void {
++            if (ExternalInterface.available) ExternalInterface.call("practiceStatus", "finished");
++        }
++
++        private function failed(event:Event):void {
++            if (ExternalInterface.available) ExternalInterface.call("practiceStatus", "error");
++        }
++    }
++}
+diff --git a/scripts/practice/practice.abc.b64 b/scripts/practice/practice.abc.b64
+new file mode 100644
+index 0000000000000000000000000000000000000000..20fa2289a31c69df49d84e44f10f38ebda25f370
+--- /dev/null
++++ b/scripts/practice/practice.abc.b64
+@@ -0,0 +1 @@
++EAAuAAAAAJcBIWh0dHA6Ly9hZG9iZS5jb20vQVMzLzIwMDYvYnVpbHRpbglNb3ZpZUNsaXANZmxhc2guZGlzcGxheQZTcHJpdGUWRGlzcGxheU9iamVjdENvbnRhaW5lchFJbnRlcmFjdGl2ZU9iamVjdA1EaXNwbGF5T2JqZWN0D0V2ZW50RGlzcGF0Y2hlcgxmbGFzaC5ldmVudHMGT2JqZWN0AAhQcmFjdGljZQ1QcmFjdGljZS5hcyQwBmJyaWRnZQdwb2tlbW9uBWNoZXN0BmNvdXJzZQVmb250cwRnYW1lBm51bWJlcghsYW5ndWFnZQZjb21tb24GYXNzZXRzBWJlZ2luDXByYWN0aWNlQmVycnkLcHJlcGFyZVJvb3QJZm9udFJlYWR5BXJlYWR5CGxvYWRHYW1lCHNob3dHYW1lCXN0YXJ0Q2FmZQhmaW5pc2hlZAZmYWlsZWQGTG9hZGVyA2ludAZTdHJpbmcdL3NyYy9zd2YvdGhlbWUvYXNzZXRzL2NvbW1vbi8UL3NyYy9zd2YvcGR3L2Fzc2V0cy8WUHJhY3RpY2UvcHJpdmF0ZS9iZWdpbgVFdmVudAR2b2lkHlByYWN0aWNlL3ByaXZhdGUvcHJhY3RpY2VCZXJyeRxQcmFjdGljZS9wcml2YXRlL3ByZXBhcmVSb290GlByYWN0aWNlL3ByaXZhdGUvZm9udFJlYWR5FlByYWN0aWNlL3ByaXZhdGUvcmVhZHkZUHJhY3RpY2UvcHJpdmF0ZS9sb2FkR2FtZRlQcmFjdGljZS9wcml2YXRlL3Nob3dHYW1lGlByYWN0aWNlL3ByaXZhdGUvc3RhcnRDYWZlGVByYWN0aWNlL3ByaXZhdGUvZmluaXNoZWQXUHJhY3RpY2UvcHJpdmF0ZS9mYWlsZWQTcmVtb3ZlRXZlbnRMaXN0ZW5lchBhZGRFdmVudExpc3RlbmVyBXN0YWdlCmxvYWRlckluZm8XZmxhc2guZGlzcGxheTpNb3ZpZUNsaXAUZmxhc2guZGlzcGxheTpTcHJpdGUkZmxhc2guZGlzcGxheTpEaXNwbGF5T2JqZWN0Q29udGFpbmVyH2ZsYXNoLmRpc3BsYXk6SW50ZXJhY3RpdmVPYmplY3QbZmxhc2guZGlzcGxheTpEaXNwbGF5T2JqZWN0HGZsYXNoLmV2ZW50czpFdmVudERpc3BhdGNoZXIOQURERURfVE9fU1RBR0UFQURERUQKcGFyYW1ldGVycwRsYW5nB2luZGV4T2YWfGphfGVufGZyfGl0fGRlfGVzfGtvfAF8E2dldERlZmluaXRpb25CeU5hbWULZmxhc2gudXRpbHMRY29tbW9uLmdhbWVCcmlkZ2UYYmZwLmNvbW1vbi5Qb2tlbW9uQnJpZGdlFWJmcC5jaGVzdC5jaGVzdEJyaWRnZQRQQVRIBnJvb3RNQwtQT0tFTU9OUEFUSDEvc3JjL3N3Zi90aGVtZS9hc3NldHMvZ2xvYmFsL3BhcnRzL3Bva2Vtb24vc2NhbGVkDFBPS0VNT05QQVRIMjIvc3JjL3N3Zi90aGVtZS9hc3NldHMvZ2xvYmFsL3BhcnRzL3Bva2Vtb24vc2NhbGVkMgtteVBva2Vtb25JZAhteUZvcm1JZBBlbmNvdW50UG9rZW1vbklkDWVuY291bnRGb3JtSWQSZW5jb3VudFBva2Vtb25OYW1lBWJ1ZGR5BXJvbUlEBmFyZWFObwhsYW5nQ29kZQlwYXVzZUZsYWcJY2xvc2VHYW1lCmZpbmlzaEdhbWUKb3Blbl9jaGVzdBFjb250ZW50TG9hZGVySW5mbwhDT01QTEVURQhJT19FUlJPUgxJT0Vycm9yRXZlbnQEbG9hZApVUkxSZXF1ZXN0CWZsYXNoLm5ldAhmb250LnN3ZgVldmVudBBzZWxlY3RlZEl0ZW1EYXRhC3Bva2VpdGVtX2lkCGl0ZW1fY250DWRpc3BhdGNoRXZlbnQMc2VsZWN0ZWRfeWVzBnRhcmdldARyb290CXRyYW5zZm9ybRVwZXJzcGVjdGl2ZVByb2plY3Rpb24VUGVyc3BlY3RpdmVQcm9qZWN0aW9uCmZsYXNoLmdlb20FY2hpbGQWYmZwLmNvbW1vbi5Gb250TWFuYWdlcgRpbml0DVJFTkRFUl9MT0FERUQKc3RhbmRhbG9uZQhwb2tlLnN3ZgRmb250BUNsYXNzGWJmcC5wZHcueXVtZXNoaW1hLmJ1aWxkQmcLaW5pdGlhbGl6ZWQGY3JlYXRlEmFyZWEvdGVtcGxhdGUzLnN3ZgdidWlsZGVyCGFkZENoaWxkCmNvdXJzZURhdGEOY291cnNlRGF0YU1haW4NbWFpbkRhdGFBcnJheQEuCWdhbWUvZ2FtZQQuc3dmBnN1ZmZpeAdjb250ZW50C0VOVEVSX0ZSQU1FBGNhbGwRRXh0ZXJuYWxJbnRlcmZhY2UOZmxhc2guZXh0ZXJuYWwOcHJhY3RpY2VTdGF0dXMHcGxheWluZwlhdmFpbGFibGUMZnJhbWVzTG9hZGVkCV90ZXh0QXJlYQZsZW5ndGgEdGV4dAtnb3RvQW5kUGxheQxjdXJyZW50RnJhbWUFbW92aWUFZXJyb3IRUHJhY3RpY2UvUHJhY3RpY2UEc3RvcBQIARYDFgkWCxcLBQ0FDBgMGgwaNxo4GjkaOho7GjwWRRZiFm8WiQECDQQBBQoLDA0ODwcICQZGBwICBwIEBwIFBwIGBwIHBwMIBwQKBwQMBwcOBwcPBwcQBwcRBwcSBwcTBwcUBwcVBwcWBwcXBwcYBwcZBwcaBwcbBwccBwcdBwceBwcfBwcgBwchBwIiBwQjBwQkBwMoBwQpBwQzBwQ0BwQ1BwQ2BwQ9BwQ+BwQ/CRMBCUABBwFBBxBEGwEJVAEHBFwHBF0HBF4HA18HBGAHEWEHBGoHBGsHBGwHBG0HEm4HBHcHBH0HBIUBBwSGAQcEhwEHE4gBBwSMAQcEjQEJjwEBBwSRAQcEkgEHBJYBDQAACwABISAnAAEhICoAASEgKwABISAsAAEhIC0AASEgLgABISAvAAEhIDAAASEgMQABISAyAAAAlQEAAAALAAABCAEJCAALFAkAAAcACgAABwALAAAHAAwAAAcADQAAHQAOAAAdAA8AAB4AEAAAHwARBgAfJQESBgAfJgETAQABFAEAAhUBAAMWAQAEFwEABRgBAAYZAQAHGgEACBsBAAkcAQAKDAABAAEIBAEADQACAQEJJ9AwZQBgBzBgBjBgBTBgBDBgAzBgAjBgATBgAVgAHR0dHR0dHWgIRwAAAQUDCguKA9Aw7wFkAABdImAgZiZgE08iAl0jYCBmJ2AVJk8jA2AkYCBmJmAVJiXoB08jBF4PYCVmKGYpc2EPXhBgJWYoZipwYRBgDyQBrSoRBgAAKWAPJAyvKhERAAApLEIsQ2AQoCxDoEYrASQArRIBAABHXgldLCxGRiwBYQleCl0sLEdGLAFhCl4LXSwsSEYsAWELYAosQGAQYS1gCixJYBFhLWAKLErQYS1gCixLLExhLWAKLE0sTmEtYAksT2APJAYUBwAAJYMFEAIAACQZYS1gCSxQJABhLWAJLFFgDyQGFAcAACXuAxADAAAlrQFhLWAJLFIkAGEtYAksU2AlZihmLnBhLWAJLFUkFWEtYAksViQDYS1gCSxXYBBhLWAJLFgnYS1gCSrWLDRmLdIsWWAbQQIpCAJgCSrWLDRmLdIsWmAbQQIpCAJgCyrWLDRmLdIsW2AUQQIpCAJeDV0dSh0AYQ1gDWYvYCBmMGAWTyMCYA1mL2AyZjFgHE8jAmANXTRgESxjoEo0AU8zAUcAAAIGAwoLLtAw7wFkAABgCyxlLGYlmwEsZyQBVQJhLWALKtYsaGYt0l0gLGlKIAFBASkIAkcAAAMCAwoLP9Aw7wFkAADvAXABR9FmNWAFh4AF1tIqdhIEAAAp0mY2KhIJAAAp0mY2ZjdmOJYSDAAA0mY2ZjddOUo5AGE4RwAABAQECgtJ0DDvAWQAAO8BdgFNXSwscUYsAYAH1tIq1yxyZi3TQQApCANgCirXLDRmLdMsc2AXQQIpCANgCirXLHRmLdNgESx1oEEBKQgDRwAABQQECgty0DDvAWQAAO8BfAFWYAoq1ywzZi3TLHNgF0ECKQgDYA8kARRFAABdLCx4RiwBYDqHgDrWXgzSQgBhDGAMLFYkA2EtYAwq1yw0Zi3TLHlgGEECKQgDYAwq1yx6Zi3TYBIse6BBASkIAxAGAABdGCBPGAFHAAAGBAMKC37QMO8BZAAA7wGEAQFiYAwSEQAAYAksfmAMLH9mLSyAAWYtYS1gDyQEFAoAACyBAWAQoBACAAAsC4XWXg5dHUodAGEOYA5mL2AyZjFgHE8jAmAOZi9gIGYwYBlPIwJgDl00YBIsggGgYA+g0qAsgwGgSjQBTzMBXTtgDk87AUcAAAcDAgoLR9Aw7wFkAABgDmY8ZjddOUo5AGE4YA8kBasqEQYAAClgDyQLqxILAABdI2AgZj1gGk8jAmA/ZkASCwAAYD8sigEsiwFPPgJHAAAIAwMKC17QMO8BZAAA7wGTAQF0YA5mPGABh4AB1tJmRCQBFDIAANJmQSQCrSoRCAAAKdIsjgFmLZYqEQ8AACnSLI4BZi0skAFmLWZClhIBAABH0iQCT0MBXSJgIGY9YBpPIgJHAAAJAwIKCxrQMO8BZAAAYD9mQBIKAABgPyyKASwgTz4CRwAACgMCCgsb0DDvAWQAAGA/ZkASCwAAYD8sigEslAFPPgJHAAALAwEKCyLQMNBJAF1FT0UAXSNgIGYmYBNPIwJgJBIGAABdEyBPEwFHAAAMAQEJCgPQMEcAAA==
+\ No newline at end of file
 diff --git a/scripts/prepare_japanese_gifts.py b/scripts/prepare_japanese_gifts.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..4745575281a85d3dd9310b476e73f5db53525617
@@ -15499,12 +16449,169 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +  refresh.addEventListener("click", check);
 +  check();
 +})();
+diff --git a/static/practice.css b/static/practice.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..ebb6a81bfc7729243b50e6e3f24b708e14c45ac5
+--- /dev/null
++++ b/static/practice.css
+@@ -0,0 +1,5 @@
++*{box-sizing:border-box}body{margin:0;color:#243729;background:#f6f6ed;font:1rem/1.45 system-ui,sans-serif}main{max-width:68rem;margin:auto;padding:1rem}
++nav{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}a{color:#245440}h1{font-size:clamp(1.45rem,4vw,2.4rem);margin:1.4rem 0 .5rem}
++ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.75rem;list-style:none;padding:0}
++li a{display:flex;align-items:center;min-height:3.8rem;padding:.8rem 1rem;background:white;border:1px solid #aabbaa;border-radius:.45rem;font-weight:600;text-decoration:none}
++li a:hover,li a:focus-visible{background:#e3efdf;border-color:#477551}#stage{width:100%;aspect-ratio:1003/570;background:#172619}#stage ruffle-player{width:100%;height:100%;display:block}#status{min-height:1.45em}
+diff --git a/static/practice.js b/static/practice.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..0108fe83c03cdcb5150daaaa1d5ed27ab1363e11
+--- /dev/null
++++ b/static/practice.js
+@@ -0,0 +1,22 @@
++"use strict";
++const stage = document.getElementById("stage");
++const message = document.getElementById("status");
++window.practiceStatus = function (state) {
++    message.textContent = {playing: "", finished: message.dataset.finished, error: message.dataset.error}[state];
++};
++async function startPractice() {
++    try {
++        const player = window.RufflePlayer.newest().createPlayer();
++        stage.append(player);
++        await player.ruffle().load({
++            // The two café games resolve their component movies from the stage URL.
++            url: "/practice/pdw/assets/game/player.swf",
++            parameters: {game: stage.dataset.game, lang: stage.dataset.lang, buddy: stage.dataset.buddy},
++            allowScriptAccess: true, autoplay: "on", unmuteOverlay: "visible",
++            backgroundColor: "#f6f6ed", scale: "showAll"
++        });
++    } catch (error) {
++        window.practiceStatus("error");
++    }
++}
++window.addEventListener("load", startPractice, {once:true});
+diff --git a/static/pwt-save.mjs b/static/pwt-save.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..3143d7552e4790bbb9e986887ed25211d669ab9b
+--- /dev/null
++++ b/static/pwt-save.mjs
+@@ -0,0 +1,55 @@
++// B2/W2 extdata layout and CRCs follow PKHeX SAV5B2W2.SetPWT and PlayerData5B2W2.
++const TRAINER = 0x19400, TABLE = 0x25f00, DATA = 0x1214, BLOCK = 0x1314;
++const view = bytes => new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
++function crc(bytes) {
++    let value = 0xffff;
++    for (const byte of bytes) {
++        value ^= byte << 8;
++        for (let bit=0; bit<8; bit++)
++            value = ((value << 1) ^ ((value & 0x8000) ? 0x1021 : 0)) & 0xffff;
++    }
++    return value;
++}
++function checksummed(bytes,start,size) {
++    return crc(bytes.subarray(start,start+size));
++}
++function validTournament(block) {
++    if (block.length!==BLOCK) return false;
++    const v=view(block),sum=checksummed(block,0,DATA);
++    return v.getUint16(DATA,true)===1 && v.getUint16(DATA+2,true)===sum
++        && v.getUint32(0x1300,true)===sum && v.getUint32(0x1304,true)===1
++        && v.getUint32(0x1308,true)===BLOCK && v.getUint32(0x130c,true)===0x31053527
++        && v.getUint16(0x1312,true)===checksummed(block,0x1300,4);
++}
++export function inspect(bytes) {
++    if (bytes.length!==0x80000 || bytes[TRAINER+0x1e]!==1 || ![22,23].includes(bytes[TRAINER+0x1f]))
++        throw Error("invalid");
++    const v=view(bytes),sum=checksummed(bytes,TRAINER,0xb0);
++    if (sum!==v.getUint16(0x194b2,true) || sum!==v.getUint16(0x25f36,true)
++        || checksummed(bytes,TABLE,0x94)!==v.getUint16(0x25fa2,true)) throw Error("invalid");
++    return [0,1,2].map(index=>{
++        const offset=0x7a000+index*0x1400,flag=v.getUint16(TRAINER+0x52+index*2,true);
++        const block=bytes.subarray(offset,offset+BLOCK);
++        const empty = flag===0 && v.getUint32(TRAINER+0xa0+index*4,true)===0
++            && (block.every(b=>b===0) || block.every(b=>b===255));
++        return {offset,empty,number:flag===0xc21e?v.getUint16(offset+8,true):null,
++                crc:checksummed(block,0,DATA)};
++    });
++}
++export function install(bytes,block) {
++    const slots=inspect(bytes);
++    if (!validTournament(block)) throw Error("unavailable");
++    const number=view(block).getUint16(8,true);
++    if (slots.some(slot=>slot.number===number)) throw Error("already");
++    const index=slots.findIndex(slot=>slot.empty);
++    if (index<0) throw Error("full");
++    const updated=bytes.slice(),v=view(updated);
++    updated.set(block,slots[index].offset);
++    v.setUint16(TRAINER+0x52+2*index,0xc21e,true);
++    v.setUint32(TRAINER+0xa0+4*index,1,true);
++    const sum=checksummed(updated,TRAINER,0xb0);
++    v.setUint16(0x194b2,sum,true);
++    v.setUint16(0x25f36,sum,true);
++    v.setUint16(0x25fa2,checksummed(updated,TABLE,0x94),true);
++    return updated;
++}
+diff --git a/static/tournaments.mjs b/static/tournaments.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..96c59ee944d4d84fa6585947afa26952ca61bec5
+--- /dev/null
++++ b/static/tournaments.mjs
+@@ -0,0 +1,51 @@
++import {install,inspect} from "./pwt-save.mjs";
++const t=JSON.parse(document.getElementById("text").textContent);
++const picker=document.getElementById("save"), message=document.getElementById("message");
++const copy=document.getElementById("copy"), buttons=[...document.querySelectorAll("button[data-number]")];
++let current=null, generation=0, busy=false;
++function render() {
++    const slots=current?inspect(current):[];
++    for (const button of buttons) {
++        const found=slots.find(slot=>slot.number===Number(button.dataset.number));
++        button.hidden=!current;
++        button.disabled=busy || !!found || !slots.some(slot=>slot.empty);
++        button.textContent=found?(found.crc===Number(button.dataset.crc)?t.installed:t.related):t.add;
++    }
++}
++function discardCopy() {
++    if (copy.href) URL.revokeObjectURL(copy.href);
++    copy.removeAttribute("href");
++    copy.hidden=true;
++}
++picker.addEventListener("change",async()=>{
++    const file=picker.files[0],id=++generation;
++    discardCopy(); current=null; busy=false; message.textContent=""; render();
++    if (!file) return;
++    try {
++        if(file.size!==0x80000) throw Error("invalid");
++        const data=new Uint8Array(await file.arrayBuffer());
++        const slots=inspect(data);
++        if (id!==generation) return;
++        current=data;
++        message.textContent=slots.some(slot=>slot.empty)?t.ready:t.full;
++    } catch {if(id===generation) message.textContent=t.invalid;}
++    render();
++});
++for (const button of buttons) button.addEventListener("click",async()=>{
++    if (!current || busy) return;
++    const id=generation;
++    busy=true; render(); message.textContent=t.loading;
++    try {
++        const res=await fetch(button.parentElement.querySelector("a").href);
++        if(!res.ok) throw Error("unavailable");
++        const block=new Uint8Array(await res.arrayBuffer());
++        if(id!==generation) return;
++        const updated=install(current,block);
++        discardCopy();
++        copy.href=URL.createObjectURL(new Blob([updated],{type:"application/octet-stream"}));
++        copy.download=picker.files[0].name.replace(/\.sav$/i,"")+"-PWT.sav";
++        copy.hidden=false;
++        current=updated; message.textContent=t.saved; copy.click();
++    } catch(error) {if(id===generation) message.textContent=t[error.message] || t.unavailable;}
++    finally {if(id===generation){busy=false;render();}}
++});
 diff --git a/templates/distributions.html b/templates/distributions.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..3dd34af0accaba576f551bd990fba5c372f85eb1
+index 0000000000000000000000000000000000000000..ad96aefa4c91ca68b453b2a208eb55fa6d3f8d5d
 --- /dev/null
 +++ b/templates/distributions.html
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,36 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head><meta charset="utf-8">
 +<meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ t.title }} · Pokémon Dream World</title>
@@ -15518,6 +16625,7 @@ index 0000000000000000000000000000000000000000..3dd34af0accaba576f551bd990fba5c3
 +@media(max-width:35rem){.gift-list li{flex-wrap:wrap;gap:.45rem}.gift-list li>div{flex-basis:100%}}
 +</style></head><body><main class="gift-page"><a href="/pdw/">← {{ t.home }}</a><h1>{{ t.japan if japanese else t.title }}</h1>
 +<p><a href="{{ url_for('campaigns.index' if japanese else 'campaigns.japan',kind=kind) }}">{{ t.mine if japanese else t.japan }}</a></p>
++{% if japanese %}<p><a href="{{ url_for('tournaments.index') }}">Pokémon World Tournament · 日本 · B2/W2</a></p>{% endif %}
 +{% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
 +{% endif %}{% if japanese or card %}
 +{% if rom %}<p>{{ rom }}</p>{% endif %}
@@ -15529,7 +16637,7 @@ index 0000000000000000000000000000000000000000..3dd34af0accaba576f551bd990fba5c3
 +<label>{{ t.find }}<input type="search" name="q" value="{{ search }}" maxlength="100"></label>
 +{% if japanese %}<label>{{ t.version }}<select name="version"><option value="">{{ t.all }}</option>{% for code,title in versions.items() %}<option value="{{ code }}" {% if code==version %}selected{% endif %}>{{ title }}</option>{% endfor %}</select></label>{% endif %}
 +<button type="submit">{{ t.search }}</button></form>
-+{% if kind=='wonder' and ident %}<details><summary>{{ t.scan }}</summary><p>{{ t.scan_help }}</p>
++{% if kind=='wonder' and ident and home_card %}<details><summary>{{ t.scan }}</summary><p>{{ t.scan_help }}</p>
 +<form method="post" enctype="multipart/form-data" action="{{ url_for('campaigns.inspect_album') }}">{{ fields() }}<input type="file" name="save" accept=".sav" required aria-label="{{ t.scan }}"><button>{{ t.scan }}</button></form></details>{% endif %}
 +{% if notice %}<p role="status">{{ t[notice] }}</p>{% endif %}
 +{% if card %}<nav aria-label="{{ t.title }}">{% for k in ('all','unclaimed','waiting','complete','unknown_filter') if k!='unknown_filter' or kind=='wonder' %}<a {% if mode==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=kind,filter=k,q=search,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>{% endif %}
@@ -15667,16 +16775,34 @@ index 0000000000000000000000000000000000000000..31fb7139b5d1ff961475aeef0b3b8e19
 +{% endblock %}
 diff --git a/templates/island_profile.html b/templates/island_profile.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..7fd4f94092a2b659cda0f1fdde2e2f9b0172dc2d
+index 0000000000000000000000000000000000000000..d3618ce4477ac1aa6ac38a01dc1a7cdb5aefebc2
 --- /dev/null
 +++ b/templates/island_profile.html
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,28 @@
 +{% extends "island_base.html" %}
 +{% block title %}{{ owner }} · {{ t.profile }}{% endblock %}
 +{% block main %}
 +<div class="room-head"><div><h1>{{ owner }} <span class="room-type">· {{ t.profile }}</span></h1>
 +<p class="dates">{{ t.updated }} <time data-time="{{ doc.updated_at }}">{{ date(doc.updated_at) }}</time></p></div>
 +<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a></div>
++{% if interactive or history %}
++<section id="interactions"><h2>{{ ui.title }}</h2><p>{{ ui.hint }}</p>
++{% if request.args.notice in ('saved','changed') %}<p role="status">{{ ui[request.args.notice] }}</p>{% endif %}
++{% macro fields(kind,index) -%}
++<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}">
++<input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="slot" value="{{ index }}">
++{%- endmacro %}
++{% if interactive %}
++{% for plot in doc.content.garden %}{% if plot.planted_at and plot.dirt_hp < full and plot.kinomi_state < ripe %}
++<form action="{{ url_for('.interact',island_id=doc.island_id) }}" method="post">{{ fields('water',loop.index0) }}
++<button>{{ ui.water }} · {{ item_name(plot.pokeitem_id) }} ({{ plot.x }}, {{ plot.y }})</button></form>{% endif %}{% endfor %}
++{% for slot in doc.content.shelf %}{% set options = stock | rejectattr('0','equalto',slot.item_id) | list %}{% if slot.item_id and options %}
++<form action="{{ url_for('.interact',island_id=doc.island_id) }}" method="post">{{ fields('trade',loop.index0) }}
++<label>{{ ui.offer }} <select name="payment">{% for id,qty in options %}<option value="{{ id }}">{{ item_name(id) }} ×{{ qty }}</option>{% endfor %}</select></label>
++<button>{{ ui.trade }} · {{ item_name(slot.item_id) }}</button></form>{% endif %}{% endfor %}
++{% endif %}
++{% if history %}<ul>{% for action in history %}<li>{{ ui[action.kind] }} · {{ item_name(action.expected) if action.kind=='trade' else '#' ~ (action.slot+1) }} · {{ ui[action.status] }}</li>{% endfor %}</ul>{% endif %}
++</section>{% endif %}
 +<div class="records">{% for title,rows in groups %}<section><h2>{{ title }}</h2>
 +{% if rows %}<dl>{% for key,value in rows %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
 +{% else %}<p>{{ t.none }}</p>{% endif %}</section>{% endfor %}</div>
@@ -15776,6 +16902,46 @@ index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f84
 +  </main>
 +</body>
 +</html>
+diff --git a/templates/practice.html b/templates/practice.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..50e9c9466a26cbc149897075115821f59157d30a
+--- /dev/null
++++ b/templates/practice.html
+@@ -0,0 +1,15 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang=='zh' else lang }}"><head>
++<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<title>{{ t.games[number-1] if number else t.title }} · Pokémon Dream World</title>
++<link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
++{% if number %}<script defer src="/_ruffle/ruffle.js"></script><script defer src="{{ url_for('practice.static',filename='practice.js') }}"></script>{% endif %}
++</head><body><main><nav><a href="{{ '/practice/' if number else '/pdw/' }}">← {{ t.title if number else t.home }}</a><a href="{{ url_for('site.languages',page=request.path) }}">Language</a></nav>
++{% if number %}
++<h1>{{ t.games[number-1] }}</h1>
++<div id="stage" data-game="{{ number }}" data-lang="{{ movie_lang }}" data-buddy="{{ buddy }}" aria-label="{{ t.games[number-1] }}"></div>
++<p id="status" role="status" data-finished="{{ t.done }}" data-error="{{ t.error }}">{{ t.loading }}</p>
++<nav><a href="{{ url_for('practice.arcade',number=number) }}">{{ t.replay }}</a><a href="/practice/">{{ t.title }}</a></nav>
++{% else %}<h1>{{ t.title }}</h1><p>{{ t.intro }}</p>
++<ul>{% for name in t.games %}<li><a href="{{ url_for('practice.arcade',number=loop.index) }}">{{ name }}</a></li>{% endfor %}</ul>
++{% endif %}</main></body></html>
+diff --git a/templates/tournaments.html b/templates/tournaments.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..dda6168461367d6a3d5cdb8ba7e160ca9188cbf4
+--- /dev/null
++++ b/templates/tournaments.html
+@@ -0,0 +1,13 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang=='zh' else lang }}"><head>
++<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<title>{{ t.title }}</title><link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
++<script type="module" src="{{ url_for('.static',filename='tournaments.mjs') }}"></script></head>
++<body><main><nav><a href="/campaign/japan/">← Pokémon Global Link</a><a href="/languages/?page=/campaign/japan/tournaments/">Language</a></nav>
++<h1>{{ t.title }}</h1><p>{{ t.help }}</p>
++<label>{{ t.choose }} <input id="save" type="file" accept=".sav"></label>
++<p id="message" role="status"></p><a id="copy" hidden>{{ t.copy }}</a>
++<ul>{% for row in rows %}<li><strong lang="ja">{{ row.title }}</strong>{% if '(Bug)' in row.file %} · {{ t.original }}{% endif %}
++<a download href="{{ url_for('.download',sha=row.sha) }}">{{ t.file }} · #{{ row.number }}</a>
++<button hidden type="button" data-number="{{ row.number }}" data-crc="{{ row.crc }}">{{ t.add }}</button></li>{% endfor %}</ul>
++<script id="text" type="application/json">{{ t|tojson }}</script></main></body></html>
 diff --git a/tests/test_distributions.py b/tests/test_distributions.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..0f65d2c3e81eba6e62a330276736a765a75fe415
@@ -16171,6 +17337,148 @@ index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf
 +        assert sleeper[labels["pokemon_no"]] == species
 +        assert labels["pokemon_nickname"] not in sleeper
 +    assert content["sleeper"]["pokemon_nickname"] == "A汉"
+diff --git a/tests/test_island_actions.py b/tests/test_island_actions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b37f8d950f529e56d40115af0a25351e0f1139c5
+--- /dev/null
++++ b/tests/test_island_actions.py
+@@ -0,0 +1,136 @@
++from contextlib import ExitStack, contextmanager
++from unittest.mock import patch
++
++from game_sync_server.entralinked.utility.db_manager import DBManager
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from tests.test_offline_islands import create
++from utils import island_actions as actions
++from utils import managers, save_data, visits
++from utils import offline_islands as islands
++
++
++@contextmanager
++def active(path):
++    db = DBManager(path)
++    try:
++        with ExitStack() as stack:
++            for module in (actions, managers, islands, save_data):
++                stack.enter_context(patch.object(module, "db", db))
++            yield db
++    finally:
++        db.close()
++
++
++def count(card, item):
++    stack = managers.get_chest(card).fetch_item_by_id(item)
++    return stack["item_cnt"] if stack else 0
++
++
++def test_offline_reservations_delayed_ack_and_changed_shelf(tmp_path):
++    host, guest = gsid_to_gscd(70), gsid_to_gscd(71)
++    with active(tmp_path / "home") as db:
++        create(db, host, "Host")
++        shelf = managers.get_shelf(host)
++        for x in (0, 1, 2):
++            shelf.place(x, 0, 149, host)
++        owner = islands.export_island(host)
++    island = owner["island_id"]
++    with active(tmp_path / "away") as db:
++        create(db, guest, "Visitor")
++        visitor = islands.export_island(guest)
++        islands.import_island(guest, owner)
++        actions.receive(guest, island, [])
++        managers.get_chest(guest).add_item(150, 3)
++        initial = count(guest, 150), count(guest, 149)
++        for slot in (0, 1, 2, 2):
++            actions.request_action(guest, island, owner["version"], "trade", slot, 150)
++        batch = actions.pending(guest, island)
++        assert len(batch) == 3 and count(guest, 150) == initial[0] - 3
++    with active(tmp_path / "home"):
++        islands.import_island(host, visitor)
++        stale = managers.get_shelf(host).data["share_list"][2]
++        managers.get_shelf(host).swap_from_island(stale["material_id"], 149, "Other")
++        results = actions.receive(host, visitor["island_id"], batch)
++        assert list(results.values()) == [True, True, False]
++        assert actions.receive(host, visitor["island_id"], batch) == results
++        assert [s["item_id"] for s in managers.get_shelf(host).data["share_list"]] == [150, 150, 149]
++    with active(tmp_path / "away"):
++        actions.settle(guest, island, batch, results)
++        actions.settle(guest, island, batch, results)
++        assert (count(guest, 150), count(guest, 149)) == (initial[0] - 2, initial[1] + 2)
++        assert not actions.pending(guest, island)
++
++
++def test_water_receipts_and_refund(tmp_path):
++    host, guest = gsid_to_gscd(46), gsid_to_gscd(47)
++    with active(tmp_path / "home") as db:
++        create(db, host, "Host")
++        garden = managers.get_crops(host)
++        for plot in garden.data["croft_list"][:2]:
++            garden.sow(plot["my_croft_id"], 149)
++
++        def dry(data):
++            for plot in data["croft_list"][:2]:
++                plot["dirt_hp"] = 20
++
++        db.update(host, "crop_data", dry)
++        owner = islands.export_island(host)
++    island = owner["island_id"]
++    with active(tmp_path / "away") as db:
++        create(db, guest, "Visitor")
++        visitor = islands.export_island(guest)
++        islands.import_island(guest, owner)
++        actions.receive(guest, island, [])
++        remaining = visits.friend_waterings_left(guest)
++        for i in (0, 1):
++            actions.request_action(guest, island, owner["version"], "water", i)
++        batch = actions.pending(guest, island)
++        assert visits.friend_waterings_left(guest) == remaining - 2
++    with active(tmp_path / "home"):
++        islands.import_island(host, visitor)
++        garden = managers.get_crops(host)
++        garden.water_plot(garden.data["croft_list"][1]["my_croft_id"])
++        results = actions.receive(host, visitor["island_id"], batch)
++        assert list(results.values()) == [True, False]
++        assert actions.receive(host, visitor["island_id"], batch) == results
++    with active(tmp_path / "away"):
++        points = save_data.read_member(guest)["experiment_point"]
++        actions.settle(guest, island, batch, results)
++        actions.settle(guest, island, batch, results)
++        assert visits.friend_waterings_left(guest) == remaining - 1
++        assert save_data.read_member(guest)["experiment_point"] == points + 10
++
++
++def test_profile_form_reserves_trade_only_with_its_session_token(tmp_path, monkeypatch):
++    from api import native_islands
++    from api.server import create_app
++    from utils import island_peers
++
++    host, guest = gsid_to_gscd(25), gsid_to_gscd(27)
++    with active(tmp_path / "host") as db:
++        create(db, host, "Host")
++        managers.get_shelf(host).place(0, 0, 149, host)
++        doc = islands.export_island(host)
++    island = doc["island_id"]
++    monkeypatch.setattr(island_peers, "SAVE_DIR", tmp_path / "links")
++    monkeypatch.setattr(native_islands, "resident", lambda: guest)
++    with active(tmp_path / "guest") as db:
++        create(db, guest, "Visitor")
++        managers.get_chest(guest).add_item(150, 1)
++        islands.import_island(guest, doc)
++        with island_peers.database() as conn:
++            conn.execute(
++                "INSERT INTO links(id,secret,card,island,address) VALUES(?,?,?,?,?)",
++                ("fixture", "x", guest, island, "127.0.0.1"),
++            )
++        actions.receive(guest, island, [])
++        client = create_app().test_client()
++        base = "/islands/" + island
++        response = client.get(base + "/profile")
++        assert response.status_code == 200 and b'name="payment"' in response.data
++        form = {"kind": "trade", "version": doc["version"], "slot": 0, "payment": 150}
++        assert client.post(base + "/interact", data=form).status_code == 403
++        with client.session_transaction() as session:
++            form["csrf"] = session["island_csrf"]
++        assert client.post(base + "/interact", data=form).status_code == 303
++        assert len(actions.pending(guest, island)) == 1
 diff --git a/tests/test_island_encounters.py b/tests/test_island_encounters.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..f147e6a8c066bef0cc8a2b2ca32108ac347cf408
@@ -16873,6 +18181,196 @@ index 0000000000000000000000000000000000000000..41645523ea173663baf7697db628522f
 +        islands.import_island(one, island)
 +    with server(tmp_path / "visitor"):
 +        assert islands.native_member_id(one, island["island_id"]) == restored
+diff --git a/tests/test_practice.py b/tests/test_practice.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e811da00c24768eecc2230054fb65f40caf774c8
+--- /dev/null
++++ b/tests/test_practice.py
+@@ -0,0 +1,37 @@
++"""The public arcade has no player identity, write route or cartridge dependency."""
++
++import struct
++import zlib
++
++from api import practice
++from api.server import create_app
++from utils.data import load_json_data
++
++
++def test_all_games_available_without_a_session():
++    client = create_app().test_client()
++    menu = client.get("/practice/")
++    assert menu.status_code == 200 and not menu.headers.get("Set-Cookie")
++    for number in range(1, 13):
++        route = f"/practice/{number}/"
++        assert route.encode() in menu.data
++        page = client.get(route)
++        assert page.status_code == 200 and not page.headers.get("Set-Cookie")
++        assert f'data-game="{number}"'.encode() in page.data
++        assert client.post(route).status_code == 405
++    for route in ("/practice/0/", "/practice/13/", "/practice/pdw/assets/game/no.swf"):
++        assert client.get(route).status_code == 404
++    assert all(len(labels["games"]) == 12 for labels in load_json_data("practice").values())
++
++
++def test_archived_stage_and_cafe_movies():
++    client = create_app().test_client()
++    root = "/practice/pdw/assets/game/"
++    response = client.get(root + "player.swf")
++    content = response.data
++    assert content[:3] == b"CWS" and len(zlib.decompress(content[8:])) + 8 == struct.unpack_from("<I", content, 4)[0]
++    assert client.get(root + "player.swf", headers={"If-None-Match": response.headers["ETag"]}).status_code == 304
++    for number in (5, 11):
++        movie = client.get(root + f"game{number}pm.swf").data
++        assert b"po19\0" in zlib.decompress(movie[8:])
++    assert practice._practice_movie.cache_info().hits >= 1
+diff --git a/tests/test_tournaments.py b/tests/test_tournaments.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f855bd19c0bfbb64b0a5a66aa60ba6aecac0dcfe
+--- /dev/null
++++ b/tests/test_tournaments.py
+@@ -0,0 +1,92 @@
++"""Use a throwaway save and independently construct the original B2/W2 PWT footer."""
++
++import binascii
++import hashlib
++import shutil
++import struct
++import subprocess
++from pathlib import Path
++from unittest.mock import patch
++
++import pytest
++
++from api import tournaments
++from api.server import create_app
++
++
++def checksum(data):
++    return binascii.crc_hqx(data, 0xFFFF)
++
++
++def test_tournament_browser_and_verified_cache(tmp_path):
++    page = create_app().test_client().get("/campaign/japan/tournaments/")
++    rows = tournaments.catalog()
++    assert page.status_code == 200 and len(rows) == 10
++    assert len({row["number"] for row in rows.values()}) == 9
++    assert all(sha.encode() in page.data for sha in rows)
++    block = bytes(4884)
++    sha = hashlib.sha1(b"blob 4884\0" + block).hexdigest()
++    with patch.object(tournaments, "SAVE_DIR", tmp_path), patch.object(tournaments, "urlopen") as fetch:
++        fetch.return_value.__enter__.return_value.read.return_value = block
++        row = {"sha": sha, "file": "fixture.pwt"}
++        assert tournaments.tournament_file(row) == block
++        assert tournaments.tournament_file(row) == block and fetch.call_count == 1
++        with pytest.raises(ValueError):
++            tournaments.tournament_file(dict(row, sha="a" * 40))
++
++
++@pytest.mark.skipif(not shutil.which("node"), reason="Browser-module check requires Node")
++def test_install_preserves_other_slots_and_original(tmp_path):
++    save = bytearray(0x80000)
++    save[0x1941E:0x19420] = bytes((1, 23))
++    save[0x70000:0x70004] = b"KEEP"
++    for offset in (0x194B2, 0x25F36):
++        struct.pack_into("<H", save, offset, checksum(save[0x19400:0x194B0]))
++    struct.pack_into("<H", save, 0x25FA2, checksum(save[0x25F00:0x25F94]))
++    original = tmp_path / "test.sav"
++    original.write_bytes(save)
++    block = bytearray(0x1314)
++    struct.pack_into("<H", block, 8, 10001)
++    crc = checksum(block[:0x1214])
++    struct.pack_into("<HH", block, 0x1214, 1, crc)
++    struct.pack_into("<4I", block, 0x1300, crc, 1, len(block), 0x31053527)
++    struct.pack_into("<H", block, 0x1312, checksum(block[0x1300:0x1304]))
++    (tmp_path / "event.pwt").write_bytes(block)
++    module = (Path(__file__).resolve().parents[1] / "static/pwt-save.mjs").as_uri()
++    script = tmp_path / "check.mjs"
++    script.write_text(
++        f'import {{inspect,install}} from "{module}";\n'
++        + """
++import assert from "node:assert/strict";
++import fs from "node:fs";
++const save=new Uint8Array(fs.readFileSync("test.sav")), file=new Uint8Array(fs.readFileSync("event.pwt"));
++const output=install(save,file);
++assert.equal(inspect(output)[0].number,10001);
++assert.equal(inspect(save).filter(s=>s.empty).length,3);
++assert.throws(()=>install(output,file),/already/);
++fs.writeFileSync("copy.sav",output);
++save[0x1941f]=21;
++assert.throws(()=>inspect(save),/invalid/);
++""",
++        encoding="utf8",
++    )
++    subprocess.run(["node", script], cwd=tmp_path, check=True)
++    output = (tmp_path / "copy.sav").read_bytes()
++    assert output[0x7A000:0x7B314] == block
++    allowed = {
++        0x19452,
++        0x19453,
++        0x194A0,
++        0x194A1,
++        0x194A2,
++        0x194A3,
++        0x194B2,
++        0x194B3,
++        0x25F36,
++        0x25F37,
++        0x25FA2,
++        0x25FA3,
++    }
++    assert all(
++        i in allowed or 0x7A000 <= i < 0x7B314 for i, (a, b) in enumerate(zip(save, output, strict=True)) if a != b
++    )
+diff --git a/tests/test_travel_promotions.py b/tests/test_travel_promotions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..c96d0237ce7c5892dd2bce7f0ed8cae9c24a37fd
+--- /dev/null
++++ b/tests/test_travel_promotions.py
+@@ -0,0 +1,43 @@
++import copy
++import secrets
++from unittest.mock import patch
++
++import pytest
++
++from tests import test_visit_storage
++from utils import distributions as gifts
++from utils import visit_storage as visits
++
++paired = test_visit_storage.servers
++
++
++def test_paired_claim_round_trip_and_retry(paired):
++    home, host = paired
++    code = home.resident(17)
++    with home.active(), home.db.transaction() as conn:
++        gifts.schema(conn)
++        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,?,?,?)", (code, "home-only-identity", 20, 1, "{}"))
++        original = visits.export_local("Trainer", code)
++    token = secrets.token_urlsafe(32)
++    gift = next(g for g in gifts.catalog().values() if g.language == "JPN" and g.number and gifts.compatible(g, 20, 1))
++    with host.active(), patch.object(gifts, "db", host.db):
++        visits.redeem(visits.create_invite(), original["snapshot"], token)
++        assert gifts.queue(code, gift, 20, 1) == "queued"
++        assert gifts.queue(code, gift, 20, 1) == "queued"
++        new = visits.read_snapshot(token)
++        with host.db.transaction() as conn:
++            assert gifts.state(conn, code)[0]["wfc"] is None
++            assert conn.execute("SELECT COUNT(*) FROM distribution_orders").fetchone()[0] == 1
++    with home.active():
++        assert visits.apply_local("Trainer", code, original["revision"], new["snapshot"]) == new
++        assert visits.apply_local("Trainer", code, original["revision"], new["snapshot"]) == new
++        modified = copy.deepcopy(new["snapshot"])
++        modified["save"]["player_data"]["travel_gifts"]["orders"][0][1] = "sent"
++        with pytest.raises(visits.VisitInvalid):
++            visits.apply_local("Trainer", code, new["revision"], modified)
++        del modified["save"]["player_data"]["travel_gifts"]
++        with pytest.raises(visits.VisitConflict):
++            visits.apply_local("Trainer", code, new["revision"], modified)
++        assert visits.export_local("Trainer", code) == new
++        with home.db.transaction() as conn:
++            assert gifts.state(conn, code)[0]["wfc"] == "home-only-identity"
 diff --git a/tests/test_visit_storage.py b/tests/test_visit_storage.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..acccdbad4a2d421ef806611e439b7351d4062528
@@ -17376,10 +18874,10 @@ index dd7b2ce68d370a7e6c68ccc9a442549c351ea83d..e25c8d4f051e41d804f48e416998e6ae
      if accounts.claim_daily_bonus(account["username"], save_data.today_jst_str()) and session.get("gscd"):
 diff --git a/utils/distributions.py b/utils/distributions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..36559f8c40bc8404846e3a64946a313420766fed
+index 0000000000000000000000000000000000000000..8fa85603120b24b8359ec63873a43134eb9e52be
 --- /dev/null
 +++ b/utils/distributions.py
-@@ -0,0 +1,388 @@
+@@ -0,0 +1,397 @@
 +"""Cartridge-scoped promotions and native Generation V Wonder Card deliveries."""
 +import binascii
 +import hashlib
@@ -17480,6 +18978,8 @@ index 0000000000000000000000000000000000000000..36559f8c40bc8404846e3a64946a3134
 +
 +
 +def schema(conn):
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_visit_album (
++        card TEXT PRIMARY KEY, rom INTEGER NOT NULL, lang INTEGER NOT NULL, album TEXT)""")
 +    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_cartridges (
 +        card TEXT PRIMARY KEY, wfc TEXT NOT NULL, rom INTEGER NOT NULL, lang INTEGER NOT NULL,
 +        album TEXT)""")
@@ -17576,6 +19076,9 @@ index 0000000000000000000000000000000000000000..36559f8c40bc8404846e3a64946a3134
 +    schema(conn)
 +    _upgrade_variant_orders(conn, card)
 +    identity = conn.execute("SELECT * FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
++    if identity is None:
++        identity = conn.execute("SELECT rom,lang,album,NULL AS wfc FROM distribution_visit_album WHERE card=?",
++                                (card,)).fetchone()
 +    orders = {row["family"]: row for row in conn.execute(
 +        "SELECT family,gift,status FROM distribution_orders WHERE card=?", (card,))}
 +    album = json.loads(identity["album"]) if identity and identity["album"] is not None else None
@@ -17618,6 +19121,10 @@ index 0000000000000000000000000000000000000000..36559f8c40bc8404846e3a64946a3134
 +    if (len(raw) != 204 or hashlib.sha1(b"blob 204\0" + raw).hexdigest() != gift.digest
 +            or int.from_bytes(raw[0xb0:0xb2], "little") != gift.number or raw[0xb3] not in (1, 2, 3)):
 +        raise ValueError("Invalid archived gift")
++    return pack_card(raw, gift, lang)
++
++
++def pack_card(raw, gift, lang):
 +    data = bytearray(720)
 +    data[:204] = raw
 +    data[0xac:0xb0] = bytes(4)
@@ -17643,7 +19150,7 @@ index 0000000000000000000000000000000000000000..36559f8c40bc8404846e3a64946a3134
 +        if gift.number:
 +            if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
 +                return "sync"
-+            if conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
++            if identity["wfc"] is not None and conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
 +                            (identity["wfc"], rom, lang)).fetchone()[0] != 1:
 +                return "ambiguous"
 +        current = status(gift, orders, album)
@@ -17800,6 +19307,260 @@ index 0000000000000000000000000000000000000000..92d876090bddb74dccc19e874a127529
 +    if not verified and len(name) > 1 and name.strip("?") == "":
 +        return None
 +    return name
+diff --git a/utils/island_actions.py b/utils/island_actions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9c59359a95c09e9ce90328da749bb5ff99ed3fe2
+--- /dev/null
++++ b/utils/island_actions.py
+@@ -0,0 +1,248 @@
++"""Two paired islands exchange requests over their existing authenticated link.
++
++The visitor reserves payment when submitting. Only an owner acknowledgement credits
++the replacement or refunds the reservation. Lost replies can be requested again.
++"""
++
++import hashlib
++import json
++
++from game_sync_server.entralinked.utility.db_manager import db
++from utils import managers, save_data, visits
++from utils import offline_islands as islands
++
++
++def schema(conn) -> None:
++    conn.execute("""CREATE TABLE IF NOT EXISTS island_reserved_water (
++        card TEXT, island TEXT, id TEXT, day TEXT NOT NULL, PRIMARY KEY(card,island,id))""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS island_action_peers (
++        card TEXT, island TEXT, PRIMARY KEY(card,island))""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS island_actions (
++        card TEXT, island TEXT, id TEXT, request TEXT NOT NULL, status TEXT NOT NULL,
++        PRIMARY KEY(card,island,id))""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS island_action_results (
++        card TEXT, island TEXT, id TEXT, request TEXT NOT NULL, accepted INTEGER NOT NULL,
++        PRIMARY KEY(card,island,id))""")
++
++
++def compatible(card, island) -> bool:
++    with db.transaction() as conn:
++        schema(conn)
++        return bool(
++            conn.execute("SELECT 1 FROM island_action_peers WHERE card=? AND island=?", (card, island)).fetchone()
++        )
++
++
++def clear_capability(card, island) -> None:
++    with db.transaction() as conn:
++        schema(conn)
++        conn.execute("DELETE FROM island_action_peers WHERE card=? AND island=?", (card, island))
++
++
++def pending(card, island) -> list[dict]:
++    with db.transaction() as conn:
++        schema(conn)
++        return [
++            json.loads(row[0])
++            for row in conn.execute(
++                "SELECT request FROM island_actions WHERE card=? AND island=? AND status='pending' ORDER BY rowid LIMIT 30",
++                (card, island),
++            )
++        ]
++
++
++def history(card, island) -> list[dict]:
++    with db.transaction() as conn:
++        schema(conn)
++        return [
++            dict(json.loads(req), status=status)
++            for req, status in conn.execute(
++                "SELECT request,status FROM island_actions WHERE card=? AND island=? ORDER BY rowid DESC LIMIT 12",
++                (card, island),
++            )
++        ]
++
++
++def _identity(island, version, kind, slot) -> str:
++    raw = f"{island}/{version}/{kind}/{slot}".encode("ascii")
++    return hashlib.sha256(raw).hexdigest()
++
++
++def request_action(card, island, version, kind, slot, payment=None) -> None:
++    if kind not in ("water", "trade") or type(slot) is not int or slot < 0:
++        raise ValueError("Invalid action.")
++    with db.transaction() as conn:
++        if not compatible(card, island):
++            raise ValueError("Pairing required.")
++        doc = islands.get_friend(card, island)
++        if doc["version"] != version:
++            raise ValueError("The island changed.")
++        items = doc["content"]["garden" if kind == "water" else "shelf"]
++        if slot >= len(items):
++            raise ValueError("Slot changed.")
++        ident = _identity(island, version, kind, slot)
++        if conn.execute(
++            "SELECT 1 FROM island_actions WHERE card=? AND island=? AND id=?", (card, island, ident)
++        ).fetchone():
++            return
++        target = items[slot]
++        if kind == "trade":
++            if (
++                type(payment) is not int
++                or str(payment) not in managers.ITEM_INFO
++                or str(target["item_id"]) not in managers.ITEM_INFO
++                or payment == target["item_id"]
++            ):
++                raise ValueError("Choose a different item.")
++            managers.get_chest(card).remove_item(payment, 1)
++        else:
++            if (
++                not target.get("planted_at")
++                or target.get("dirt_hp", 0) >= managers.CropManager.FULL_DIRT_HP
++                or target.get("kinomi_state", 0) >= managers.CropManager.GROWTH_STAGES
++            ):
++                raise ValueError("This plant does not need water.")
++            visits.use_friend_watering(card)
++            conn.execute(
++                "INSERT INTO island_reserved_water VALUES(?,?,?,?)", (card, island, ident, save_data.today_jst_str())
++            )
++        request = {
++            "id": ident,
++            "version": version,
++            "kind": kind,
++            "slot": slot,
++            "payment": payment,
++            "expected": target.get("item_id") if kind == "trade" else target["planted_at"],
++        }
++        conn.execute(
++            "INSERT INTO island_actions VALUES(?,?,?,?,'pending')",
++            (card, island, ident, json.dumps(request, sort_keys=True)),
++        )
++
++
++def _apply(conn, card, source, req) -> bool:
++    doc = islands.export_island(card)
++    kind, slot = req["kind"], req["slot"]
++    if req["id"] != _identity(doc["island_id"], req["version"], kind, slot):
++        return False
++
++    def targets(version) -> list:
++        row = conn.execute(
++            "SELECT targets FROM offline_island_targets WHERE card=? AND version=?", (card, version)
++        ).fetchone()
++        return json.loads(row[0])[kind] if row else []
++
++    old, current = targets(req["version"]), targets(doc["version"])
++    if slot >= len(old) or old[slot] not in current:
++        return False
++    slot = current.index(old[slot])
++    if kind == "water":
++        plot_list = doc["content"]["garden"]
++        if slot >= len(plot_list) or plot_list[slot].get("planted_at") != req["expected"]:
++            return False
++        record = plot_list[slot]
++        for plot in managers.get_crops(card).data["croft_list"]:
++            if (plot["x"], plot["y"]) == (record["x"], record["y"]) and plot.get("server", {}).get("planted_at") == req[
++                "expected"
++            ]:
++                return managers.get_crops(card).water_plot(plot["my_croft_id"])
++        return False
++    shelf = managers.get_shelf(card)
++    slots = shelf.data["share_list"]
++    if (
++        slot >= len(slots)
++        or str(req["expected"]) not in managers.ITEM_INFO
++        or slots[slot]["item_id"] != req["expected"]
++        or req["payment"] == req["expected"]
++    ):
++        return False
++    profile = islands.get_friend(card, source)["content"]["profile"]
++    shelf.swap_from_island(slots[slot]["material_id"], req["payment"], profile["pgl_name"])
++    return True
++
++
++def receive(card, island, batch) -> dict[str, bool]:
++    if not isinstance(batch, list) or len(batch) > 30:
++        raise ValueError("Invalid interaction batch.")
++    with db.transaction() as conn:
++        schema(conn)
++        conn.execute("INSERT OR IGNORE INTO island_action_peers VALUES(?,?)", (card, island))
++        results = {}
++        for req in batch:
++            if (
++                not isinstance(req, dict)
++                or set(req) != {"kind", "id", "version", "slot", "payment", "expected"}
++                or req["kind"] not in ("water", "trade")
++                or not isinstance(req["id"], str)
++                or not islands._HEX64.fullmatch(req["id"])
++                or not islands._integer(req["slot"], 0, 127)
++                or not islands._integer(req["version"], 1)
++                or not islands._integer(req["expected"])
++                or (
++                    req["kind"] == "trade"
++                    and (type(req["payment"]) is not int or str(req["payment"]) not in managers.ITEM_INFO)
++                )
++                or (req["kind"] == "water" and req["payment"] is not None)
++            ):
++                raise ValueError("Invalid interaction.")
++            ident = req["id"]
++            saved = conn.execute(
++                "SELECT request,accepted FROM island_action_results WHERE card=? AND island=? AND id=?",
++                (card, island, ident),
++            ).fetchone()
++            encoded = json.dumps(req, sort_keys=True)
++            if saved:
++                if saved[0] != encoded:
++                    raise ValueError("Conflicting repeat.")
++                results[ident] = bool(saved[1])
++            else:
++                accepted = _apply(conn, card, island, req)
++                conn.execute(
++                    "INSERT INTO island_action_results VALUES(?,?,?,?,?)", (card, island, ident, encoded, int(accepted))
++                )
++                results[ident] = accepted
++        return results
++
++
++def settle(card, island, batch, results) -> None:
++    if (
++        not isinstance(results, dict)
++        or set(results) != {req["id"] for req in batch}
++        or any(type(v) is not bool for v in results.values())
++    ):
++        raise ValueError("Invalid interaction acknowledgement.")
++    with db.transaction() as conn:
++        schema(conn)
++        conn.execute("INSERT OR IGNORE INTO island_action_peers VALUES(?,?)", (card, island))
++        for ident, accepted in results.items():
++            row = conn.execute(
++                "SELECT request FROM island_actions WHERE card=? AND island=? AND id=? AND status='pending'",
++                (card, island, ident),
++            ).fetchone()
++            if not row:
++                continue
++            req = json.loads(row[0])
++            if req["kind"] == "trade":
++                managers.get_chest(card).add_item(req["expected"] if accepted else req["payment"], 1)
++            elif accepted:
++                save_data.award_points(10, card)
++            if req["kind"] == "water":
++                held = conn.execute(
++                    "SELECT day FROM island_reserved_water WHERE card=? AND island=? AND id=?", (card, island, ident)
++                ).fetchone()
++                if not accepted and held and held[0] == save_data.today_jst_str():
++
++                    def refund(member, day=held[0]) -> None:
++                        if member.get("friend_waterings_date") == day:
++                            member["friend_waterings_left"] = min(
++                                visits.FRIEND_WATERINGS_PER_DAY, member["friend_waterings_left"] + 1
++                            )
++
++                    save_data.change_member(refund, card)
++                conn.execute(
++                    "DELETE FROM island_reserved_water WHERE card=? AND island=? AND id=?", (card, island, ident)
++                )
++            conn.execute(
++                "UPDATE island_actions SET status=? WHERE card=? AND island=? AND id=?",
++                ("accepted" if accepted else "declined", card, island, ident),
++            )
 diff --git a/utils/island_art.py b/utils/island_art.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..c754f55af66654d4eae162b92ce733ac758e6f3a
@@ -17860,10 +19621,10 @@ index 0000000000000000000000000000000000000000..c754f55af66654d4eae162b92ce733ac
 +    raise FileNotFoundError
 diff --git a/utils/island_peers.py b/utils/island_peers.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67ae92f931
+index 0000000000000000000000000000000000000000..56cfe9b2a63ce7a8dfa9f0eb65bd13d2c3b52843
 --- /dev/null
 +++ b/utils/island_peers.py
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,393 @@
 +"""Authenticated, reciprocal exchanges of signed island views and delivery receipts."""
 +
 +import hashlib
@@ -17885,6 +19646,7 @@ index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67
 +
 +from config import SAVE_DIR
 +from utils import offline_islands as islands
++from utils import island_actions as actions
 +from utils.web_network import PRIVATE_LANS
 +
 +PORT = 8094
@@ -18133,11 +19895,23 @@ index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67
 +
 +def forget(card: str, island: str) -> None:
 +    with database() as db:
++        db.execute("BEGIN IMMEDIATE")
++        if actions.pending(card,island):
++            raise PeerError("pending_actions")
++        actions.clear_capability(card,island)
 +        db.execute(
 +            "DELETE FROM receipts WHERE link IN (SELECT id FROM links WHERE card=? AND island=?)", (card, island)
 +        )
 +        db.execute("DELETE FROM offline WHERE link IN (SELECT id FROM links WHERE card=? AND island=?)", (card, island))
 +        db.execute("DELETE FROM links WHERE card=? AND island=?", (card, island))
++
++
++def request_interaction(card, island, version, kind, slot, payment):
++    with database() as db:
++        db.execute("BEGIN IMMEDIATE")
++        if not db.execute("SELECT 1 FROM links WHERE card=? AND island=?", (card,island)).fetchone():
++            raise PeerError("not_paired")
++        actions.request_action(card,island,version,kind,slot,payment)
 +
 +
 +def _known(card: str, island: str) -> int:
@@ -18171,7 +19945,9 @@ index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67
 +        ]
 +    doc = islands.export_island(card)
 +    pending = islands.pending_footprints(card, island)
++    activity = actions.pending(card,island)
 +    msg = {
++        "actions": activity,
 +        "since": _known(card, island),
 +        "version": doc["version"],
 +        "events": pending,
@@ -18188,6 +19964,10 @@ index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67
 +            db.execute("INSERT OR IGNORE INTO offline VALUES(?)", (link["id"],))
 +        raise
 +    _import(card, island, reply.get("snapshot"))
++    if "action_results" in reply:
++        actions.settle(card,island,activity,reply["action_results"])
++    else:
++        actions.clear_capability(card,island)
 +    ids = _batch(reply, "ack")
 +    if any(i not in [event["event_id"] for event in pending] for i in ids):
 +        raise PeerError("invalid_receipt")
@@ -18213,8 +19993,10 @@ index 0000000000000000000000000000000000000000..f3415194d2304193bb9862349f66ac67
 +        return {"need_snapshot": True}
 +    islands.acknowledge_footprints(card, island, _batch(msg, "ack"))
 +    ids = islands.receive_footprints(card, island, _batch(msg, "events"))
++    extra = {"action_results": actions.receive(card,island,msg["actions"])} if "actions" in msg else {}
 +    doc = islands.export_island(card)
 +    return {
++        **extra,
 +        "ack": ids,
 +        "events": islands.pending_footprints(card, island),
 +        "snapshot": doc if msg["since"] != doc["version"] else None,
@@ -18474,7 +20256,7 @@ index 6ae8bc4d94ca922dd7d3c859f2c9a18e9f284cd1..6f1a8840423750390b08e2f6400df09c
  
  
 diff --git a/utils/managers.py b/utils/managers.py
-index f21949b7b78bb7af757a3ba447f590d283e16de1..a46e9736d407c0f0ccf70b570b7bf185b16836ab 100644
+index f21949b7b78bb7af757a3ba447f590d283e16de1..f5f02dd6cd5c59e1ded3585d004facef6b423bcb 100644
 --- a/utils/managers.py
 +++ b/utils/managers.py
 @@ -10,11 +10,13 @@ from collections.abc import Callable
@@ -18598,7 +20380,24 @@ index f21949b7b78bb7af757a3ba447f590d283e16de1..a46e9736d407c0f0ccf70b570b7bf185
                  "old_item_name": text.lookup_str("item", slot["old_item_id"]),
                  "field_line1":   line1,
                  "field_line2":   line2,
-@@ -458,6 +499,7 @@ def _trader_fields(gscd: str) -> ShareSlot:
+@@ -434,7 +475,15 @@ class ShareManager(_ColumnManager):
+         `swapped_by` is the Game Sync ID of whoever made the swap. The new item gets a new
+         material_id.
+         """
+-        trader = _trader_fields(swapped_by)
++        return self._swap(material_id, item_id, _trader_fields(swapped_by))
++
++    def swap_from_island(self, material_id: int, item_id: int, name: str) -> int:
++        """Remote friends have no account or member number on this server."""
++        return self._swap(material_id, item_id, {"pgl_name":name,"old_member_savedata_id":None,
++            "pokemon_no":None,"form_no":None,"nickname":None,"poke_nickname":None,"nickname_verified":False,
++            "created_at":datetime.now(save_data.JST).strftime("%Y-%m-%d %H:%M")})
++
++    def _swap(self, material_id: int, item_id: int, trader: ShareSlot) -> int:
+         new_material_id = db.next_id("material_id")[0]
+ 
+         def trade(shelf: ShareData) -> int:
+@@ -458,6 +507,7 @@ def _trader_fields(gscd: str) -> ShareSlot:
          "pgl_name":               member.get("pgl_name"),
          "nickname":               member.get("player_name"),
          "poke_nickname":          pkmn.get("pokemon_nickname"),
@@ -18815,10 +20614,10 @@ index 0000000000000000000000000000000000000000..abf27868144e473d7d291fe405220c23
 +    return result[:8] + (zlib.compress(result[8:]) if result[:3] == b"CWS" else result[8:])
 diff --git a/utils/offline_islands.py b/utils/offline_islands.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..2616ba6b19dccb0f681fa246b60650026af5294c
+index 0000000000000000000000000000000000000000..e300f4dcd29695eaa4d544556cba4029bfafcdf4
 --- /dev/null
 +++ b/utils/offline_islands.py
-@@ -0,0 +1,432 @@
+@@ -0,0 +1,443 @@
 +"""Signed, read-only island postcards and a separate durable footprint mailbox."""
 +import hashlib
 +import json
@@ -18845,6 +20644,8 @@ index 0000000000000000000000000000000000000000..2616ba6b19dccb0f681fa246b6065002
 +MAX_BATCH = 50
 +
 +_SCHEMA = (
++    """CREATE TABLE IF NOT EXISTS offline_island_targets (
++        card TEXT, version INTEGER, targets TEXT NOT NULL, PRIMARY KEY(card,version))""",
 +    """CREATE TABLE IF NOT EXISTS offline_island_owners (
 +        gscd TEXT PRIMARY KEY, seed BLOB NOT NULL, island TEXT NOT NULL UNIQUE,
 +        digest TEXT, document TEXT)""",
@@ -19048,9 +20849,15 @@ index 0000000000000000000000000000000000000000..2616ba6b19dccb0f681fa246b6065002
 +def export_island(gscd: str) -> dict:
 +    """Return a stable signed version, incrementing only when a shared field changed."""
 +    with _transaction() as conn:
-+        content = _public_content(_local_card(conn, gscd))
++        row = _local_card(conn, gscd)
++        content = _public_content(row)
++        shelf = (json.loads(row["share_data"] or "{}") or {}).get("share_list", [])
++        targets = {
++            "trade": [[s.get("material_id"),s["item_id"],s.get("x"),s.get("y")] for s in shelf],
++            "water": [[s.get("planted_at"),s.get("watered_at"),s.get("pokeitem_id"),s["x"],s["y"]]
++                      for s in content["garden"]]}
 +        owner = _owner(conn, gscd)
-+        digest = hashlib.sha256(_canonical(content)).hexdigest()
++        digest = hashlib.sha256(_canonical([content,targets])).hexdigest()
 +        if digest == owner["digest"]:
 +            return json.loads(owner["document"])
 +        previous = json.loads(owner["document"]) if owner["document"] else {}
@@ -19063,6 +20870,9 @@ index 0000000000000000000000000000000000000000..2616ba6b19dccb0f681fa246b6065002
 +        if len(encoded) > MAX_BYTES:
 +            raise IslandError("This island exceeds the snapshot size limit.")
 +        conn.execute("UPDATE offline_island_owners SET digest=?, document=? WHERE gscd=?", (digest, encoded.decode(), gscd))
++        conn.execute("INSERT INTO offline_island_targets VALUES(?,?,?)",
++                     (gscd,document["version"],json.dumps(targets)))
++        conn.execute("DELETE FROM offline_island_targets WHERE card=? AND version<=?",(gscd,document["version"]-128))
 +        return document
 +
 +
@@ -19671,12 +21481,158 @@ index 9b2a9559c4cef5aafa2ca6ad712bb9efe500570c..b50b28087c2a1ec8213f79f7ac5ecda0
      if string_id is None or not 0 <= string_id < len(strings):
          return None
      return strings[string_id] or None
+diff --git a/utils/travel_gifts.py b/utils/travel_gifts.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f96c7d2b510194d980cfe505cd786bc734f23858
+--- /dev/null
++++ b/utils/travel_gifts.py
+@@ -0,0 +1,140 @@
++"""Portable promotion orders. Only the cartridge's home database holds its WFC identity."""
++
++import base64
++import binascii
++import hashlib
++import json
++
++from utils import distributions as gifts
++
++
++def export(conn, card) -> dict | None:
++    ident, _, album = gifts.state(conn, card)
++    orders = []
++    for key, phase, payload, gender in conn.execute(
++        """
++        SELECT o.gift,o.status,o.payload,d.gender FROM distribution_orders o
++        LEFT JOIN distribution_dream_options d USING(card,gift) WHERE o.card=? ORDER BY o.rowid""",
++        (card,),
++    ):
++        orders.append([key, phase, base64.b64encode(payload).decode() if payload else None, gender])
++    priority = conn.execute("SELECT gift FROM distribution_next WHERE card=?", (card,)).fetchone()
++    if not ident and not orders:
++        return None
++    return {"identified": bool(ident), "album": album, "orders": orders, "next": priority[0] if priority else None}
++
++
++def _validated(data, rom, lang) -> tuple[dict, dict, dict]:
++    if (
++        not isinstance(data, dict)
++        or set(data) != {"identified", "album", "orders", "next"}
++        or type(data["identified"]) is not bool
++        or not isinstance(data["orders"], list)
++        or len(data["orders"]) > len(gifts.catalog())
++    ):
++        raise ValueError("Invalid distribution history.")
++    album = data["album"]
++    copies = {}
++    variants = {}
++    if album is not None:
++        if not data["identified"] or not isinstance(album, dict) or len(album) > 2048 + len(gifts.catalog()):
++            raise ValueError("Invalid card album.")
++        for key, phase in album.items():
++            if phase not in ("received", "collected", "at_center"):
++                raise ValueError("Invalid card receipt.")
++            if (
++                isinstance(key, str)
++                and key.isascii()
++                and key.isdigit()
++                and len(key) <= 4
++                and str(int(key)) == key
++                and int(key) < 2048
++            ):
++                copies[key] = phase
++            elif (gift := gifts.catalog().get(key)) and gift.number and gifts.compatible(gift, rom, lang):
++                variants[key] = phase
++            else:
++                raise ValueError("Unknown receipt.")
++    orders = {}
++    for row in data["orders"]:
++        if not isinstance(row, list) or len(row) != 4 or not isinstance(row[0], str):
++            raise ValueError("Invalid gift order.")
++        key, phase, encoded, gender = row
++        gift = gifts.catalog().get(key)
++        if not gift or not gifts.compatible(gift, rom, lang) or gift.group in orders:
++            raise ValueError("Incompatible gift order.")
++        if (
++            phase not in ("queued", "sent", "delivered", "in_chest")
++            or (phase == "sent" and not gift.number)
++            or (phase == "in_chest" and gift.event != "berries")
++        ):
++            raise ValueError("Invalid gift status.")
++        if gender is not None and (gift.event != "cafe" or type(gender) is not int or gender not in (0, 1)):
++            raise ValueError("Invalid gift choice.")
++        payload = None
++        if gift.number and phase in ("queued", "sent"):
++            if not data["identified"] or not isinstance(encoded, str) or len(encoded) != 960:
++                raise ValueError("Missing Wonder Card.")
++            payload = base64.b64decode(encoded, validate=True)
++            exact = hashlib.sha1(b"blob 720\0" + payload).hexdigest() == gift.full_digest
++            if (
++                len(payload) != 720
++                or payload[0xCE] != gift.mask
++                or payload[-5] != lang
++                or int.from_bytes(payload[0xB0:0xB2], "little") != gift.number
++                or payload[0xB4] & 2
++                or binascii.crc_hqx(payload[:-2], 0xFFFF) != int.from_bytes(payload[-2:], "little")
++                or gifts._card_signature(payload[:204]) != gift.signature
++                or (not exact and gifts.pack_card(payload[:204], gift, lang) != payload)
++            ):
++                raise ValueError("Wonder Card does not match the archive.")
++        elif encoded is not None:
++            raise ValueError("Unexpected Wonder Card.")
++        orders[gift.group] = (key, phase, payload, gender)
++    priority = data["next"]
++    # The native delivery table may still point to a completed order.
++    if priority is not None and (
++        not isinstance(priority, str)
++        or not any(o[0] == priority and gifts.catalog()[priority].number for o in orders.values())
++    ):
++        raise ValueError("Invalid next Wonder Card.")
++    return copies, variants, orders
++
++
++def restore(conn, card, data, rom, lang) -> None:
++    copies, variants, orders = _validated(data, rom, lang)
++    gifts.schema(conn)
++    local = conn.execute("SELECT rom,lang,album FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
++    if local and (local["rom"], local["lang"]) != (rom, lang):
++        raise ValueError("Cartridge edition changed.")
++    if local:
++        # A visiting web server cannot certify the physical album or rewind a delivery.
++        _, old_orders, old_album = gifts.state(conn, card)
++        if data["album"] != old_album or not data["identified"]:
++            raise ValueError("Cartridge receipts changed at home.")
++        for family, old in old_orders.items():
++            if family not in orders or orders[family][0] != old["gift"]:
++                raise ValueError("A recorded claim would disappear.")
++            if old["status"] in ("in_chest", "delivered") and orders[family][1] != old["status"]:
++                raise ValueError("A completed claim would change.")
++        for family, (_, phase, _, _) in orders.items():
++            old = old_orders.get(family)
++            if phase in ("sent", "delivered") and (not old or old["status"] != phase):
++                raise ValueError("Only the cartridge can acknowledge delivery.")
++    else:
++        conn.execute("DELETE FROM distribution_visit_album WHERE card=?", (card,))
++        if data["identified"]:
++            conn.execute(
++                "INSERT INTO distribution_visit_album VALUES(?,?,?,?)",
++                (card, rom, lang, json.dumps(copies) if data["album"] is not None else None),
++            )
++        conn.execute("DELETE FROM distribution_variants WHERE card=?", (card,))
++        conn.executemany("INSERT INTO distribution_variants VALUES(?,?,?)", ((card, k, v) for k, v in variants.items()))
++    for table in ("distribution_orders", "distribution_dream_options", "distribution_next"):
++        conn.execute(f"DELETE FROM {table} WHERE card=?", (card,))
++    for family, (key, phase, payload, gender) in orders.items():
++        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,?,?)", (card, family, key, phase, payload))
++        if gender is not None:
++            conn.execute("INSERT INTO distribution_dream_options VALUES(?,?,?)", (card, key, gender))
++    if data["next"] is not None:
++        conn.execute("INSERT INTO distribution_next VALUES(?,?)", (card, data["next"]))
 diff --git a/utils/visit_storage.py b/utils/visit_storage.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..4d8498121a0c7d5c059e5a8437ecd1e6955b1bb2
+index 0000000000000000000000000000000000000000..c72157242f64070bb1b0d89f063aa58e4876d04d
 --- /dev/null
 +++ b/utils/visit_storage.py
-@@ -0,0 +1,374 @@
+@@ -0,0 +1,385 @@
 +"""Pair one owned Game Sync cartridge with an isolated visitor on a second server."""
 +import hashlib
 +import json
@@ -19691,6 +21647,7 @@ index 0000000000000000000000000000000000000000..4d8498121a0c7d5c059e5a8437ecd1e6
 +from game_sync_server.entralinked.utility import gsid_utility
 +from game_sync_server.entralinked.utility.db_manager import db
 +from utils.account_manager import accounts
++from utils import travel_gifts
 +
 +GUEST_PREFIX = "~visit~"
 +MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
@@ -19816,6 +21773,8 @@ index 0000000000000000000000000000000000000000..4d8498121a0c7d5c059e5a8437ecd1e6
 +    member.pop("member_id", None)
 +    member.pop("member_savedata_id", None)
 +    profile.pop("token", None)
++    if (history := travel_gifts.export(conn, code)) is not None:
++        profile["travel_gifts"] = history
 +    sync = save["game_sync"] or {}
 +    for key in _LOCAL_SYNC:
 +        sync.pop(key, None)
@@ -19927,6 +21886,11 @@ index 0000000000000000000000000000000000000000..4d8498121a0c7d5c059e5a8437ecd1e6
 +            row = conn.execute("SELECT json_extract(player_data,'$.member.member_savedata_id') FROM player_saves "
 +                               "WHERE gscd=?", (trader,)).fetchone()
 +            slot["old_member_savedata_id"] = row[0] if row else None
++    if "travel_gifts" in profile:
++        try:
++            travel_gifts.restore(conn, code, profile.pop("travel_gifts"), member.get("rom_id"), member.get("langcode"))
++        except (ValueError, TypeError) as exc:
++            raise VisitInvalid("Invalid distribution history.") from exc
 +    _advance_item_counters(conn, save)
 +    values = [json.dumps(save[key], ensure_ascii=False) if save[key] is not None else None for key in _COLUMNS]
 +    conn.execute("""INSERT INTO player_saves
@@ -19955,6 +21919,9 @@ index 0000000000000000000000000000000000000000..4d8498121a0c7d5c059e5a8437ecd1e6
 +        return current
 +    if expected_revision != current["revision"]:
 +        raise VisitConflict("Both copies changed. Neither copy was overwritten.")
++    if ("travel_gifts" in current["snapshot"]["save"]["player_data"]
++            and "travel_gifts" not in snapshot["save"]["player_data"]):
++        raise VisitConflict("Update both servers before syncing distribution history.")
 +    if home and snapshot["visibility"] != current["snapshot"]["visibility"]:
 +        raise VisitConflict("Account-wide privacy is managed on the home server.")
 +    _write(conn, snapshot, _load(conn, code))

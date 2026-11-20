@@ -4,6 +4,24 @@
 <div class="room-head"><div><h1>{{ owner }} <span class="room-type">· {{ t.profile }}</span></h1>
 <p class="dates">{{ t.updated }} <time data-time="{{ doc.updated_at }}">{{ date(doc.updated_at) }}</time></p></div>
 <a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a></div>
+{% if interactive or history %}
+<section id="interactions"><h2>{{ ui.title }}</h2><p>{{ ui.hint }}</p>
+{% if request.args.notice in ('saved','changed') %}<p role="status">{{ ui[request.args.notice] }}</p>{% endif %}
+{% macro fields(kind,index) -%}
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}">
+<input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="slot" value="{{ index }}">
+{%- endmacro %}
+{% if interactive %}
+{% for plot in doc.content.garden %}{% if plot.planted_at and plot.dirt_hp < full and plot.kinomi_state < ripe %}
+<form action="{{ url_for('.interact',island_id=doc.island_id) }}" method="post">{{ fields('water',loop.index0) }}
+<button>{{ ui.water }} · {{ item_name(plot.pokeitem_id) }} ({{ plot.x }}, {{ plot.y }})</button></form>{% endif %}{% endfor %}
+{% for slot in doc.content.shelf %}{% set options = stock | rejectattr('0','equalto',slot.item_id) | list %}{% if slot.item_id and options %}
+<form action="{{ url_for('.interact',island_id=doc.island_id) }}" method="post">{{ fields('trade',loop.index0) }}
+<label>{{ ui.offer }} <select name="payment">{% for id,qty in options %}<option value="{{ id }}">{{ item_name(id) }} ×{{ qty }}</option>{% endfor %}</select></label>
+<button>{{ ui.trade }} · {{ item_name(slot.item_id) }}</button></form>{% endif %}{% endfor %}
+{% endif %}
+{% if history %}<ul>{% for action in history %}<li>{{ ui[action.kind] }} · {{ item_name(action.expected) if action.kind=='trade' else '#' ~ (action.slot+1) }} · {{ ui[action.status] }}</li>{% endfor %}</ul>{% endif %}
+</section>{% endif %}
 <div class="records">{% for title,rows in groups %}<section><h2>{{ title }}</h2>
 {% if rows %}<dl>{% for key,value in rows %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
 {% else %}<p>{{ t.none }}</p>{% endif %}</section>{% endfor %}</div>

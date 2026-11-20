@@ -24,6 +24,8 @@ _HEX128 = re.compile("[0-9a-f]{128}")
 MAX_BATCH = 50
 
 _SCHEMA = (
+    """CREATE TABLE IF NOT EXISTS offline_island_targets (
+        card TEXT, version INTEGER, targets TEXT NOT NULL, PRIMARY KEY(card,version))""",
     """CREATE TABLE IF NOT EXISTS offline_island_owners (
         gscd TEXT PRIMARY KEY, seed BLOB NOT NULL, island TEXT NOT NULL UNIQUE,
         digest TEXT, document TEXT)""",
@@ -227,9 +229,15 @@ def _verify(document: dict, public_key: str) -> None:
 def export_island(gscd: str) -> dict:
     """Return a stable signed version, incrementing only when a shared field changed."""
     with _transaction() as conn:
-        content = _public_content(_local_card(conn, gscd))
+        row = _local_card(conn, gscd)
+        content = _public_content(row)
+        shelf = (json.loads(row["share_data"] or "{}") or {}).get("share_list", [])
+        targets = {
+            "trade": [[s.get("material_id"),s["item_id"],s.get("x"),s.get("y")] for s in shelf],
+            "water": [[s.get("planted_at"),s.get("watered_at"),s.get("pokeitem_id"),s["x"],s["y"]]
+                      for s in content["garden"]]}
         owner = _owner(conn, gscd)
-        digest = hashlib.sha256(_canonical(content)).hexdigest()
+        digest = hashlib.sha256(_canonical([content,targets])).hexdigest()
         if digest == owner["digest"]:
             return json.loads(owner["document"])
         previous = json.loads(owner["document"]) if owner["document"] else {}
@@ -242,6 +250,9 @@ def export_island(gscd: str) -> dict:
         if len(encoded) > MAX_BYTES:
             raise IslandError("This island exceeds the snapshot size limit.")
         conn.execute("UPDATE offline_island_owners SET digest=?, document=? WHERE gscd=?", (digest, encoded.decode(), gscd))
+        conn.execute("INSERT INTO offline_island_targets VALUES(?,?,?)",
+                     (gscd,document["version"],json.dumps(targets)))
+        conn.execute("DELETE FROM offline_island_targets WHERE card=? AND version<=?",(gscd,document["version"]-128))
         return document
 
 

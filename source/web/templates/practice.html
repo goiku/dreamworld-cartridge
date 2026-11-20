@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang=='zh' else lang }}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ t.games[number-1] if number else t.title }} · Pokémon Dream World</title>
+<link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
+{% if number %}<script defer src="/_ruffle/ruffle.js"></script><script defer src="{{ url_for('practice.static',filename='practice.js') }}"></script>{% endif %}
+</head><body><main><nav><a href="{{ '/practice/' if number else '/pdw/' }}">← {{ t.title if number else t.home }}</a><a href="{{ url_for('site.languages',page=request.path) }}">Language</a></nav>
+{% if number %}
+<h1>{{ t.games[number-1] }}</h1>
+<div id="stage" data-game="{{ number }}" data-lang="{{ movie_lang }}" data-buddy="{{ buddy }}" aria-label="{{ t.games[number-1] }}"></div>
+<p id="status" role="status" data-finished="{{ t.done }}" data-error="{{ t.error }}">{{ t.loading }}</p>
+<nav><a href="{{ url_for('practice.arcade',number=number) }}">{{ t.replay }}</a><a href="/practice/">{{ t.title }}</a></nav>
+{% else %}<h1>{{ t.title }}</h1><p>{{ t.intro }}</p>
+<ul>{% for name in t.games %}<li><a href="{{ url_for('practice.arcade',number=loop.index) }}">{{ name }}</a></li>{% endfor %}</ul>
+{% endif %}</main></body></html>

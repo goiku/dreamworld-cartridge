@@ -475,7 +475,15 @@ class ShareManager(_ColumnManager):
         `swapped_by` is the Game Sync ID of whoever made the swap. The new item gets a new
         material_id.
         """
-        trader = _trader_fields(swapped_by)
+        return self._swap(material_id, item_id, _trader_fields(swapped_by))
+
+    def swap_from_island(self, material_id: int, item_id: int, name: str) -> int:
+        """Remote friends have no account or member number on this server."""
+        return self._swap(material_id, item_id, {"pgl_name":name,"old_member_savedata_id":None,
+            "pokemon_no":None,"form_no":None,"nickname":None,"poke_nickname":None,"nickname_verified":False,
+            "created_at":datetime.now(save_data.JST).strftime("%Y-%m-%d %H:%M")})
+
+    def _swap(self, material_id: int, item_id: int, trader: ShareSlot) -> int:
         new_material_id = db.next_id("material_id")[0]
 
         def trade(shelf: ShareData) -> int:

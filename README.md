@@ -4,6 +4,22 @@ English · [日本語](docs/README.ja.md) · [简体中文](docs/README.zh-CN.md
 
 A community restoration of the Generation V Dream World. Play on a computer, befriend a Pokémon on the Island of Dreams, wish for it at the tree, and catch it in the Entree Forest on your cartridge. This repository supplies the source changes and setup tools for a private server.
 
+## Try all 12 minigames
+
+Open **Minigame practice** on the home page or above the Dream World. Choose a game, then use **Play again** or return to the list. No account, sleeping Pokémon or DS connection is required. Practice provides its own Pokémon and Berry. Scores, items and encounters stay out of your regular save. The menu uses your selected language. Some original games have text embedded in their artwork. [Open practice on the host PC](http://127.0.0.1:8080/practice/)
+
+On another device connected to the same network, use the address under **Phone access** on the server’s website, then choose practice. For normal Dream World rewards and cartridge transfers, use the regular island.
+
+## Play with a paired friend
+
+Open the friend's profile from **Dream Pals** to water a dry plot or offer an item for a named shelf item. Both servers must have the update and have synced at least once. You can then leave requests while the owner is offline. Your server reserves your offer. When the servers reconnect, it delivers the item or returns your offer if the slot has changed. The profile shows the result.
+
+When playing under your own visiting account, the promotions page carries your saved receipts and queued gifts. Sync back to your home server before receiving them on your cartridge. Scan physical albums on the home server.
+
+## Japanese PWT tournaments
+
+In **Promotions → Japanese catalog → Pokémon World Tournament**, download any of the 10 archived files (9 tournament numbers, including an early and corrected Junior Division file). For Japanese **Black 2 / White 2**, you can also select a raw 512 KiB save backup. The browser reads the three slots, shows installed tournaments and offers to create a new copy using a free slot. Each additional choice works on that copy. Keep the original backup. The browser copy workflow has been tested on disposable data. DS tournament downloads over Wi-Fi still need separate verification. [Tournament archive](https://projectpokemon.org/home/files/category/51-pok%C3%A9mon-world-tournaments/) · [Save format](https://github.com/kwsch/PKHeX/blob/6c9583883c7551ac74a4b74180cead249d4277b8/PKHeX.Core/Saves/SAV5B2W2.cs)
+
 ## Play solo on your local network
 
 **Connect your DS and the PC running Dream World to the same home network.** The same Wi-Fi or hotspot works as long as its devices can communicate. Solo play requires no Tailscale account or invitation.

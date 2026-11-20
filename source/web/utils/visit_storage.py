@@ -12,6 +12,7 @@ from game_sync_server.entralinked.model.player.player import Player
 from game_sync_server.entralinked.utility import gsid_utility
 from game_sync_server.entralinked.utility.db_manager import db
 from utils.account_manager import accounts
+from utils import travel_gifts
 
 GUEST_PREFIX = "~visit~"
 MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
@@ -137,6 +138,8 @@ def _snapshot(conn: sqlite3.Connection, username: str, owner: sqlite3.Row, code:
     member.pop("member_id", None)
     member.pop("member_savedata_id", None)
     profile.pop("token", None)
+    if (history := travel_gifts.export(conn, code)) is not None:
+        profile["travel_gifts"] = history
     sync = save["game_sync"] or {}
     for key in _LOCAL_SYNC:
         sync.pop(key, None)
@@ -248,6 +251,11 @@ def _write(conn: sqlite3.Connection, snapshot: dict, current: dict | None) -> No
             row = conn.execute("SELECT json_extract(player_data,'$.member.member_savedata_id') FROM player_saves "
                                "WHERE gscd=?", (trader,)).fetchone()
             slot["old_member_savedata_id"] = row[0] if row else None
+    if "travel_gifts" in profile:
+        try:
+            travel_gifts.restore(conn, code, profile.pop("travel_gifts"), member.get("rom_id"), member.get("langcode"))
+        except (ValueError, TypeError) as exc:
+            raise VisitInvalid("Invalid distribution history.") from exc
     _advance_item_counters(conn, save)
     values = [json.dumps(save[key], ensure_ascii=False) if save[key] is not None else None for key in _COLUMNS]
     conn.execute("""INSERT INTO player_saves
@@ -276,6 +284,9 @@ def _replace(conn: sqlite3.Connection, username: str, owner: sqlite3.Row, code: 
         return current
     if expected_revision != current["revision"]:
         raise VisitConflict("Both copies changed. Neither copy was overwritten.")
+    if ("travel_gifts" in current["snapshot"]["save"]["player_data"]
+            and "travel_gifts" not in snapshot["save"]["player_data"]):
+        raise VisitConflict("Update both servers before syncing distribution history.")
     if home and snapshot["visibility"] != current["snapshot"]["visibility"]:
         raise VisitConflict("Account-wide privacy is managed on the home server.")
     _write(conn, snapshot, _load(conn, code))

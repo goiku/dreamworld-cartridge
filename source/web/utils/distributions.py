@@ -98,6 +98,8 @@ def variant_signatures(rom, lang):
 
 
 def schema(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_visit_album (
+        card TEXT PRIMARY KEY, rom INTEGER NOT NULL, lang INTEGER NOT NULL, album TEXT)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS distribution_cartridges (
         card TEXT PRIMARY KEY, wfc TEXT NOT NULL, rom INTEGER NOT NULL, lang INTEGER NOT NULL,
         album TEXT)""")
@@ -194,6 +196,9 @@ def state(conn, card):
     schema(conn)
     _upgrade_variant_orders(conn, card)
     identity = conn.execute("SELECT * FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
+    if identity is None:
+        identity = conn.execute("SELECT rom,lang,album,NULL AS wfc FROM distribution_visit_album WHERE card=?",
+                                (card,)).fetchone()
     orders = {row["family"]: row for row in conn.execute(
         "SELECT family,gift,status FROM distribution_orders WHERE card=?", (card,))}
     album = json.loads(identity["album"]) if identity and identity["album"] is not None else None
@@ -236,6 +241,10 @@ def card_binary(gift, lang):
     if (len(raw) != 204 or hashlib.sha1(b"blob 204\0" + raw).hexdigest() != gift.digest
             or int.from_bytes(raw[0xb0:0xb2], "little") != gift.number or raw[0xb3] not in (1, 2, 3)):
         raise ValueError("Invalid archived gift")
+    return pack_card(raw, gift, lang)
+
+
+def pack_card(raw, gift, lang):
     data = bytearray(720)
     data[:204] = raw
     data[0xac:0xb0] = bytes(4)
@@ -261,7 +270,7 @@ def queue(card, gift, rom, lang, gender=None, *, chest=False):
         if gift.number:
             if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
                 return "sync"
-            if conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
+            if identity["wfc"] is not None and conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
                             (identity["wfc"], rom, lang)).fetchone()[0] != 1:
                 return "ambiguous"
         current = status(gift, orders, album)

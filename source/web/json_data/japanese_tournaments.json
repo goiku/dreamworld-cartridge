@@ -1,0 +1,72 @@
+[
+  {
+    "file": "00001 - 2012 VGC Japan Representatives (JPN).pwt",
+    "title": "２０１２にほんだいひょうにちょうせん",
+    "sha": "ae4ccd3e56f4d9adfdbfde56ea7c887eab5cc4ba",
+    "number": 1,
+    "crc": 2278
+  },
+  {
+    "file": "00002 - Challenge Champion Lance (JPN).pwt",
+    "title": "チャンピオン　ワタルにちょうせん！",
+    "sha": "431f90cabee2ba2396a33d5cb6f64d6c9def0e65",
+    "number": 2,
+    "crc": 15812
+  },
+  {
+    "file": "00003 - Gym Leaders Assemble (JPN).pwt",
+    "title": "しゅうけつ！ジムリーダー！",
+    "sha": "554c4d16747f0a57846f16b9406e1557ccff6c16",
+    "number": 3,
+    "crc": 48806
+  },
+  {
+    "file": "00004 - Legendary Rotation Battle (JPN).pwt",
+    "title": "でんせつの　ローテーションバトル！",
+    "sha": "08b6ca0b1d8e75346e25f52b5e6b6a89bcee70fb",
+    "number": 4,
+    "crc": 4601
+  },
+  {
+    "file": "00005 - Battle of Legendary Pokemon (JPN).pwt",
+    "title": "でんせつのポケモンどうしのたたかい",
+    "sha": "3c0cc441aaa25537e418e4f69c0dc6c1f81c74cb",
+    "number": 5,
+    "crc": 39496
+  },
+  {
+    "file": "00009 - You Can Challenge the Unova League (JPN).pwt",
+    "title": "イッシュリーグに　キミもちょうせん！",
+    "sha": "aa8ea3f306d54e3f4c3a873aa38302316b7285c7",
+    "number": 9,
+    "crc": 38227
+  },
+  {
+    "file": "10001 - 2012 Junior Division Challenge (Bug) (JPN).pwt",
+    "title": "ジュニアせかいおうじゃに　いどめ！",
+    "sha": "a207206e67e3526be74cc733679f818c4deb7924",
+    "number": 10001,
+    "crc": 33962
+  },
+  {
+    "file": "10001 - 2012 Junior Division Challenge (JPN).pwt",
+    "title": "ジュニアせかいおうじゃに　いどめ！！",
+    "sha": "f509c38298c0486daa8ccd9a1c4cbcb4985b0285",
+    "number": 10001,
+    "crc": 4601
+  },
+  {
+    "file": "10002 - 2012 Senior Division Challenge (JPN).pwt",
+    "title": "シニアせかいおうじゃに　いどめ！",
+    "sha": "e781e111b3bc2a3f50482d1e2cbb9f21b7158ceb",
+    "number": 10002,
+    "crc": 33951
+  },
+  {
+    "file": "10003 - 2012 Masters Division Challenge (JPN).pwt",
+    "title": "マスターせかいおうじゃに　いどめ！",
+    "sha": "036652433a89c4d3ede3964baa6c0fb62f66aa31",
+    "number": 10003,
+    "crc": 7869
+  }
+]

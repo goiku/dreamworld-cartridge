@@ -19,6 +19,7 @@ from tlslite.utils.cipherfactory import createCHACHA20
 
 from config import SAVE_DIR
 from utils import offline_islands as islands
+from utils import island_actions as actions
 from utils.web_network import PRIVATE_LANS
 
 PORT = 8094
@@ -267,11 +268,23 @@ def lookup(card: str, island: str) -> sqlite3.Row:
 
 def forget(card: str, island: str) -> None:
     with database() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if actions.pending(card,island):
+            raise PeerError("pending_actions")
+        actions.clear_capability(card,island)
         db.execute(
             "DELETE FROM receipts WHERE link IN (SELECT id FROM links WHERE card=? AND island=?)", (card, island)
         )
         db.execute("DELETE FROM offline WHERE link IN (SELECT id FROM links WHERE card=? AND island=?)", (card, island))
         db.execute("DELETE FROM links WHERE card=? AND island=?", (card, island))
+
+
+def request_interaction(card, island, version, kind, slot, payment):
+    with database() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if not db.execute("SELECT 1 FROM links WHERE card=? AND island=?", (card,island)).fetchone():
+            raise PeerError("not_paired")
+        actions.request_action(card,island,version,kind,slot,payment)
 
 
 def _known(card: str, island: str) -> int:
@@ -305,7 +318,9 @@ def sync(link: sqlite3.Row) -> None:
         ]
     doc = islands.export_island(card)
     pending = islands.pending_footprints(card, island)
+    activity = actions.pending(card,island)
     msg = {
+        "actions": activity,
         "since": _known(card, island),
         "version": doc["version"],
         "events": pending,
@@ -322,6 +337,10 @@ def sync(link: sqlite3.Row) -> None:
             db.execute("INSERT OR IGNORE INTO offline VALUES(?)", (link["id"],))
         raise
     _import(card, island, reply.get("snapshot"))
+    if "action_results" in reply:
+        actions.settle(card,island,activity,reply["action_results"])
+    else:
+        actions.clear_capability(card,island)
     ids = _batch(reply, "ack")
     if any(i not in [event["event_id"] for event in pending] for i in ids):
         raise PeerError("invalid_receipt")
@@ -347,8 +366,10 @@ def receive_sync(key_id: str, msg: dict) -> dict:
         return {"need_snapshot": True}
     islands.acknowledge_footprints(card, island, _batch(msg, "ack"))
     ids = islands.receive_footprints(card, island, _batch(msg, "events"))
+    extra = {"action_results": actions.receive(card,island,msg["actions"])} if "actions" in msg else {}
     doc = islands.export_island(card)
     return {
+        **extra,
         "ack": ids,
         "events": islands.pending_footprints(card, island),
         "snapshot": doc if msg["since"] != doc["version"] else None,

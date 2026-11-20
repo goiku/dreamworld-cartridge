@@ -1,0 +1,98 @@
+{
+  "zh": {
+    "title": "好友互动",
+    "hint": "下一次双方联网同步时结算。交换时会先留出你选的道具；如果货架已变动，道具会退还。",
+    "water": "浇水",
+    "trade": "交换",
+    "offer": "我付出",
+    "saved": "已记录，等待同步。",
+    "changed": "小岛或背包有变化，请重新选择。",
+    "pending": "待同步",
+    "accepted": "已完成",
+    "declined": "未能完成"
+  },
+  "ja": {
+    "title": "友だちの島でお手伝い",
+    "hint": "次に両方のサーバーがつながると反映されます。交換用の道具は先に確保し、交換できなかった場合は返します。",
+    "water": "水やり",
+    "trade": "交換",
+    "offer": "渡す道具",
+    "saved": "記録しました。次の同期をお待ちください。",
+    "changed": "島や持ち物を確認して選び直してください。",
+    "pending": "同期待ち",
+    "accepted": "完了",
+    "declined": "不成立"
+  },
+  "en": {
+    "title": "Help on this island",
+    "hint": "Both servers settle requests on their next connection. Your offered item is reserved and returned if the trade falls through.",
+    "water": "Water",
+    "trade": "Trade for",
+    "offer": "Give",
+    "saved": "Request recorded for the next sync.",
+    "changed": "Check the island and your inventory, then choose again.",
+    "pending": "Pending sync",
+    "accepted": "Completed",
+    "declined": "Declined"
+  },
+  "fr": {
+    "title": "Aider sur cette île",
+    "hint": "Les demandes seront traitées à la prochaine connexion des deux serveurs. L’objet proposé est réservé puis rendu si l’échange échoue.",
+    "water": "Arroser",
+    "trade": "Recevoir",
+    "offer": "Donner",
+    "saved": "Demande enregistrée.",
+    "changed": "Vérifiez l’île et votre inventaire.",
+    "pending": "En attente",
+    "accepted": "Terminé",
+    "declined": "Refusé"
+  },
+  "es": {
+    "title": "Ayudar en esta isla",
+    "hint": "Las solicitudes se procesan cuando ambos servidores vuelvan a conectarse. Si el intercambio falla, recuperarás el objeto reservado.",
+    "water": "Regar",
+    "trade": "Recibir",
+    "offer": "Entregar",
+    "saved": "Solicitud guardada.",
+    "changed": "Comprueba la isla y el inventario.",
+    "pending": "Pendiente",
+    "accepted": "Completado",
+    "declined": "Rechazado"
+  },
+  "de": {
+    "title": "Auf dieser Insel helfen",
+    "hint": "Die Anfragen werden bei der nächsten Verbindung beider Server verarbeitet. Scheitert der Tausch, erhältst du deinen reservierten Gegenstand zurück.",
+    "water": "Gießen",
+    "trade": "Eintauschen gegen",
+    "offer": "Anbieten",
+    "saved": "Anfrage gespeichert.",
+    "changed": "Prüfe die Insel und deinen Beutel.",
+    "pending": "Ausstehend",
+    "accepted": "Abgeschlossen",
+    "declined": "Abgelehnt"
+  },
+  "it": {
+    "title": "Aiuta su quest’isola",
+    "hint": "Le richieste saranno elaborate alla prossima connessione dei due server. Se lo scambio fallisce, riavrai lo strumento riservato.",
+    "water": "Annaffia",
+    "trade": "Ricevi",
+    "offer": "Offri",
+    "saved": "Richiesta registrata.",
+    "changed": "Controlla l’isola e l’inventario.",
+    "pending": "In attesa",
+    "accepted": "Completato",
+    "declined": "Rifiutato"
+  },
+  "ko": {
+    "title": "친구의 섬에서 돕기",
+    "hint": "두 서버가 다시 연결될 때 처리됩니다. 교환할 도구는 미리 보관하고 교환이 취소되면 돌려줍니다.",
+    "water": "물 주기",
+    "trade": "교환으로 받기",
+    "offer": "줄 도구",
+    "saved": "요청을 저장했습니다.",
+    "changed": "섬과 소지품을 확인하고 다시 선택하세요.",
+    "pending": "동기화 대기",
+    "accepted": "완료",
+    "declined": "거절됨"
+  }
+}

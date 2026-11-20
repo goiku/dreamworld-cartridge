@@ -12,6 +12,7 @@ from api import native_islands
 from api.pgl_pals import dream_pals
 from config import LANG
 from utils import island_peers as peers
+from utils import island_actions as actions, managers, text
 from utils import offline_islands as islands
 from utils.data import load_json_data
 from utils.island_art import house_thumbnail
@@ -161,10 +162,33 @@ def room(island_id: str) -> WerkzeugResponse:
 
 @offline_friends.get("/<island_id>/profile")
 def profile(island_id: str) -> str:
-    doc = _snapshot(_card(), island_id)
+    card = _card()
+    doc = _snapshot(card, island_id)
     content = doc["content"]
+    paired = any(row["island"] == island_id for row in peers.link_rows(card))
+    active = paired and actions.compatible(card,island_id)
+    stock = [(item["pokeitem_id"],item["item_cnt"]) for item in managers.get_chest(card).data["list"]
+             if item["item_cnt"] > 0] if active else []
     return render_template("island_profile.html", doc=doc, owner=content["profile"]["pgl_name"],
-                           groups=groups(content, LANG, _labels[LANG]))
+                           groups=groups(content, LANG, _labels[LANG]), interactive=active, stock=stock,
+                           ui=load_json_data("island_actions")[LANG], item_name=lambda n:text.lookup_str("item", n),
+                           history=actions.history(card,island_id) if paired else [],
+                           full=managers.CropManager.FULL_DIRT_HP, ripe=managers.CropManager.GROWTH_STAGES,
+                           csrf=session.setdefault("island_csrf",secrets.token_hex(24)))
+
+
+@offline_friends.post("/<island_id>/interact")
+def interact(island_id: str) -> WerkzeugResponse:
+    card = _card()
+    _check_form()
+    _snapshot(card,island_id)
+    try:
+        peers.request_interaction(card,island_id,int(request.form["version"]),request.form["kind"],
+                                  int(request.form["slot"]),request.form.get("payment",type=int))
+        notice = "saved"
+    except (ValueError,KeyError):
+        notice = "changed"
+    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions"),303)
 
 
 @offline_friends.get("/native/<identifier>")

@@ -17,6 +17,8 @@ from api.island_adventure import island_adventure
 from api.island_peers import island_peers
 from api.offline_friends import offline_friends
 from api.player_guide import player_guide
+from api.practice import practice
+from api.tournaments import tournaments
 from api.routes import HANDLERS, Query, load_handlers
 from api.signup import signup
 from api.visit_sync import visit_sync
@@ -94,12 +96,13 @@ def api_post() -> Response:
 # ---------------
 
 _LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/"}
+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
 
 
 def _language_page() -> str:
     source = request.args.get("page") or urlsplit(request.referrer or "").path
-    return source if source in _LANGUAGE_PAGES else "/"
+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/"} | {f"/practice/{n}/" for n in range(1,13)}
+    return source if source in allowed else "/"
 
 
 @site.get("/languages/")
@@ -189,6 +192,8 @@ def create_app() -> Flask:
     app.register_blueprint(signup)
     app.register_blueprint(campaigns)
     app.register_blueprint(player_guide)
+    app.register_blueprint(practice)
+    app.register_blueprint(tournaments)
     app.register_blueprint(visit_sync)
     app.register_blueprint(offline_friends)
     app.register_blueprint(island_peers)

@@ -56,10 +56,10 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a4740a6cb 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe31b1f21c 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -9,16 +9,23 @@ import logging
+@@ -9,16 +9,25 @@ import logging
  from pathlib import Path
  from urllib.parse import parse_qs, urlsplit
  
@@ -72,6 +72,8 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a
 +from api.island_peers import island_peers
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
++from api.practice import practice
++from api.tournaments import tournaments
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
 +from api.visit_sync import visit_sync
@@ -84,7 +86,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -53,6 +60,12 @@ def _params(data: str) -> Query:
+@@ -53,6 +62,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -97,18 +99,25 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -80,8 +93,8 @@ def api_post() -> Response:
+@@ -80,13 +95,14 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
 -_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html",
 -                   "/report/", "/customize/", "/campaign/", "/help/"}
 +_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/"}
++                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
  
  
  def _language_page() -> str:
-@@ -107,7 +120,11 @@ def change_language(code: str) -> Response:
+     source = request.args.get("page") or urlsplit(request.referrer or "").path
+-    return source if source in _LANGUAGE_PAGES else "/"
++    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/"} | {f"/practice/{n}/" for n in range(1,13)}
++    return source if source in allowed else "/"
+ 
+ 
+ @site.get("/languages/")
+@@ -107,7 +123,11 @@ def change_language(code: str) -> Response:
      language = normalize_language(code)
      if language not in WEB_PORTS:
          return not_found(request.path)
@@ -121,7 +130,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a
      target = _language_page()
      return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
  
-@@ -126,6 +143,12 @@ def login_available() -> Response:
+@@ -126,6 +146,12 @@ def login_available() -> Response:
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
      """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
@@ -134,12 +143,14 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..df5dfff81b1e0833fb06a641ab44113a
      path = path.split("&")[0]
      full_path = f"/{path}"
  
-@@ -164,6 +187,12 @@ def create_app() -> Flask:
+@@ -164,6 +190,14 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
++    app.register_blueprint(practice)
++    app.register_blueprint(tournaments)
 +    app.register_blueprint(visit_sync)
 +    app.register_blueprint(offline_friends)
 +    app.register_blueprint(island_peers)

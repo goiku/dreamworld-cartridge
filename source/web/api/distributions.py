@@ -6,6 +6,8 @@ from functools import cache
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 
 from api.native_islands import resident
+from api.pgl_pals import current_save
+from utils.visit_storage import GUEST_PREFIX
 from config import LANG
 from game_sync_server.entralinked.model.save_file import SaveFile, SaveFileError
 from game_sync_server.entralinked.utility.db_manager import db
@@ -55,8 +57,15 @@ def _fold(value):
     return unicodedata.normalize("NFKC", value).casefold().strip()
 
 
+def _campaign_card():
+    username = session.get("username") or ""
+    if bool(session.get("visit_guest")) != username.startswith(GUEST_PREFIX):
+        return None
+    return current_save()
+
+
 def _listing(japanese):
-    card = resident()
+    card = _campaign_card()
     member = save_data.read_member(card) if card else {}
     rom, lang = member.get("rom_id"), member.get("langcode")
     kind = "wonder" if request.args.get("kind") == "wonder" else "dream"
@@ -131,7 +140,7 @@ def _listing(japanese):
     response = render_template("distributions.html", t=labels(), lang=LANG, kind=kind, mode=mode, card=card,
                                japanese=japanese, endpoint=request.endpoint, search=search, version=version,
                                versions=versions, count=len(rows),
-                               ident=ident, album_known=album is not None, rom=text.lookup_str("game", rom),
+                               ident=ident, home_card=not session.get("visit_guest"), album_known=album is not None, rom=text.lookup_str("game", rom),
                                rows=rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE], page=page, pages=pages,
                                csrf=session.setdefault("gift_csrf", secrets.token_hex(24)),
                                notice=session.pop("gift_notice", None))
@@ -140,7 +149,7 @@ def _listing(japanese):
 
 @campaigns.post("/campaign/claim/<key>")
 def claim(key):
-    card = resident()
+    card = _campaign_card()
     _post(card)
     gift = gifts.catalog().get(key) or abort(404)
     member = save_data.read_member(card)
