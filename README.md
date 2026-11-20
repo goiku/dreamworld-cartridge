@@ -24,6 +24,16 @@ Open **Event distributions** from Dream World and select your linked cartridge. 
 
 The server fetches an individual card from a pinned archive when requested. Temporary-save tests cover the web and cartridge protocols. Physical-cartridge trials for both event paths are still pending. The Cleffa photo below documents the Tree of Dreams path. [Generation V event archive](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205) · [Dream World encounter reference](https://github.com/kwsch/PKHeX/blob/master/PKHeX.Core/Legality/Encounters/Data/Gen5/Encounters5Dream.cs)
 
+### Japanese cartridge events
+
+**Japanese event catalogue** lists the 472 Japanese Wonder Cards preserved in the Generation V release archive and 47 Dream World entries across Black, White, Black 2 and White 2. Each distinct card file counts once. Dream World entries count game and move variants. Browse all four games while signed out. Search by species, original card title or card number (for example `#2046`). Select your own cartridge to request compatible gifts. [Open the catalogue](http://127.0.0.1:8080/campaign/japan/) · [Original card files](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/Wondercards/JPN)
+
+The Sinnoh starter set now includes Japanese Black and White. The Café Forest recreation offers four species with three possible moves each and a choice of gender. In Black 2 and White 2 the strategy-guide app's Gothorita brings Imprison and one Focus Band. The partner and item wait together if the next wake-up has insufficient space. [Encounter data](https://github.com/kwsch/PKHeX/blob/6c9583883c7551ac74a4b74180cead249d4277b8/PKHeX.Core/Legality/Encounters/Data/Gen5/Encounters5Dream.cs) · [Publisher’s Gothorita announcement](https://www.4gamer.net/games/148/G014842/20121214008/)
+
+Six Japanese tournament promotions award nine Berry types in Black 2 and White 2. Choose the Treasure Chest to grow them in Dream World, or send the entire set to your cartridge on wake-up. Each save can claim either destination once. [Tournament announcement](https://www.4gamer.net/games/148/G014842/20130315042/)
+
+**For offline hosting**, run `.venv\Scripts\python.exe scripts\prepare_japanese_gifts.py` in the installed DreamWorld folder once. It downloads 142 KiB and verifies each Japanese card against its archive hash. The host can then distribute them on the local network with Internet access disconnected. The catalogue opens without the download. When the cache is absent, the server fetches the selected card on demand. Card numbers shared by several variants are marked for review when the album cannot identify which one was received. A recorded exact variant stays received after the card is discarded.
+
 ## Visit a friend's island while they are offline
 
 Each player signs in on their own server using the account linked to their cartridge. Choose **View friends** in Dream World to save a copy of a friend's island.

@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "04637ff1ed9cd3fa94541db658f0a579e75d612864daba04865cda7dbbb8cb75",
+    "patch_sha256": "1003e81440a2104d5d847bf0674a8a139e3faa635f2afcb88d8f93e27afcfc60",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -21,7 +21,10 @@
       },
       "api/distributions.py": {
         "before": null,
-        "after": "ad44daa6b9dcd42bf3ce48310f8db1086ca55b2c0168fe40c579aec2b15f3f66"
+        "after": "0b648ef0e0e5099c6005f26d96806c631ee51d688d49d86d0ce7e8f525d84392",
+        "previous": [
+          "ad44daa6b9dcd42bf3ce48310f8db1086ca55b2c0168fe40c579aec2b15f3f66"
+        ]
       },
       "api/gts_journal.py": {
         "before": "a4a3d2028f49250a44a374b53143817a53781e5e0e3097b65ad2489c68ed2bdc",
@@ -100,7 +103,10 @@
       },
       "api/pgl_present.py": {
         "before": "9ada76d63aefc4553e3284ee66c8641a2c95cedc891a9efcfdb0c0575dfdf57e",
-        "after": "abc11f9001e096fbac387f175c5d5e47e15ecfdb46d3d379584fa981e11accb3"
+        "after": "94c997a305771f4e298c7265c224405b5665bb604078c4b418ee54687ba706ce",
+        "previous": [
+          "abc11f9001e096fbac387f175c5d5e47e15ecfdb46d3d379584fa981e11accb3"
+        ]
       },
       "api/pgl_top.py": {
         "before": "4b94b2f8e3fcd81c91bbde5b153782d475d84b9c8edd5574cb99275c08ad796f",
@@ -121,11 +127,12 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "c92242e33027847db310f551b1794a6fb8076991ac913534ccfd289df4cfb392",
+        "after": "e0e17654cd8dbf879fcadc050339034197d9abd77c7152f5cc972f72dc8f70bf",
         "previous": [
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
-          "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544"
+          "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
+          "c92242e33027847db310f551b1794a6fb8076991ac913534ccfd289df4cfb392"
         ]
       },
       "api/signup.py": {
@@ -150,11 +157,17 @@
       },
       "json_data/distribution_ui.json": {
         "before": null,
-        "after": "96755bfb1c611b09c43fa6e4e0a60388c0a383425deb6ad05474f7932d7695f5"
+        "after": "dded4c412cd5a3943a9a1d13ab8b806c0574e8d4c63b6a95232750d5d717a6cd",
+        "previous": [
+          "96755bfb1c611b09c43fa6e4e0a60388c0a383425deb6ad05474f7932d7695f5"
+        ]
       },
       "json_data/dream_promotions.json": {
         "before": null,
-        "after": "8be7e46a7d0b7f7847e31fc72ab3bf2f014916680d0ee7b7b364769703633b55"
+        "after": "640fcda7abff30aa78c7c4e74d7b71aa0ab7b8f53a6dd291491ce7f30075329a",
+        "previous": [
+          "8be7e46a7d0b7f7847e31fc72ab3bf2f014916680d0ee7b7b364769703633b55"
+        ]
       },
       "json_data/gen5_nickname_glyphs.json": {
         "before": null,
@@ -162,7 +175,10 @@
       },
       "json_data/gift_cards.json": {
         "before": null,
-        "after": "9084f79a854f6b172aef48c05ac50b8ef5deb2705d5b9668e2f1e8569ecf3689"
+        "after": "287176b805e8d9e36af24a406a1acb5287f5671b0e0d595481c4a649a84dbd3a",
+        "previous": [
+          "9084f79a854f6b172aef48c05ac50b8ef5deb2705d5b9668e2f1e8569ecf3689"
+        ]
       },
       "json_data/island_adventure.json": {
         "before": null,
@@ -171,6 +187,10 @@
       "json_data/island_movie_patch.json": {
         "before": null,
         "after": "df00a58bc52b1bf26e2599ad37f4b8bfe03557249a1ec37a9c61f04d63f4570a"
+      },
+      "json_data/japan_berry_promotions.json": {
+        "before": null,
+        "after": "a074d85813ec15889150be56548e98e53e54822ce63fcf512a3d092bb4d50c00"
       },
       "json_data/offline_islands_ui.json": {
         "before": null,
@@ -314,6 +334,10 @@
         "before": null,
         "after": "1dea1520d7f9aa24decd07a3bef6741054fe22febb8a813507118cb438c5aeaa"
       },
+      "scripts/prepare_japanese_gifts.py": {
+        "before": null,
+        "after": "79a1d1b7dacf0afda498b9ab4c0d5d92b3d242d473ff124146f42839aa25062b"
+      },
       "scripts/select_game_network.ps1": {
         "before": null,
         "after": "3146eab4d44513154f43009396f6b49bca6e768b0002afdbae0e21e3af473396"
@@ -355,7 +379,10 @@
       },
       "templates/distributions.html": {
         "before": null,
-        "after": "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5"
+        "after": "2cbaf4e2db7da50fc5a55dcfc0471ad9300b791df53ca008911d4537cdf5400a",
+        "previous": [
+          "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5"
+        ]
       },
       "templates/island_adventure.html": {
         "before": null,
@@ -390,7 +417,10 @@
       },
       "tests/test_distributions.py": {
         "before": null,
-        "after": "921fe1eeb2da01f5e721ff21fa9e12dda93077182fab5af9afc2a8b93a8418bc"
+        "after": "8df1fb12f3e38bbb6007c18d2d6c7c15dfe290bf6b88b1004f0d4fc8a62ac3b0",
+        "previous": [
+          "921fe1eeb2da01f5e721ff21fa9e12dda93077182fab5af9afc2a8b93a8418bc"
+        ]
       },
       "tests/test_gen5_names.py": {
         "before": null,
@@ -441,7 +471,10 @@
       },
       "utils/distributions.py": {
         "before": null,
-        "after": "036f45589898d0a0ace5e1d4ed060ce499cf90338df1f7b28c4ac10b70f66110"
+        "after": "f8777a5a9679321994898f3f6813fa44639016c9cb2bd660cd187713dbb895a6",
+        "previous": [
+          "036f45589898d0a0ace5e1d4ed060ce499cf90338df1f7b28c4ac10b70f66110"
+        ]
       },
       "utils/gen5_names.py": {
         "before": null,
@@ -458,6 +491,10 @@
       "utils/island_profile.py": {
         "before": null,
         "after": "b38e0e1c7d1588d1d47e673156649380ee66b76332490c3d76fe8d0d039d77f3"
+      },
+      "utils/japanese_card_archive.py": {
+        "before": null,
+        "after": "637e89b5afda9e0ada9bb89fb30adbb1e1228b11481a9eb0a171ba152ea412cd"
       },
       "utils/language.py": {
         "before": "9f89829f02044dcadc3f340c782697ef7fe066080c0bd2146df29e3badfe52e0",
@@ -526,6 +563,10 @@
         "before": "0886760934c9ff3485f16593f21a9424b23660c5af0685ccad034ca9ebda198e",
         "after": "002a710969dddf97064b00328bb393bc653e7dc3a4d63f36dfba0849b626cb38"
       },
+      "utils/text.py": {
+        "before": "0b28fb0b98f882cd085da94f2dae75eebb95833c11434b2c75cc19bb05f4c937",
+        "after": "a51d0839fed426f8ff02bbe9c746505d5be806614f8ce9130c65052f2b314e0e"
+      },
       "utils/visit_storage.py": {
         "before": null,
         "after": "a0c6948ce16a0a7e7643c18488db4d13d2ced0e2a69476dbec51d91bccd1df0c",
@@ -556,7 +597,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "4d78f5a2bbf0e4de5318e4ac118e8837367c23b311eaa09d0eddd5a5d125fac9",
+      "sha256": "97fc84601dbfac5893158fc69e470663c001d290e55f51f76177baad256081cf",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -566,7 +607,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "665c156f4f60e8a2260233478a35824c810be10d0f91e1e13d93dc3f06db0d27",
+    "patch_sha256": "f78cd788de9905aadb09ffd019af0cef3e32c080f482953657c86f201fca635d",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -663,9 +704,10 @@
       },
       "entralinked/network/http/pgl_handler.py": {
         "before": "5ddc52ce816112c081362a965d2f496522a09a1b81ef70cb0b16751bcb3c0837",
-        "after": "a604262c37f2b5fc05610ba8141f4ee6a03f05078799b48aad70a45b46a8026e",
+        "after": "84ccf10e889770ca94325a226922398baa07d1cbe556883a5c1e1aa14a8908b1",
         "previous": [
           "1f776935d1b13e188392ff50b0a748419afe667bb62c2b6b8b73489316763287",
+          "a604262c37f2b5fc05610ba8141f4ee6a03f05078799b48aad70a45b46a8026e",
           "ca35ea8236a54770019627a27c14ffdd1a70a2dab460d4af0951647802388981"
         ]
       },

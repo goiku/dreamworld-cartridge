@@ -87,11 +87,11 @@ def test_wake_capacity_and_version(clients, rom):
         assert gifts.queue(code, gift, rom, 1) == "queued"
     player = SimpleNamespace(gscd=code, rom_id=rom, langcode=1, encounters=[None]*9)
     with db.transaction() as conn:
-        assert gifts.add_to_wake(conn, player, 10) == [first.key]
+        assert gifts.add_to_wake(conn, player, 10, 20) == [first.key]
         assert len(player.encounters) == 10 and player.encounters[9].species == first.species
         gifts.confirm_wake(conn,code,[first.key])
         player.encounters.clear()
-        assert gifts.add_to_wake(conn, player, 10) == [second.key]
+        assert gifts.add_to_wake(conn, player, 10, 20) == [second.key]
 
 
 def test_shared_card_number_and_missing_archive(clients, monkeypatch):
@@ -223,3 +223,99 @@ def test_authenticated_distribution(clients, monkeypatch):
     with web.session_transaction() as s:
         s["visit_guest"] = True
     assert claim(wonder).status_code == 403
+
+
+def test_japanese_catalogue_and_game_filters(clients):
+    web, _ = clients
+    from api.distributions import labels
+    all_jp = [g for g in gifts.catalog().values() if any(gifts.compatible(g, r, 1) for r in gifts.VERSIONS)]
+    assert sum(bool(g.number) for g in all_jp) == 472
+    assert sum(bool(g.species) for g in all_jp) == 47
+    assert sum(g.event == "berries" for g in all_jp) == 6
+    assert sum(g.event == "cafe" for g in all_jp) == 12
+    response = web.get("/campaign/japan/?kind=wonder")
+    assert labels()["results"].format(count=472) in response.text
+    assert "/campaign/claim/" not in response.text
+    assert "Liberty Pass" in web.get("/campaign/japan/", query_string={"kind":"wonder","q":"＃２０４６","version":21}).text
+    assert "Liberty Pass" not in web.get("/campaign/japan/?kind=wonder&q=2046&version=23").text
+    assert "d-192-575-286" in web.get("/campaign/japan/?version=23").text
+    assert "d-192-575-286" not in web.get("/campaign/japan/?version=21").text
+    for species in (387, 390, 393):
+        assert gifts.compatible(gifts.catalog()[f"d-48-{species}-0"], 21, 1)
+
+
+def test_cafe_gender_and_bundled_item_wait_for_room(clients):
+    from game_sync_server.entralinked.model.player.dream_data import DreamItem
+    code = gsid_to_gscd(441)
+    cafe = gifts.catalog()["d-48-133-204"]
+    partner = gifts.catalog()["d-192-575-286"]
+    assert gifts.queue(code,cafe,21,2,0) == "incompatible"
+    assert gifts.queue(code,cafe,21,1,0) == "queued"
+    assert gifts.queue(code,cafe,21,1,1) == "queued"
+    player = SimpleNamespace(gscd=code, rom_id=21, langcode=1, encounters=[], items=[])
+    with db.transaction() as conn:
+        assert gifts.add_to_wake(conn,player,10,20) == [cafe.key]
+        assert (player.encounters[0].move, player.encounters[0].gender) == (204,0)
+        gifts.confirm_wake(conn,code,[cafe.key])
+    player.rom_id = 23
+    assert gifts.queue(code,partner,23,1) == "queued"
+    player.items = [DreamItem(10,1)]
+    player.encounters.clear()
+    with db.transaction() as conn:
+        assert gifts.add_to_wake(conn,player,10,1) == []
+        assert not player.encounters
+        player.items = [DreamItem(230,255)]
+        assert gifts.add_to_wake(conn,player,10,1) == []
+        player.items.clear()
+        assert gifts.add_to_wake(conn,player,10,1) == [partner.key]
+        assert player.items == [DreamItem(230,1)] and player.encounters[0].move == 286
+        gifts.confirm_wake(conn,code,[partner.key])
+        assert gifts.add_to_wake(conn,player,10,1) == []
+
+
+def test_repeatable_japanese_cards_use_exact_receipts(clients, monkeypatch):
+    code = gsid_to_gscd(74)
+    first, second = [g for g in gifts.catalog().values() if g.language == "JPN" and g.number == 95][:2]
+    assert first.independent and second.independent and first.group != second.group
+    with db.transaction() as conn:
+        gifts.schema(conn)
+        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,23,1,NULL)",(code,"test"))
+        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'sent',?)",(code,"card-95",first.key,b"old"))
+        gifts.merge_album(conn,code,{"95":"received"}, {})
+        _, orders, album = gifts.state(conn,code)
+        assert gifts.status(first,orders,album) == "sent"
+        assert gifts.status(second,orders,album) == "unknown"
+    monkeypatch.setattr(gifts, "card_binary", lambda *_: b"second")
+    assert gifts.queue(code,second,23,1) == "queued"
+    with db.transaction() as conn:
+        gifts.merge_album(conn,code,{"95":"at_center"}, {first.signature:"at_center"})
+        _, orders, album = gifts.state(conn,code)
+        assert gifts.status(first,orders,album) == "at_center"
+        assert orders[first.group]["status"] == "delivered"
+        assert gifts.status(second,orders,album) == "queued"
+
+
+def test_berry_sets_use_one_destination_and_all_fit(clients):
+    from game_sync_server.entralinked.model.player.dream_data import DreamItem
+    from utils import managers
+    code = gsid_to_gscd(116)
+    game = gifts.catalog()["b-challenge-2013-06"]
+    chest = gifts.catalog()["b-challenge-2013-04"]
+    assert gifts.queue(code,chest,23,1,chest=True) == "sync"
+    db.write_gscd(code)
+    assert gifts.queue(code,game,21,1) == "incompatible"
+    assert gifts.queue(code,game,23,1) == "queued"
+    assert gifts.queue(code,game,23,1,chest=True) == "queued"
+    for _ in range(2):
+        assert gifts.queue(code,chest,23,1,chest=True) == "in_chest"
+    assert gifts.queue(code,chest,23,1) == "in_chest"
+    inventory = {r["pokeitem_id"]: r["item_cnt"] for r in managers.get_chest(code).data["list"]}
+    assert [inventory[k] for k in chest.items] == [1,1]
+    player = SimpleNamespace(gscd=code, rom_id=23, langcode=1, encounters=[None]*10, items=[DreamItem(202,2)])
+    with db.transaction() as conn:
+        assert gifts.add_to_wake(conn,player,10,2) == []
+        assert player.items == [DreamItem(202,2)]
+        assert gifts.add_to_wake(conn,player,10,3) == [game.key]
+        assert player.items == [DreamItem(202,3),DreamItem(204,1),DreamItem(205,1)]
+        gifts.confirm_wake(conn,code,[game.key])
+        assert gifts.add_to_wake(conn,player,10,3) == []

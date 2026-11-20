@@ -310,7 +310,7 @@ class PglHandler:
                     and player.dreamer_info and player.dreamer_info.level < 100):
                 player.levels_gained = max(1, player.levels_gained)
             try:
-                promotions = distributions.add_to_wake(conn, player, MAX_ENCOUNTERS)
+                promotions = distributions.add_to_wake(conn, player, MAX_ENCOUNTERS, MAX_ITEMS)
                 data = self._wake_payload(player, wake_id)
             except (ValueError, struct.error):
                 logger.exception("Cannot encode the wake-up rewards for %s", player.gscd)

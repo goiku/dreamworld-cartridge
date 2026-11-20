@@ -94,7 +94,7 @@ def api_post() -> Response:
 # ---------------
 
 _LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/", "/islands/"}
+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/"}
 
 
 def _language_page() -> str:

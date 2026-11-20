@@ -1,5 +1,6 @@
 """Promotions for the cartridge linked to the signed-in resident."""
 import secrets
+import unicodedata
 from functools import cache
 
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
@@ -35,12 +36,26 @@ def _post(card):
 
 def _return(kind, message, anchor=""):
     session["gift_notice"] = message
-    args = {"kind": kind, "filter": request.form.get("filter", "all"), "page": request.form.get("page", "1")}
-    return redirect(url_for("campaigns.index", **args, _anchor=anchor), code=303)
+    args = {k: request.form[k] for k in ("filter", "page", "q", "version") if request.form.get(k)}
+    endpoint = "campaigns.japan" if request.form.get("scope") == "jp" else "campaigns.index"
+    return redirect(url_for(endpoint, kind=kind, **args, _anchor=anchor), code=303)
 
 
 @campaigns.get("/campaign/")
 def index():
+    return _listing(False)
+
+
+@campaigns.get("/campaign/japan/")
+def japan():
+    return _listing(True)
+
+
+def _fold(value):
+    return unicodedata.normalize("NFKC", value).casefold().strip()
+
+
+def _listing(japanese):
     card = resident()
     member = save_data.read_member(card) if card else {}
     rom, lang = member.get("rom_id"), member.get("langcode")
@@ -50,32 +65,72 @@ def index():
         mode = "all"
     rows = []
     ident = album = None
+    orders = {}
     if card:
         with db.transaction() as conn:
             ident, orders, album = gifts.state(conn, card)
+    search = request.args.get("q", "").strip()[:100]
+    needle = _fold(search)
+    version = request.args.get("version", type=int)
+    versions = {r: text.lookup_str("game", r) for r in gifts.VERSIONS}
+    if version not in versions:
+        version = None
+    if japanese or card:
         for gift in gifts.catalog().values():
-            if not gifts.compatible(gift, rom, lang) or bool(gift.number) != (kind == "wonder"):
+            if bool(gift.number) != (kind == "wonder"):
                 continue
-            status = gifts.status(gift, orders, album)
+            eligible = bool(card and gifts.compatible(gift, rom, lang))
+            if japanese:
+                targets = [r for r in versions if gifts.compatible(gift, r, 1)]
+                if not targets or version and version not in targets:
+                    continue
+            elif not eligible:
+                continue
+            name = gift.name or text.lookup_str("pokemon", gift.species)
+            if gift.japanese_title and LANG == "ja":
+                name = gift.japanese_title
+            details = []
+            noun = "item" if gift.card_type == 2 else "pokemon"
+            if gift.card_type:
+                details.extend((text.lookup_str(noun, gift.subject), gift.card_title))
+            if gift.move:
+                details.append(text.lookup_str("move", gift.move))
+            details.extend(text.lookup_str("item", item) for item in gift.items)
+            if gift.event:
+                details.append(labels()[gift.event])
+            details = [v for v in details if v]
+            if needle:
+                numeric = needle.lstrip("#")
+                if numeric.isdecimal():
+                    if not gift.number or str(gift.number) != (numeric.lstrip("0") or "0"):
+                        continue
+                else:
+                    aliases = [text.lookup_str(noun, gift.subject or gift.species, language=locale) or ""
+                               for locale in ("ja", "en", "zh")]
+                    if needle not in _fold(" ".join([name or "", gift.name, gift.japanese_title, *details, *aliases])):
+                        continue
+            status = gifts.status(gift, orders, album) if eligible else "incompatible"
+            same = bool(eligible and gift.number and gifts.variant_counts(rom, lang)[gift.group] > 1
+                        and status in ("received", "at_center", "collected") and gift.key not in (album or {}))
             if status == "alternative":
                 bucket = None
-            elif status == "unknown":
+            elif status == "unknown" or same:
                 bucket = "unknown_filter"
             elif status == "available":
                 bucket = "unclaimed"
             else:
                 bucket = "waiting" if status in ("queued", "sent") else "complete"
-            if mode != "all" and mode != bucket:
+            if mode != "all" and (not eligible or mode != bucket):
                 continue
-            same = bool(gift.number and gifts.variant_counts(rom, lang)[gift.group] > 1 and
-                        status in ("received", "at_center", "collected") and
-                        gift.key not in (album or {}))
-            rows.append(dict(key=gift.key, name=gift.name or text.lookup_str("pokemon", gift.species),
+            rows.append(dict(key=gift.key, name=name, details=details, event=gift.event,
+                             versions=[versions[r] for r in targets] if japanese else [],
                              number=gift.number, status=status, same=same,
-                             claim=status in ("available", "unknown") and (not gift.number or ident is not None)))
+                             claim=eligible and status in ("available", "unknown") and (not gift.number or ident is not None)))
     pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(1, min(pages, request.args.get("page", 1, type=int)))
     response = render_template("distributions.html", t=labels(), lang=LANG, kind=kind, mode=mode, card=card,
+                               japanese=japanese, endpoint=request.endpoint, search=search, version=version,
+                               versions=versions, count=len(rows),
                                ident=ident, album_known=album is not None, rom=text.lookup_str("game", rom),
                                rows=rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE], page=page, pages=pages,
                                csrf=session.setdefault("gift_csrf", secrets.token_hex(24)),
@@ -92,7 +147,9 @@ def claim(key):
     if request.form.get("next") == "1":
         return _return("wonder", gifts.prioritize(card, gift), gift.key)
     try:
-        result = gifts.queue(card, gift, member.get("rom_id"), member.get("langcode"))
+        gender = int(request.form["gender"]) if "gender" in request.form else None
+        result = gifts.queue(card, gift, member.get("rom_id"), member.get("langcode"), gender,
+                             chest=request.form.get("destination") == "chest")
     except (OSError, ValueError):
         result = "unavailable"
     return _return("wonder" if gift.number else "dream", result, gift.key)

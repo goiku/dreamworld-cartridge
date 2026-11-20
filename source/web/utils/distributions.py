@@ -10,10 +10,11 @@ from functools import cache
 from urllib.parse import quote
 from urllib.request import urlopen
 
-from game_sync_server.entralinked.model.player.dream_data import DreamEncounter
+from game_sync_server.entralinked.model.player.dream_data import DreamEncounter, DreamItem
 from game_sync_server.entralinked.model.save_file import _crypt_array
 from game_sync_server.entralinked.utility.db_manager import db
 from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
+from utils import japanese_card_archive
 from utils.data import load_json_data
 
 ARCHIVE = "https://raw.githubusercontent.com/projectpokemon/EventsGallery/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/Wondercards/"
@@ -42,20 +43,37 @@ class Gift:
     regions: tuple = ()
     full_digest: str = ""
     signature: str = ""
+    subject: int = 0
+    card_type: int = 0
+    independent: bool = False
+    event: str = ""
+    items: tuple = ()
+    card_title: str = ""
+    japanese_title: str = ""
 
 
 @cache
 def catalog():
     gifts = {}
-    for mask, species, move, gender, regions in load_json_data("dream_promotions"):
+    for mask, species, move, gender, regions, *details in load_json_data("dream_promotions"):
+        info = details[0] if details else {}
         key = f"d-{mask}-{species}-{move}"
         group = "eevee" if species in EEVEES else f"d-{species}-{move}"
         gifts[key] = Gift(key, group, "", mask, species=species, move=move, gender=gender,
-                          regions=tuple(regions))
-    for language, filename, digest, mask, full, signature, number in load_json_data("gift_cards"):
+                          regions=tuple(regions), event=info.get("event", ""),
+                          items=(info["item"],) if "item" in info else ())
+    for slug, japanese, name, items in load_json_data("japan_berry_promotions"):
+        key = f"b-{slug}"
+        gifts[key] = Gift(key, key, name, 192, regions=("JPN",), event="berries",
+                          items=tuple(items), japanese_title=japanese)
+    for language, filename, digest, mask, full, signature, number, *info in load_json_data("gift_cards"):
         key = f"w-{language}-{digest}"
-        gifts[key] = Gift(key, f"card-{number}", filename.split(" - ", 1)[1][:-4],
-                          mask, language, filename, digest, number, full_digest=full, signature=signature)
+        subject, card_type, single, card_title = info or (0, 0, 1, "")
+        independent = single == 0
+        group = key if independent else f"card-{number}"
+        gifts[key] = Gift(key, group, filename.split(" - ", 1)[1][:-4], mask, language,
+                          filename, digest, number, full_digest=full, signature=signature,
+                          subject=subject, card_type=card_type, independent=independent, card_title=card_title)
     return gifts
 
 
@@ -90,6 +108,8 @@ def schema(conn):
         token BLOB PRIMARY KEY, card TEXT NOT NULL, gift TEXT NOT NULL, expires INTEGER NOT NULL)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS distribution_next (
         card TEXT PRIMARY KEY, gift TEXT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_dream_options (
+        card TEXT NOT NULL, gift TEXT NOT NULL, gender INTEGER NOT NULL, PRIMARY KEY(card,gift))""")
     conn.execute("""CREATE TABLE IF NOT EXISTS distribution_variants (
         card TEXT NOT NULL, gift TEXT NOT NULL, status TEXT NOT NULL, PRIMARY KEY(card,gift))""")
 
@@ -119,9 +139,19 @@ def cartridge_album(raw, signatures=None):
     return records
 
 
+def _upgrade_variant_orders(conn, card):
+    # Older releases grouped every order by card number. Preserve its payload and delivery phase.
+    for row in conn.execute("SELECT gift,family FROM distribution_orders WHERE card=? AND family LIKE 'card-%'", (card,)).fetchall():
+        gift = catalog().get(row["gift"])
+        if gift and gift.independent:
+            conn.execute("UPDATE distribution_orders SET family=? WHERE card=? AND family=?",
+                         (gift.group, card, row["family"]))
+
+
 def merge_album(conn, card, evidence, signatures=None):
     if evidence is None:
         return
+    _upgrade_variant_orders(conn, card)
     old = conn.execute("SELECT album,rom,lang FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
     history = json.loads(old["album"]) if old and old["album"] else {}
     for number, state in evidence.items():
@@ -141,6 +171,9 @@ def merge_album(conn, card, evidence, signatures=None):
                 conn.execute("""INSERT INTO distribution_variants VALUES(?,?,?) ON CONFLICT(card,gift) DO UPDATE
                              SET status=excluded.status WHERE distribution_variants.status<>'collected'""",
                              (card, matches[0].key, phase))
+                if matches[0].independent:
+                    conn.execute("UPDATE distribution_orders SET status='delivered',payload=NULL WHERE card=? AND gift=?",
+                                 (card, matches[0].key))
     conn.executemany("""UPDATE distribution_orders SET status='delivered',payload=NULL
                          WHERE card=? AND family=?""", ((card, "card-" + n) for n in history))
 
@@ -159,6 +192,7 @@ def observe_upload(conn, card, wfc, trainer, raw):
 
 def state(conn, card):
     schema(conn)
+    _upgrade_variant_orders(conn, card)
     identity = conn.execute("SELECT * FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
     orders = {row["family"]: row for row in conn.execute(
         "SELECT family,gift,status FROM distribution_orders WHERE card=?", (card,))}
@@ -170,11 +204,14 @@ def state(conn, card):
 
 def status(gift, orders, album):
     order = orders.get(gift.group)
-    if gift.number and album is not None and (receipt := album.get(str(gift.number))):
-        return album.get(gift.key, receipt)
+    if gift.number and album is not None:
+        if receipt := album.get(gift.key):
+            return receipt
+        if not gift.independent and (receipt := album.get(str(gift.number))):
+            return receipt
     if order:
         return order["status"] if order["gift"] == gift.key else "alternative"
-    if gift.number and album is None:
+    if gift.number and (album is None or gift.independent and str(gift.number) in album):
         return "unknown"
     return "available"
 
@@ -191,9 +228,11 @@ def card_binary(gift, lang):
         if (full[-5] == lang and full[0xce] == gift.mask and not full[0xb4] & 2
                 and binascii.crc_hqx(full[:-2], 0xffff) == int.from_bytes(full[-2:], "little")):
             return full
-    url = ARCHIVE + gift.language + "/" + quote(gift.filename, safe="")
-    with urlopen(url, timeout=8) as response:
-        raw = response.read(205)
+    raw = japanese_card_archive.lookup(gift.digest) if gift.language == "JPN" else None
+    if raw is None:
+        url = ARCHIVE + gift.language + "/" + quote(gift.filename, safe="")
+        with urlopen(url, timeout=8) as response:
+            raw = response.read(205)
     if (len(raw) != 204 or hashlib.sha1(b"blob 204\0" + raw).hexdigest() != gift.digest
             or int.from_bytes(raw[0xb0:0xb2], "little") != gift.number or raw[0xb3] not in (1, 2, 3)):
         raise ValueError("Invalid archived gift")
@@ -210,7 +249,11 @@ def card_binary(gift, lang):
     return bytes(data)
 
 
-def queue(card, gift, rom, lang):
+def queue(card, gift, rom, lang, gender=None, *, chest=False):
+    if gender is not None and (gift.event != "cafe" or gender not in (0, 1)):
+        return "incompatible"
+    if chest and gift.event != "berries":
+        return "incompatible"
     def allowed(conn):
         identity, orders, album = state(conn, card)
         if not compatible(gift, rom, lang):
@@ -224,6 +267,8 @@ def queue(card, gift, rom, lang):
         current = status(gift, orders, album)
         if current != "available" and not (gift.number and current == "unknown"):
             return current
+        if chest and db.read(card, "chest_data") is None:
+            return "sync"
         return None
     with db.transaction() as conn:
         if reason := allowed(conn):
@@ -233,11 +278,17 @@ def queue(card, gift, rom, lang):
     with db.transaction() as conn:
         if reason := allowed(conn):
             return reason
-        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)",
-                     (card, gift.group, gift.key, payload))
+        phase = "in_chest" if chest else "queued"
+        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,?,?)",
+                     (card, gift.group, gift.key, phase, payload))
+        if chest:
+            from utils import managers
+            managers.get_chest(card).move_items(dict(Counter(gift.items)))
+        if gift.event == "cafe" and gender is not None:
+            conn.execute("INSERT INTO distribution_dream_options VALUES(?,?,?)", (card, gift.key, gender))
         if gift.number:
             conn.execute("INSERT OR REPLACE INTO distribution_next VALUES(?,?)", (card, gift.key))
-    return "queued"
+    return phase
 
 
 def prioritize(card, gift):
@@ -251,17 +302,32 @@ def prioritize(card, gift):
     return "queued" if row else "incompatible"
 
 
-def add_to_wake(conn, player, capacity):
+def add_to_wake(conn, player, capacity, item_capacity):
     schema(conn)
     selected = []
-    for row in conn.execute("""SELECT gift FROM distribution_orders WHERE card=? AND status='queued'
-                              AND payload IS NULL ORDER BY rowid""", (player.gscd,)):
-        if len(player.encounters) >= capacity:
-            break
+    for row in conn.execute("""SELECT o.gift,d.gender FROM distribution_orders o
+                              LEFT JOIN distribution_dream_options d USING (card,gift)
+                              WHERE o.card=? AND o.status='queued' AND o.payload IS NULL ORDER BY o.rowid""", (player.gscd,)):
         gift = catalog().get(row["gift"])
-        if gift and gift.species and compatible(gift, player.rom_id, player.langcode):
-            player.encounters.append(DreamEncounter(gift.species, gift.move, 0, gift.gender, 0))
-            selected.append(gift.key)
+        if not gift or gift.number or not compatible(gift, player.rom_id, player.langcode):
+            continue
+        if gift.species and len(player.encounters) >= capacity:
+            continue
+        if gift.items:
+            stacks = {item.pokeitem_id: item for item in player.items}
+            quantities = Counter(gift.items)
+            if (len(player.items) + len(quantities.keys() - stacks.keys()) > item_capacity
+                    or any(stacks[i].item_cnt + n > 255 for i, n in quantities.items() if i in stacks)):
+                continue
+            for item, count in quantities.items():
+                if item in stacks:
+                    stacks[item].item_cnt += count
+                else:
+                    player.items.append(DreamItem(item, count))
+        if gift.species:
+            gender = row["gender"] if row["gender"] is not None else gift.gender
+            player.encounters.append(DreamEncounter(gift.species, gift.move, 0, gender, 0))
+        selected.append(gift.key)
     return selected
 
 

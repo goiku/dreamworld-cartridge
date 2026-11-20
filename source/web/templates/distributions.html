@@ -7,22 +7,29 @@
 .gift-page nav a{padding:.45rem .75rem;border:1px solid #a4b9ac;border-radius:5px}.gift-page [aria-current=page]{color:white;background:#305c4a}
 .gift-list{list-style:none;padding:0}.gift-list li{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-top:1px solid #bdcdbf;padding:.85rem 0}
 .gift-list small{display:block;margin-top:.25rem}.gift-page form{margin:0}.gift-page button{cursor:pointer}.gift-page details{margin:1rem 0}.gift-page [role=status]{padding:.75rem;background:#e0efdf}
-.gift-page h1,.gift-page p,.gift-page summary{margin:.65rem 0}.gift-list li>div{min-width:0;overflow-wrap:anywhere}.gift-list button{min-width:6rem}.gift-page input[type=file]{max-width:100%}.gift-page footer{margin:2rem 0}
+.gift-page h1,.gift-page p,.gift-page summary{margin:.65rem 0}.gift-list li>div{min-width:0;overflow-wrap:anywhere}.gift-list button{min-width:6rem}.gift-page input{max-width:100%;box-sizing:border-box}.gift-page footer{margin:2rem 0}.gift-search{display:flex;flex-wrap:wrap;align-items:end;gap:.5rem}.gift-search label{display:grid;gap:.25rem}.gift-search input,.gift-search select{padding:.4rem}
 @media(max-width:35rem){.gift-list li{flex-wrap:wrap;gap:.45rem}.gift-list li>div{flex-basis:100%}}
-</style></head><body><main class="gift-page"><a href="/pdw/">← {{ t.home }}</a><h1>{{ t.title }}</h1>
+</style></head><body><main class="gift-page"><a href="/pdw/">← {{ t.home }}</a><h1>{{ t.japan if japanese else t.title }}</h1>
+<p><a href="{{ url_for('campaigns.index' if japanese else 'campaigns.japan',kind=kind) }}">{{ t.mine if japanese else t.japan }}</a></p>
 {% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
-{% else %}
+{% endif %}{% if japanese or card %}
 {% if rom %}<p>{{ rom }}</p>{% endif %}
-<nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for('campaigns.index',kind=k) }}">{{ t[k] }}</a>{% endfor %}</nav>
-<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.eevee }}</p>{% endif %}
-{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}
-{% macro fields() %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="filter" value="{{ mode }}">{% endmacro %}
+<nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=k,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>
+{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.eevee }}</p>{% endif %}
+{% if card %}{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}{% endif %}
+{% macro fields() %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="filter" value="{{ mode }}"><input type="hidden" name="q" value="{{ search }}">{% if japanese %}<input type="hidden" name="scope" value="jp"><input type="hidden" name="version" value="{{ version or '' }}">{% endif %}{% endmacro %}
+<form class="gift-search" method="get" action="{{ url_for(endpoint) }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="filter" value="{{ mode }}">
+<label>{{ t.find }}<input type="search" name="q" value="{{ search }}" maxlength="100"></label>
+{% if japanese %}<label>{{ t.version }}<select name="version"><option value="">{{ t.all }}</option>{% for code,title in versions.items() %}<option value="{{ code }}" {% if code==version %}selected{% endif %}>{{ title }}</option>{% endfor %}</select></label>{% endif %}
+<button type="submit">{{ t.search }}</button></form>
 {% if kind=='wonder' and ident %}<details><summary>{{ t.scan }}</summary><p>{{ t.scan_help }}</p>
 <form method="post" enctype="multipart/form-data" action="{{ url_for('campaigns.inspect_album') }}">{{ fields() }}<input type="file" name="save" accept=".sav" required aria-label="{{ t.scan }}"><button>{{ t.scan }}</button></form></details>{% endif %}
 {% if notice %}<p role="status">{{ t[notice] }}</p>{% endif %}
-<nav aria-label="{{ t.title }}">{% for k in ('all','unclaimed','waiting','complete','unknown_filter') if k!='unknown_filter' or kind=='wonder' %}<a {% if mode==k %}aria-current="page"{% endif %} href="{{ url_for('campaigns.index',kind=kind,filter=k) }}">{{ t[k] }}</a>{% endfor %}</nav>
+{% if card %}<nav aria-label="{{ t.title }}">{% for k in ('all','unclaimed','waiting','complete','unknown_filter') if k!='unknown_filter' or kind=='wonder' %}<a {% if mode==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=kind,filter=k,q=search,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>{% endif %}
+<p>{{ t.results.format(count=count) }}</p>
 <ul class="gift-list">{% for row in rows %}<li id="{{ row.key }}"><div><strong>{{ row.name }}</strong>
-<small>{% if row.number %}#{{ row.number }} · {% endif %}{{ t.same_number if row.same else t[row.status] }}</small></div>
-{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<button type="submit">{{ t.claim }}</button></form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
-{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for('campaigns.index',kind=kind,filter=mode,page=page-1) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for('campaigns.index',kind=kind,filter=mode,page=page+1) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
-<footer><a href="/languages/?page=/campaign/">Language · 日本語 · 简体中文</a></footer></main></body></html>
+{% if row.details %}<small>{{ row.details|join(' · ') }}</small>{% endif %}
+<small>{% if row.number %}#{{ row.number }}{% endif %}{% if row.versions %} {{ row.versions|join(' / ') }}{% endif %}</small>{% if card %}<small>{{ t.same_number if row.same else t[row.status] }}</small>{% endif %}</div>
+{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}{% if row.event=='cafe' %}<label>{{ t.sex }} <select name="gender"><option value="1">♀</option><option value="0">♂</option></select></label>{% endif %} <button type="submit">{{ t.claim }}</button>{% if row.event=="berries" %} <button name="destination" value="chest">{{ t.chest }}</button>{% endif %}</form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
+{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for(endpoint,kind=kind,filter=mode,page=page-1,q=search,version=version) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for(endpoint,kind=kind,filter=mode,page=page+1,q=search,version=version) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
+<footer>{% if card and japanese %}<p><a href="/customize/">{{ t.customize }}</a></p>{% endif %}<a href="/languages/?page={{ url_for(endpoint) }}">Language · 日本語 · 简体中文</a></footer></main></body></html>
