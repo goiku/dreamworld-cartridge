@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlsplit
 from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
 from werkzeug.wrappers import Response as WerkzeugResponse
 
+from api.distributions import campaigns
 from api.island_adventure import island_adventure
 from api.island_peers import island_peers
 from api.offline_friends import offline_friends
@@ -186,6 +187,7 @@ def create_app() -> Flask:
     app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
     app.secret_key = get_secret_key()
     app.register_blueprint(signup)
+    app.register_blueprint(campaigns)
     app.register_blueprint(player_guide)
     app.register_blueprint(visit_sync)
     app.register_blueprint(offline_friends)

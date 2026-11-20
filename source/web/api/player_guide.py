@@ -74,6 +74,8 @@ def insert_player_help(response: Response) -> Response:
     friends_link = ""
     if path in ("/", "/pdw/", "/profile/"):
         friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
+        from api.distributions import title
+        friends_link += f'<a href="/campaign/">{escape(title())}</a>'
     tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
     banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
               f'{friends_link}'

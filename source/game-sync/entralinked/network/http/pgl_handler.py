@@ -12,7 +12,7 @@ from http import HTTPStatus
 from flask import Blueprint, g, request
 from flask.typing import ResponseReturnValue
 
-from utils import save_data
+from utils import distributions, save_data
 from utils.constants import PlayerStatus, is_b2w2
 from utils.language import LANGCODES
 from utils.models import Member
@@ -291,7 +291,7 @@ class PglHandler:
 
     def handle_download_save_data(self, req: PglRequest) -> tuple[PglStatus, bytes]:
         """`savedata.download`: send everything the Pokémon brings back when it wakes up."""
-        with db.transaction():
+        with db.transaction() as conn:
             player = self.player_manager.load_player(req.gscd)
             if player is None:
                 return PglStatus.UNAUTHORIZED, b""
@@ -310,13 +310,15 @@ class PglHandler:
                     and player.dreamer_info and player.dreamer_info.level < 100):
                 player.levels_gained = max(1, player.levels_gained)
             try:
+                promotions = distributions.add_to_wake(conn, player, MAX_ENCOUNTERS)
                 data = self._wake_payload(player, wake_id)
             except (ValueError, struct.error):
                 logger.exception("Cannot encode the wake-up rewards for %s", player.gscd)
                 return PglStatus.SAVE_DATA_ERROR, b""
             board_ids = [entry["id"] for entry in profile.get("dream_board", [])
                          if entry.get("selected") and not entry.get("sent_at")]
-            pending = {"payload": data.hex(), "encounters": len(player.encounters), "board_ids": board_ids}
+            pending = {"payload": data.hex(), "encounters": len(player.encounters), "board_ids": board_ids,
+                       "distribution_ids": promotions}
             db.update(player.gscd, "game_sync", lambda state: state.update(pending_wake=pending))
             save_data.update_member({"wake_download_pending": True}, player.gscd)
             return PglStatus.OK, data
@@ -382,6 +384,8 @@ class PglHandler:
                     if entry["id"] in pending["board_ids"]:
                         entry.update(selected=False, sent_at=sent_at)
 
+            with db.transaction() as conn:
+                distributions.confirm_wake(conn, player.gscd, pending.get("distribution_ids", []))
             db.update(player.gscd, "player_data", confirm)
             if self.configuration.clear_player_dream_info_on_wake:
                 player.reset_dream_info()
@@ -455,6 +459,7 @@ class PglHandler:
         self._record_tuck_in(player)
         with db.transaction() as conn:
             remember_uploaded_cartridge(conn, g.wfc_user_id, player.gscd, trainer)
+            distributions.observe_upload(conn, player.gscd, g.wfc_user_id, trainer, body)
         return PglStatus.OK, b""
 
     def handle_create_account(self, req: PglRequest) -> tuple[PglStatus, bytes]:

@@ -14,6 +14,16 @@ A community restoration of the Generation V Dream World. Play on a computer, bef
 
 **To play on a phone or tablet**, start the LAN server and connect the phone to the PC's Wi-Fi. On the PC, click **Phone web address** on the homepage or above the game. Enter the address shown, including the port, in the phone's browser. Sign in with the account linked to your cartridge. The DS can be offline once its tuck-in sync finishes. Reconnect it when you are ready to wake the Pokémon. When the PC changes Wi-Fi in automatic LAN mode, refresh this page after the new connection is ready. It will show the new address. The mobile layout was tested in an emulated mobile browser. [Find the phone address on this PC](http://127.0.0.1:8080/player-guide/phone/)
 
+## Receive an event distribution
+
+Open **Event distributions** from Dream World and select your linked cartridge. After updating, use Game Sync once with that game. The page lists events for its version and language. [Open the English event page on the server PC](http://127.0.0.1:8080/campaign/)
+
+- **Dream World promotions.** Select **Send to my save**, finish your visit and prepare to wake up. Wake your Pokémon with Game Sync, then catch your partner in Entree Forest. The page records delivery when the game acknowledges the download. Its history covers this server’s promotions.
+- **Mystery Gift.** Select **Send to my save**. On the game's title screen choose **Mystery Gift → Receive Gift → Get via Nintendo WFC**. Pick up the gift from the deliveryman in a Pokémon Center and save. Receive one card at a time. If several are waiting, choose **Receive this card next**.
+- **Check receipts.** The next Game Sync with a readable album distinguishes a card received from a gift collected. **Check a save backup** also reads the latest raw 512 KiB `.sav` for the linked game. Variants sharing a card number can share a receipt. The page identifies a specific variant when the album contains enough information.
+
+The server fetches an individual card from a pinned archive when requested. Temporary-save tests cover the web and cartridge protocols. Physical-cartridge trials for both event paths are still pending. The Cleffa photo below documents the Tree of Dreams path. [Generation V event archive](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205) · [Dream World encounter reference](https://github.com/kwsch/PKHeX/blob/master/PKHeX.Core/Legality/Encounters/Data/Gen5/Encounters5Dream.cs)
+
 ## Visit a friend's island while they are offline
 
 Each player signs in on their own server using the account linked to their cartridge. Choose **View friends** in Dream World to save a copy of a friend's island.

@@ -1500,10 +1500,31 @@ index a0380387951fa293ebfce026ef57777a64d9eca9..25f3bd18acba7a7a904b2373ebce3b82
          if self.server_thread is not None:
              self.server_thread.join()
 diff --git a/entralinked/network/http/dls_handler.py b/entralinked/network/http/dls_handler.py
-index ab6ac2ae69843749de45d7252e6ad684fdd7b543..63c1e1e645f9a800ad66edf22063b185e0fbf793 100644
+index ab6ac2ae69843749de45d7252e6ad684fdd7b543..04fb8609d18e6fa1c1706e36c82b0946dad55c2e 100644
 --- a/entralinked/network/http/dls_handler.py
 +++ b/entralinked/network/http/dls_handler.py
-@@ -60,7 +60,7 @@ class DlsHandler:
+@@ -6,9 +6,11 @@ import logging
+ from dataclasses import dataclass
+ from http import HTTPStatus
+ 
+-from flask import Blueprint, request
++from flask import Blueprint, Response, request
+ from flask.typing import ResponseReturnValue
+ 
++from utils import distributions
++
+ from ...context import Context
+ from ...model.dlc.dlc import dlc_list_string
+ from ...utility.url_encoded_form import decode_form
+@@ -53,20 +55,29 @@ class DlsHandler:
+                 action=form["action"],
+                 dlc_type=dlc_type,
+                 language=language or None,
+-                dlc_index=int(form["attr2"]) if form.get("attr2") else None,
++                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type != "MYSTERY" else None,
+                 dlc_name=form.get("contents"),
+             )
+         except (KeyError, ValueError):
              logger.exception("Malformed DLS request")
              return "", HTTPStatus.BAD_REQUEST
  
@@ -1512,6 +1533,21 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..63c1e1e645f9a800ad66edf22063b185
          session = self.user_manager.get_service_session(dls_request.token, SERVICE)
  
          if session is None:
+             logger.debug("Rejecting DLS request because the service session has expired")
+             return "", HTTPStatus.UNAUTHORIZED
+ 
++        if dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
++            content, status = distributions.download(session.user.id, form)
++            is_file = status == 200 and dls_request.action == "contents"
++            response = Response(content, status=status, mimetype="application/x-dsdl" if is_file else "text/plain")
++            response.headers["X-DLS-Host"] = f"http://{SERVICE}/"
++            if is_file:
++                response.headers.set("Content-Disposition", "attachment", filename=dls_request.dlc_name)
++            return response
++
+         handler = self._actions.get(dls_request.action)
+ 
+         if handler is None:
 diff --git a/entralinked/network/http/gts_handler.py b/entralinked/network/http/gts_handler.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b061535da296e4
@@ -1780,7 +1816,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
          self.server_thread.start()
 diff --git a/entralinked/network/http/pgl_handler.py b/entralinked/network/http/pgl_handler.py
-index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b3201f6a0ead 100644
+index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..aa1b50eb2d086cd9012346d511cc7d96b749ba2a 100644
 --- a/entralinked/network/http/pgl_handler.py
 +++ b/entralinked/network/http/pgl_handler.py
 @@ -1,4 +1,5 @@
@@ -1789,8 +1825,12 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
  import logging
  import random
  import struct
-@@ -14,10 +15,12 @@ from flask.typing import ResponseReturnValue
- from utils import save_data
+@@ -11,13 +12,15 @@ from http import HTTPStatus
+ from flask import Blueprint, g, request
+ from flask.typing import ResponseReturnValue
+ 
+-from utils import save_data
++from utils import distributions, save_data
  from utils.constants import PlayerStatus, is_b2w2
  from utils.language import LANGCODES
 +from utils.models import Member
@@ -1880,7 +1920,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
          return header + payload, HTTPStatus.OK, {"Content-Type": "application/octet-stream"}
  
      # -------------------
-@@ -279,22 +291,40 @@ class PglHandler:
+@@ -279,22 +291,42 @@ class PglHandler:
  
      def handle_download_save_data(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """`savedata.download`: send everything the Pokémon brings back when it wakes up."""
@@ -1894,7 +1934,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
 -        if player.play_status == PlayerStatus.AWAKE:
 -            return PglStatus.OK, b""
 -
-+        with db.transaction():
++        with db.transaction() as conn:
 +            player = self.player_manager.load_player(req.gscd)
 +            if player is None:
 +                return PglStatus.UNAUTHORIZED, b""
@@ -1913,13 +1953,15 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
 +                    and player.dreamer_info and player.dreamer_info.level < 100):
 +                player.levels_gained = max(1, player.levels_gained)
 +            try:
++                promotions = distributions.add_to_wake(conn, player, MAX_ENCOUNTERS)
 +                data = self._wake_payload(player, wake_id)
 +            except (ValueError, struct.error):
 +                logger.exception("Cannot encode the wake-up rewards for %s", player.gscd)
 +                return PglStatus.SAVE_DATA_ERROR, b""
 +            board_ids = [entry["id"] for entry in profile.get("dream_board", [])
 +                         if entry.get("selected") and not entry.get("sent_at")]
-+            pending = {"payload": data.hex(), "encounters": len(player.encounters), "board_ids": board_ids}
++            pending = {"payload": data.hex(), "encounters": len(player.encounters), "board_ids": board_ids,
++                       "distribution_ids": promotions}
 +            db.update(player.gscd, "game_sync", lambda state: state.update(pending_wake=pending))
 +            save_data.update_member({"wake_download_pending": True}, player.gscd)
 +            return PglStatus.OK, data
@@ -1936,7 +1978,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
          data += struct.pack(
              "<hBBBBBB",
              player.levels_gained,
-@@ -311,7 +341,7 @@ class PglHandler:
+@@ -311,7 +343,7 @@ class PglHandler:
          if b2w2:
              data += _avenue_visitors(player.avenue_visitors)
  
@@ -1945,7 +1987,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
  
      def handle_memory_link(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """Handle `savedata.getbw`.
-@@ -332,21 +362,41 @@ class PglHandler:
+@@ -332,21 +364,43 @@ class PglHandler:
  
      def handle_download_save_data_finish(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """`savedata.download.finish`: the DS has saved what it downloaded."""
@@ -1981,6 +2023,8 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
 +                    if entry["id"] in pending["board_ids"]:
 +                        entry.update(selected=False, sent_at=sent_at)
 +
++            with db.transaction() as conn:
++                distributions.confirm_wake(conn, player.gscd, pending.get("distribution_ids", []))
 +            db.update(player.gscd, "player_data", confirm)
 +            if self.configuration.clear_player_dream_info_on_wake:
 +                player.reset_dream_info()
@@ -1999,7 +2043,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
          player = self.player_manager.load_player(req.gscd)
  
          if player is None:
-@@ -354,11 +404,16 @@ class PglHandler:
+@@ -354,11 +408,16 @@ class PglHandler:
  
          logger.info("Player %s is uploading save data", player.gscd)
  
@@ -2019,7 +2063,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
              trainer = save.trainer
              pokemon = save.global_link.pokemon
  
-@@ -395,7 +450,11 @@ class PglHandler:
+@@ -395,7 +454,12 @@ class PglHandler:
          player.favorite_medal = favorite_medal
  
          self.player_manager.save_player(player)
@@ -2028,10 +2072,11 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b320
          self._record_tuck_in(player)
 +        with db.transaction() as conn:
 +            remember_uploaded_cartridge(conn, g.wfc_user_id, player.gscd, trainer)
++            distributions.observe_upload(conn, player.gscd, g.wfc_user_id, trainer, body)
          return PglStatus.OK, b""
  
      def handle_create_account(self, req: PglRequest) -> tuple[PglStatus, bytes]:
-@@ -431,9 +490,10 @@ class PglHandler:
+@@ -431,9 +495,10 @@ class PglHandler:
          now = save_data.now_jst_str()
          timestamp = int(datetime.now().timestamp())
  

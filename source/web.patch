@@ -39,6 +39,134 @@ index 0000000000000000000000000000000000000000..d6410bee02aa695c3623b5f06f87af3f
 +cd /d "%~dp0"
 +".venv\Scripts\python.exe" -m scripts.visit_friend %*
 +pause
+diff --git a/api/distributions.py b/api/distributions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..4be5038ca5266ae93e7551cb222503e27e73a9ba
+--- /dev/null
++++ b/api/distributions.py
+@@ -0,0 +1,122 @@
++"""Promotions for the cartridge linked to the signed-in resident."""
++import secrets
++from functools import cache
++
++from flask import Blueprint, abort, redirect, render_template, request, session, url_for
++
++from api.native_islands import resident
++from config import LANG
++from game_sync_server.entralinked.model.save_file import SaveFile, SaveFileError
++from game_sync_server.entralinked.utility.db_manager import db
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from utils import distributions as gifts
++from utils import save_data, text
++from utils.data import load_json_data
++
++campaigns = Blueprint("campaigns", __name__, template_folder="../templates")
++PAGE_SIZE = 24
++
++
++@cache
++def labels():
++    return load_json_data("distribution_ui")[LANG]
++
++
++def title():
++    return labels()["title"]
++
++
++def _post(card):
++    expected = session.get("gift_csrf", "")
++    if (not card or not expected or not secrets.compare_digest(expected.encode(), request.form.get("csrf", "").encode())
++            or request.form.get("card") != card):
++        abort(403)
++
++
++def _return(kind, message, anchor=""):
++    session["gift_notice"] = message
++    args = {"kind": kind, "filter": request.form.get("filter", "all"), "page": request.form.get("page", "1")}
++    return redirect(url_for("campaigns.index", **args, _anchor=anchor), code=303)
++
++
++@campaigns.get("/campaign/")
++def index():
++    card = resident()
++    member = save_data.read_member(card) if card else {}
++    rom, lang = member.get("rom_id"), member.get("langcode")
++    kind = "wonder" if request.args.get("kind") == "wonder" else "dream"
++    mode = request.args.get("filter", "all")
++    if mode not in ("all", "unclaimed", "waiting", "complete", "unknown_filter"):
++        mode = "all"
++    rows = []
++    ident = album = None
++    if card:
++        with db.transaction() as conn:
++            ident, orders, album = gifts.state(conn, card)
++        for gift in gifts.catalog().values():
++            if not gifts.compatible(gift, rom, lang) or bool(gift.number) != (kind == "wonder"):
++                continue
++            status = gifts.status(gift, orders, album)
++            if status == "alternative":
++                bucket = None
++            elif status == "unknown":
++                bucket = "unknown_filter"
++            elif status == "available":
++                bucket = "unclaimed"
++            else:
++                bucket = "waiting" if status in ("queued", "sent") else "complete"
++            if mode != "all" and mode != bucket:
++                continue
++            same = bool(gift.number and gifts.variant_counts(rom, lang)[gift.group] > 1 and
++                        status in ("received", "at_center", "collected") and
++                        gift.key not in (album or {}))
++            rows.append(dict(key=gift.key, name=gift.name or text.lookup_str("pokemon", gift.species),
++                             number=gift.number, status=status, same=same,
++                             claim=status in ("available", "unknown") and (not gift.number or ident is not None)))
++    pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
++    page = max(1, min(pages, request.args.get("page", 1, type=int)))
++    response = render_template("distributions.html", t=labels(), lang=LANG, kind=kind, mode=mode, card=card,
++                               ident=ident, album_known=album is not None, rom=text.lookup_str("game", rom),
++                               rows=rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE], page=page, pages=pages,
++                               csrf=session.setdefault("gift_csrf", secrets.token_hex(24)),
++                               notice=session.pop("gift_notice", None))
++    return response, 200, {"Cache-Control": "private, no-store"}
++
++
++@campaigns.post("/campaign/claim/<key>")
++def claim(key):
++    card = resident()
++    _post(card)
++    gift = gifts.catalog().get(key) or abort(404)
++    member = save_data.read_member(card)
++    if request.form.get("next") == "1":
++        return _return("wonder", gifts.prioritize(card, gift), gift.key)
++    try:
++        result = gifts.queue(card, gift, member.get("rom_id"), member.get("langcode"))
++    except (OSError, ValueError):
++        result = "unavailable"
++    return _return("wonder" if gift.number else "dream", result, gift.key)
++
++
++@campaigns.post("/campaign/album")
++def inspect_album():
++    request.max_content_length = 0x80000 + 16384
++    card = resident()
++    _post(card)
++    upload = request.files.get("save")
++    if not upload:
++        return _return("wonder", "invalid")
++    raw = upload.stream.read(0x80001)
++    try:
++        trainer = SaveFile(raw).trainer
++    except (SaveFileError, IndexError, ValueError):
++        return _return("wonder", "invalid")
++    signatures = {}
++    album = gifts.cartridge_album(raw, signatures)
++    with db.transaction() as conn:
++        ident, _, _ = gifts.state(conn, card)
++        if (len(raw) != 0x80000 or not trainer.game_sync_id or gsid_to_gscd(trainer.game_sync_id) != card
++                or not ident or (trainer.game, trainer.language) != (ident["rom"], ident["lang"]) or album is None):
++            return _return("wonder", "invalid")
++        gifts.merge_album(conn, card, album, signatures)
++    return _return("wonder", "scanned")
 diff --git a/api/gts_journal.py b/api/gts_journal.py
 index 0f820d760a91cf1a6fe81c56871951e36f97bead..0ac047e3206e7af4bb9db012feea1ae41180a375 100644
 --- a/api/gts_journal.py
@@ -2763,10 +2891,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..565d51bb7756537076fda25439ce559df3898a7c
+index 0000000000000000000000000000000000000000..ecc45cf1b3f470d773c8eb6cafc4d7c9d90243b6
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,112 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -2843,6 +2971,8 @@ index 0000000000000000000000000000000000000000..565d51bb7756537076fda25439ce559d
 +    friends_link = ""
 +    if path in ("/", "/pdw/", "/profile/"):
 +        friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
++        from api.distributions import title
++        friends_link += f'<a href="/campaign/">{escape(title())}</a>'
 +    tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
 +    banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
 +              f'{friends_link}'
@@ -2878,10 +3008,10 @@ index 0000000000000000000000000000000000000000..565d51bb7756537076fda25439ce559d
 +        response.set_data(data)
 +    return response
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b2a15d031 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..10cc14692008bd695c4436270de7ee80a50fdd56 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,24 @@ import atexit
+@@ -7,18 +7,25 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -2892,6 +3022,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b
 +from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
  from werkzeug.wrappers import Response as WerkzeugResponse
  
++from api.distributions import campaigns
 +from api.island_adventure import island_adventure
 +from api.island_peers import island_peers
 +from api.offline_friends import offline_friends
@@ -2910,7 +3041,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +44,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +45,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -2920,7 +3051,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +59,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +60,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -2933,7 +3064,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +92,79 @@ def api_post() -> Response:
+@@ -81,25 +93,79 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -3018,10 +3149,11 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5541b0643f4cdb88993a2e6df89ddd9b
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +186,11 @@ def create_app() -> Flask:
+@@ -121,6 +187,12 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
++    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(visit_sync)
 +    app.register_blueprint(offline_friends)
@@ -3396,6 +3528,378 @@ index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a85
 +  "Z003": "启程的伙伴", "Z004": "启程的伙伴", "Z005": "关都的三位伙伴", "Z006": "关都的三位伙伴", "Z007": "劲敌修",
 +  "Z008": "白露", "Z009": "黑连", "Z100": "默认外观", "ZUKAN_DEFAULT_PINK": "默认外观", "Z101": "默认外观", "ZUKAN_DEFAULT_RED": "默认外观"
 +}
+diff --git a/json_data/distribution_ui.json b/json_data/distribution_ui.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..88846c91448b1c97616a9ef15d4347e0b8efa984
+--- /dev/null
++++ b/json_data/distribution_ui.json
+@@ -0,0 +1,314 @@
++{
++  "zh": {
++    "title": "活动配信",
++    "home": "返回梦世界",
++    "dream": "梦世界活动",
++    "wonder": "神秘礼物",
++    "dream_help": "选择活动伙伴后，在梦世界结束游玩并准备唤醒，再到掌机使用游戏同步。回到游戏后，到连入之森捕捉。这里显示本服的配信记录。",
++    "wonder_help": "点「配信到我的存档」，然后在游戏标题画面选「神秘礼物 → 接收礼物 → 通过 Nintendo WFC 接收」。收卡后在宝可梦中心找配送员领取并保存。下次游戏同步会核对卡册。一次接收一张。",
++    "eevee": "伊布进化形活动每份存档可选一只。",
++    "login": "请从首页登录自己的帐号，并选择已绑定的游戏存档。",
++    "sync": "请先用这张卡带完成一次游戏同步，让服务器识别游戏版本和语言。",
++    "unknown_help": "还没有读到这份存档的礼物卡册。可以先检查自己的存档备份。",
++    "scan": "检查存档备份",
++    "scan_help": "可选。选择这张卡带的 512 KiB 原始 .sav 备份，读取收卡记录。请使用最近保存的副本。",
++    "all": "全部",
++    "unclaimed": "暂未领取",
++    "waiting": "等待接收",
++    "complete": "已收取",
++    "unknown_filter": "待核对",
++    "available": "暂未领取",
++    "unknown": "领取记录待核对",
++    "queued": "等待掌机接收",
++    "delivered": "已随游戏同步送达",
++    "received": "已有收卡记录",
++    "at_center": "已收卡 · 待向配送员领取",
++    "collected": "已领取礼物",
++    "alternative": "同组已选择其他配信",
++    "same_number": "同编号已有收卡记录，具体版本待核对",
++    "claim": "配信到我的存档",
++    "empty": "这里没有符合条件的配信。",
++    "prev": "上一页",
++    "next": "下一页",
++    "unavailable": "暂时无法取得这张活动卡，请稍后再点一次。",
++    "invalid": "这份备份未能通过卡带身份或卡册校验。请选择当前绑定卡带的原始存档。",
++    "scanned": "已核对卡册。",
++    "incompatible": "此活动不适用于当前卡带。",
++    "ambiguous": "这台掌机有多份版本和语言相同的关联存档，无法确定接收目标。",
++    "prioritize": "下次接收这张",
++    "sent": "卡已发送 · 等待存档确认"
++  },
++  "en": {
++    "title": "Event distributions",
++    "home": "Back to Dream World",
++    "dream": "Dream World promotions",
++    "wonder": "Mystery Gift",
++    "dream_help": "Select a partner, finish your Dream World session, then wake your Pokémon with Game Sync. Catch the partner in Entree Forest. The list tracks deliveries made by this server.",
++    "wonder_help": "Choose Send to my save. On the title screen select Mystery Gift → Receive Gift → Get via Nintendo WFC. Collect the gift from the deliveryman in a Pokémon Center and save. The next Game Sync checks the album. Receive one card at a time.",
++    "eevee": "Each save can choose one Eevee evolution from its promotion.",
++    "login": "Sign in from the home page and select your linked game.",
++    "sync": "Use Game Sync once with this cartridge to identify its game and language.",
++    "unknown_help": "This save’s card album has yet to be read. You can check a recent backup.",
++    "scan": "Check a save backup",
++    "scan_help": "Optional. Select the latest 512 KiB raw .sav backup from this cartridge to read its receipt history.",
++    "all": "All",
++    "unclaimed": "Unclaimed",
++    "waiting": "Waiting",
++    "complete": "Received",
++    "unknown_filter": "Unverified",
++    "available": "Unclaimed",
++    "unknown": "Receipt unverified",
++    "queued": "Waiting for cartridge",
++    "delivered": "Delivered by Game Sync",
++    "received": "Card receipt recorded",
++    "at_center": "Card received · collect at a Pokémon Center",
++    "collected": "Gift collected",
++    "alternative": "Another reward in this group was selected",
++    "same_number": "Receipt found for this number · variant unverified",
++    "claim": "Send to my save",
++    "empty": "No matching distributions.",
++    "prev": "Previous",
++    "next": "Next",
++    "unavailable": "This card could not be retrieved. Try again later.",
++    "invalid": "The backup did not match this cartridge or its album failed verification.",
++    "scanned": "Card album checked.",
++    "incompatible": "This event is incompatible with this cartridge.",
++    "ambiguous": "Multiple matching saves use this console identity. The receiving cartridge is ambiguous.",
++    "prioritize": "Receive this card next",
++    "sent": "Card sent · awaiting save confirmation"
++  },
++  "ja": {
++    "title": "イベント配信",
++    "home": "ドリームワールドに戻る",
++    "dream": "ドリームワールドのキャンペーン",
++    "wonder": "ふしぎなおくりもの",
++    "dream_help": "仲間を選び、ドリームワールドを終了して起こす準備をしたら、ゲームシンクで起こしてください。ハイリンクの森で仲間を捕まえられます。ここにはこのサーバーでの配信履歴が表示されます。",
++    "wonder_help": "「自分のセーブデータに配信」を押し、タイトル画面の「ふしぎなおくりもの」から、おくりものを受け取る → Wi-Fiで受け取る、と進んでください。ポケモンセンターで配達員から受け取り、レポートを書いてください。次のゲームシンクでカードを確認します。受信は1枚ずつです。",
++    "eevee": "イーブイの進化形はセーブデータごとに1匹選べます。",
++    "login": "トップページでログインして登録済みのソフトを選んでください。",
++    "sync": "このソフトで一度ゲームシンクを行い、バージョンと言語を登録してください。",
++    "unknown_help": "カードアルバムが未確認です。最新のセーブデータのバックアップでも確認できます。",
++    "scan": "バックアップを確認",
++    "scan_help": "任意。このソフトの最新の512 KiBの .sav ファイルからカードの受取履歴を読み取ります。",
++    "all": "すべて",
++    "unclaimed": "未受取",
++    "waiting": "受信待ち",
++    "complete": "受取済み",
++    "unknown_filter": "未確認",
++    "available": "未受取",
++    "unknown": "受取履歴は未確認",
++    "queued": "ソフトでの受信待ち",
++    "delivered": "ゲームシンクで配信済み",
++    "received": "カードの受取記録あり",
++    "at_center": "カード受信済み・配達員から未受取",
++    "collected": "おくりもの受取済み",
++    "alternative": "同じグループの別のおくりものを選択済み",
++    "same_number": "同じ番号の受取記録あり・種類は未確認",
++    "claim": "自分のセーブデータに配信",
++    "empty": "該当する配信はありません。",
++    "prev": "前へ",
++    "next": "次へ",
++    "unavailable": "カードを取得できませんでした。しばらくしてから再度お試しください。",
++    "invalid": "ソフトの登録情報またはカードアルバムを確認できませんでした。",
++    "scanned": "カードアルバムを確認しました。",
++    "incompatible": "このソフトは配信対象外です。",
++    "ambiguous": "同じ本体に同じ条件のセーブデータがあり、受取先を特定できません。",
++    "prioritize": "次にこのカードを受け取る",
++    "sent": "送信済み・セーブデータでの確認待ち"
++  },
++  "fr": {
++    "title": "Distributions",
++    "home": "Retour au Monde des Rêves",
++    "dream": "Promotions du Monde des Rêves",
++    "wonder": "Cadeau Mystère",
++    "dream_help": "Choisissez un partenaire, quittez le Monde des Rêves et réveillez votre Pokémon avec la Synchro-Jeu. Retrouvez votre partenaire dans la Forêt du Heylink. L’historique couvre les envois de ce serveur.",
++    "wonder_help": "Demandez l’envoi, puis choisissez Cadeau Mystère → Recevoir un cadeau → Via la CWF Nintendo sur l’écran titre. Récupérez le cadeau au Centre Pokémon et sauvegardez. La prochaine Synchro-Jeu vérifie l’album. Recevez une carte à la fois.",
++    "eevee": "Une seule évolution d’Évoli par sauvegarde pour cette promotion.",
++    "login": "Connectez-vous depuis l’accueil et choisissez votre jeu associé.",
++    "sync": "Utilisez la Synchro-Jeu avec cette cartouche pour identifier le jeu et sa langue.",
++    "unknown_help": "Album inconnu. Vous pouvez vérifier une sauvegarde récente.",
++    "scan": "Vérifier une sauvegarde",
++    "scan_help": "Facultatif. Sélectionnez la dernière copie .sav brute de 512 Kio de cette cartouche.",
++    "all": "Tout",
++    "unclaimed": "À recevoir",
++    "waiting": "En attente",
++    "complete": "Reçus",
++    "unknown_filter": "À vérifier",
++    "available": "À recevoir",
++    "unknown": "Réception à vérifier",
++    "queued": "En attente de la cartouche",
++    "delivered": "Livré par Synchro-Jeu",
++    "received": "Carte déjà reçue",
++    "at_center": "Carte reçue · cadeau à retirer au Centre Pokémon",
++    "collected": "Cadeau retiré",
++    "alternative": "Un autre cadeau de ce groupe a été choisi",
++    "same_number": "Numéro reçu · variante à vérifier",
++    "claim": "Envoyer à ma sauvegarde",
++    "empty": "Aucune distribution correspondante.",
++    "prev": "Précédent",
++    "next": "Suivant",
++    "unavailable": "Carte indisponible. Réessayez plus tard.",
++    "invalid": "La sauvegarde ou son album ne correspond pas à cette cartouche.",
++    "scanned": "Album vérifié.",
++    "incompatible": "Événement incompatible avec cette cartouche.",
++    "ambiguous": "Plusieurs sauvegardes correspondent à cette console. Destination indéterminée.",
++    "prioritize": "Recevoir cette carte en premier",
++    "sent": "Carte envoyée · en attente de confirmation"
++  },
++  "it": {
++    "title": "Distribuzioni evento",
++    "home": "Torna al Dream World",
++    "dream": "Promozioni Dream World",
++    "wonder": "Dono Segreto",
++    "dream_help": "Scegli un compagno, termina la sessione e sveglia il tuo Pokémon con il Sincrogioco. Cattura il compagno nella Foresta Intramondo. Qui trovi le consegne di questo server.",
++    "wonder_help": "Richiedi l’invio, poi scegli Dono Segreto → Ricevi dono → Tramite Nintendo WFC dal menu iniziale. Ritira il dono al Centro Pokémon e salva. Il prossimo Sincrogioco controlla l’album. Ricevi una scheda alla volta.",
++    "eevee": "Questa promozione offre una sola evoluzione di Eevee per salvataggio.",
++    "login": "Accedi dalla pagina iniziale e seleziona il gioco collegato.",
++    "sync": "Usa il Sincrogioco con questa cartuccia per identificarne versione e lingua.",
++    "unknown_help": "Album ancora da verificare. Puoi controllare un backup recente.",
++    "scan": "Controlla un backup",
++    "scan_help": "Facoltativo. Scegli la copia .sav originale più recente da 512 KiB della cartuccia.",
++    "all": "Tutti",
++    "unclaimed": "Da ricevere",
++    "waiting": "In attesa",
++    "complete": "Ricevuti",
++    "unknown_filter": "Da verificare",
++    "available": "Da ricevere",
++    "unknown": "Ricezione da verificare",
++    "queued": "In attesa della cartuccia",
++    "delivered": "Consegnato con il Sincrogioco",
++    "received": "Scheda ricevuta",
++    "at_center": "Scheda ricevuta · ritira il dono al Centro Pokémon",
++    "collected": "Dono ritirato",
++    "alternative": "È stato scelto un altro dono del gruppo",
++    "same_number": "Numero ricevuto · variante da verificare",
++    "claim": "Invia al mio salvataggio",
++    "empty": "Nessuna distribuzione corrispondente.",
++    "prev": "Indietro",
++    "next": "Avanti",
++    "unavailable": "Scheda non disponibile. Riprova più tardi.",
++    "invalid": "Il backup o il suo album non corrisponde alla cartuccia.",
++    "scanned": "Album verificato.",
++    "incompatible": "Evento incompatibile con questa cartuccia.",
++    "ambiguous": "Più salvataggi corrispondono alla console. Destinazione incerta.",
++    "prioritize": "Ricevi prima questa scheda",
++    "sent": "Scheda inviata · in attesa di conferma"
++  },
++  "de": {
++    "title": "Event-Verteilungen",
++    "home": "Zur Traumwelt",
++    "dream": "Traumwelt-Aktionen",
++    "wonder": "Geheimgeschehen",
++    "dream_help": "Wähle einen Partner, beende den Traumwelt-Besuch und wecke dein Pokémon per Spielsynchro. Fange den Partner im Kontaktebenenhain. Hier stehen die Zustellungen dieses Servers.",
++    "wonder_help": "Fordere das Geschenk an. Wähle im Titelmenü Geheimgeschehen → Geschenk empfangen → Über Nintendo WFC. Hole es im Pokémon-Center ab und speichere. Die nächste Spielsynchro prüft das Album. Empfange jeweils eine Karte.",
++    "eevee": "Pro Spielstand ist eine Evoli-Entwicklung aus dieser Aktion möglich.",
++    "login": "Melde dich auf der Startseite an und wähle dein verknüpftes Spiel.",
++    "sync": "Verwende die Spielsynchro einmal mit diesem Spiel, um Version und Sprache zu erkennen.",
++    "unknown_help": "Das Album wurde noch nicht gelesen. Du kannst eine aktuelle Sicherung prüfen.",
++    "scan": "Sicherung prüfen",
++    "scan_help": "Optional. Wähle die neueste unveränderte .sav-Datei dieses Spiels mit 512 KiB.",
++    "all": "Alle",
++    "unclaimed": "Offen",
++    "waiting": "Ausstehend",
++    "complete": "Erhalten",
++    "unknown_filter": "Ungeprüft",
++    "available": "Offen",
++    "unknown": "Empfang ungeprüft",
++    "queued": "Wartet auf das Spiel",
++    "delivered": "Per Spielsynchro zugestellt",
++    "received": "Kartenempfang gespeichert",
++    "at_center": "Karte erhalten · Geschenk im Pokémon-Center abholen",
++    "collected": "Geschenk abgeholt",
++    "alternative": "Ein anderes Geschenk dieser Gruppe wurde gewählt",
++    "same_number": "Kartennummer erhalten · Variante ungeprüft",
++    "claim": "An meinen Spielstand senden",
++    "empty": "Keine passenden Verteilungen.",
++    "prev": "Zurück",
++    "next": "Weiter",
++    "unavailable": "Karte nicht verfügbar. Versuche es später erneut.",
++    "invalid": "Sicherung oder Album passt nicht zum verknüpften Spiel.",
++    "scanned": "Album geprüft.",
++    "incompatible": "Dieses Spiel ist mit der Aktion nicht kompatibel.",
++    "ambiguous": "Mehrere passende Spielstände auf dieser Konsole. Das Ziel ist nicht eindeutig.",
++    "prioritize": "Diese Karte als Nächstes empfangen",
++    "sent": "Karte gesendet · Bestätigung ausstehend"
++  },
++  "es": {
++    "title": "Distribuciones de eventos",
++    "home": "Volver a Dream World",
++    "dream": "Promociones de Dream World",
++    "wonder": "Regalo Misterioso",
++    "dream_help": "Elige un compañero, termina la sesión y despierta a tu Pokémon con la Sincronizar Juego. Captura al compañero en el Bosque Nexo. Aquí se registran los envíos de este servidor.",
++    "wonder_help": "Solicita el envío. En el menú de inicio elige Regalo Misterioso → Recibir regalo → Mediante CWF de Nintendo. Recoge el regalo en el Centro Pokémon y guarda la partida. La siguiente sincronización comprueba el álbum. Recibe una tarjeta cada vez.",
++    "eevee": "Esta promoción permite elegir una evolución de Eevee por partida.",
++    "login": "Inicia sesión desde la página principal y selecciona tu juego vinculado.",
++    "sync": "Sincroniza una vez con este cartucho para identificar la versión y el idioma.",
++    "unknown_help": "Aún no se ha leído el álbum. Puedes comprobar una copia reciente.",
++    "scan": "Comprobar una copia guardada",
++    "scan_help": "Opcional. Selecciona la última copia .sav original de 512 KiB del cartucho.",
++    "all": "Todos",
++    "unclaimed": "Sin recibir",
++    "waiting": "En espera",
++    "complete": "Recibidos",
++    "unknown_filter": "Sin verificar",
++    "available": "Sin recibir",
++    "unknown": "Recepción sin verificar",
++    "queued": "En espera del cartucho",
++    "delivered": "Entregado al sincronizar",
++    "received": "Tarjeta recibida",
++    "at_center": "Tarjeta recibida · recoge el regalo en el Centro Pokémon",
++    "collected": "Regalo recogido",
++    "alternative": "Ya se eligió otro regalo de este grupo",
++    "same_number": "Número recibido · variante sin verificar",
++    "claim": "Enviar a mi partida",
++    "empty": "No hay distribuciones que coincidan.",
++    "prev": "Anterior",
++    "next": "Siguiente",
++    "unavailable": "La tarjeta no está disponible. Inténtalo más tarde.",
++    "invalid": "La copia o su álbum no corresponde al cartucho vinculado.",
++    "scanned": "Álbum comprobado.",
++    "incompatible": "Evento incompatible con este cartucho.",
++    "ambiguous": "Hay varias partidas que coinciden en esta consola. No se puede identificar el destino.",
++    "prioritize": "Recibir esta tarjeta primero",
++    "sent": "Tarjeta enviada · pendiente de confirmación"
++  },
++  "ko": {
++    "title": "이벤트 배포",
++    "home": "드림월드로 돌아가기",
++    "dream": "드림월드 이벤트",
++    "wonder": "이상한 소포",
++    "dream_help": "파트너를 고른 뒤 드림월드를 종료하고 게임싱크로 포켓몬을 깨워 주세요. 하일링크의 숲에서 파트너를 잡을 수 있습니다. 이곳에는 이 서버의 배포 기록이 표시됩니다.",
++    "wonder_help": "배포 버튼을 누르고 타이틀 화면에서 이상한 소포 → 선물 받기 → 닌텐도 Wi-Fi 커넥션으로 받기를 선택하세요. 포켓몬센터 배달원에게 선물을 받고 저장하세요. 다음 게임싱크 때 앨범을 확인합니다. 한 번에 카드 한 장을 받습니다.",
++    "eevee": "이브이 진화형 이벤트는 저장 데이터마다 한 마리를 선택할 수 있습니다.",
++    "login": "홈에서 로그인하고 등록한 게임을 선택하세요.",
++    "sync": "이 게임 카드로 게임싱크를 한 번 진행해 버전과 언어를 등록하세요.",
++    "unknown_help": "아직 앨범을 확인하지 못했습니다. 최근 백업을 검사할 수 있습니다.",
++    "scan": "백업 확인",
++    "scan_help": "선택 사항입니다. 이 게임 카드의 최신 512 KiB 원본 .sav 백업을 선택하세요.",
++    "all": "전체",
++    "unclaimed": "미수령",
++    "waiting": "대기 중",
++    "complete": "수령 완료",
++    "unknown_filter": "미확인",
++    "available": "미수령",
++    "unknown": "수령 기록 미확인",
++    "queued": "게임 카드 수신 대기",
++    "delivered": "게임싱크로 전달 완료",
++    "received": "카드 수령 기록 있음",
++    "at_center": "카드 수령 · 포켓몬센터에서 선물을 받으세요",
++    "collected": "선물 수령 완료",
++    "alternative": "같은 그룹의 다른 선물을 선택했습니다",
++    "same_number": "같은 번호 수령 기록 있음 · 세부 종류 미확인",
++    "claim": "내 저장 데이터로 배포",
++    "empty": "조건에 맞는 배포가 없습니다.",
++    "prev": "이전",
++    "next": "다음",
++    "unavailable": "카드를 가져올 수 없습니다. 나중에 다시 시도하세요.",
++    "invalid": "백업의 게임 카드 정보나 앨범을 확인할 수 없습니다.",
++    "scanned": "앨범을 확인했습니다.",
++    "incompatible": "이 게임 카드에서는 받을 수 없는 이벤트입니다.",
++    "ambiguous": "이 본체에 일치하는 저장 데이터가 여러 개여서 수신 대상을 확인할 수 없습니다.",
++    "prioritize": "이 카드를 먼저 받기",
++    "sent": "카드 전송 완료 · 저장 데이터 확인 대기"
++  }
++}
+diff --git a/json_data/dream_promotions.json b/json_data/dream_promotions.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19cb266912a7c50c245aa1c1e38c94c7db39ff31
+--- /dev/null
++++ b/json_data/dream_promotions.json
+@@ -0,0 +1,46 @@
++[[48,1,0,0,["JPN","KOR"]],
++[48,4,0,0,["JPN","KOR"]],
++[48,7,0,0,["JPN","KOR"]],
++[48,134,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,135,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,136,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,137,0,2,["ENG","JPN","KOR"]],
++[48,189,206,0,["KOR"]],
++[48,196,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,197,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,242,0,1,["JPN","KOR"]],
++[48,252,0,0,["JPN"]],
++[48,255,0,0,["JPN"]],
++[48,258,0,0,["JPN"]],
++[48,334,206,0,["JPN"]],
++[48,354,538,1,["ENG","JPN","KOR"]],
++[48,376,38,2,["ENG"]],
++[48,384,0,2,["KOR"]],
++[48,387,0,0,["KOR"]],
++[48,390,0,0,["KOR"]],
++[48,393,0,0,["KOR"]],
++[48,448,418,0,["ENG","JPN","KOR"]],
++[48,453,0,0,["JPN","KOR"]],
++[48,453,398,0,["ENG"]],
++[48,468,217,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,470,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,471,0,0,["ENG","FRE","GER","ITA","JPN","KOR","SPA"]],
++[48,473,0,0,["ENG","JPN","KOR"]],
++[48,493,0,2,["ENG","JPN"]],
++[192,25,29,0,["JPN"]],
++[192,376,38,2,["ENG"]],
++[192,387,0,0,["JPN"]],
++[192,387,254,0,["ENG"]],
++[192,390,0,0,["JPN"]],
++[192,390,252,0,["ENG"]],
++[192,393,0,0,["JPN"]],
++[192,393,297,0,["ENG"]],
++[192,511,437,0,["JPN"]],
++[192,513,257,0,["JPN"]],
++[192,515,56,0,["JPN"]],
++[192,575,243,0,["ENG","JPN","KOR"]],
++[240,149,9,0,["JPN","KOR"]],
++[240,149,245,0,["ENG"]],
++[240,212,211,0,["ENG"]],
++[240,248,69,0,["ENG"]],
++[240,445,242,0,["ENG"]]]
 diff --git a/json_data/gen5_nickname_glyphs.json b/json_data/gen5_nickname_glyphs.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..d24d707adcb2ce8c6cd20d44a7a8002a491ff770
@@ -3549,6 +4053,721 @@ index 0000000000000000000000000000000000000000..d24d707adcb2ce8c6cd20d44a7a8002a
 +    "！＃＄％＆（）＊＋，－．／０１２３４５６７８９：；＜＝＞？＠ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ［＼］＾＿｀ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｛｜｝～｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ￠￡￢￣￥"
 +  ]
 +}
+diff --git a/json_data/gift_cards.json b/json_data/gift_cards.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5a0b4345b5e5e6bc15af17f660057a7aa6313343
+--- /dev/null
++++ b/json_data/gift_cards.json
+@@ -0,0 +1,709 @@
++[["ENG","0002 BW - SMR2011 Karrablast (ENG).pgf","fb521e6efc25baa7f7ca88498e2b5f209b38c97f",48,"325b3c89f8f10f8b97fa59ad2e66763fbd00bd3d","74b6ee185de922717bad3663804df638c70a37d5fc2bf107e9f05aac79ad48a0",2],
++["ENG","0003 BW - SMR2011 Shelmet (ENG).pgf","0fe635c9eda0557355d9afd649686565f1826194",48,"71c950e7ca480d310f92c44ce2c0402d23a452b6","1ee9b9d49f613e60ba3ac31785e0902345562b72f05ca62acd6e3b7db0ca8397",3],
++["ENG","0028 BW - 2011WIN Darkrai (ENG).pgf","41eb7fed8a8ec89aa7d156f2e936d7d9fa8677d5",48,"7971163b6d048311dbf13d86a91647f9e656551b","9aa5bfae6ef037ee567ae65323b9dd8c8aa33e75f0c5ea8ae54424e876022028",28],
++["ENG","0028 BW - 2012MAY Darkrai (ENG).pgf","d91713cf64792a81b6bfc25a35b8ad90a7750201",48,"","eb2b150626b3b40fe868c543994d98527a8892d151d8c37e2cec80e4fccd74bd",28],
++["ENG","0029 BW - (Trainer) Axew Egg (ENG).pgf","218f283726f05503a0f1285014f0f357fc9f7e1e",48,"ee2986343157d8d9542082a59132627348d8db95","97178d49cb6fa32ed823c6be8764d118df28ab9eaccec23b84454845056fc8e8",29],
++["ENG","0029 BW - (Trainer) Pansage Egg (ENG).pgf","12d65ab9ff29c4212612b829b322ce7d2c1d1078",48,"e43b51919fa347b66a914cc5d61fa9a776ccb3b4","448680804c524aa9097ef3dd61a380f3bc7cc6396d02d1dea4d728c436a02a39",29],
++["ENG","0029 BW - (Trainer) Pidove Egg (ENG).pgf","61fe592571f9f64d98920ebd73a1b8fa867533c8",48,"4eae6605844679df987e05f8cf970c7fed11e3b5","f06c0d20b877bf8219764e5df8ed55614aa16860a42f369d413fc8f6ccca3a2e",29],
++["ENG","0030 BW - Event11 Zoroark (ENG).pgf","d98d62489b1d05875be86a69e1c9a559a526d8ce",48,"","a7c72f00a92cb92bd67c409b006b777ecccc05877536c12d165c4492d5abd050",30],
++["ENG","0030 BW - SMR2011 Zoroark (ENG).pgf","a33f3f5c97172d05c07353047728eef38dd8bb29",48,"50b1f942cbcb4e59d908cd93150fdb0cb9fe7e20","d8300f9d23f694526bdc2d7609c75ea69e58e5f9f5a60f88923dfc33e4955688",30],
++["ENG","0032 BW - Movie14 Victini (ENG).pgf","98a2eea2fd4f9d9404bfd60269b1613d0f02a659",48,"","8abf25fd88dfd8ed7724d040c4672a759581f4d9c6d637657f2aa10736a1e779",32],
++["ENG","0033 B - SPR2012 Zekrom (ENG).pgf","8801816118a22b10cbef2f69cc4d8e071d93f774",32,"","cf9e74e90904a741c6f750e5229b6af8fa9ecc085b92e4da53459847e753b16a",33],
++["ENG","0033 B [LW] - SPR2012 Zekrom (ENG).pgf","4245c1adad9c080480f1b4d80dbf487cf63d25f2",32,"","02374e9ad45e870582781637afe302f4239f24fd3311e4ef2ef48bafd6e88c98",33],
++["ENG","0033 W - SPR2012 Reshiram (ENG).pgf","66470768da44e583596683c9e8e32901dc638085",16,"","a5bbaa5f4950f310b6b08e5546238180321fa9fdc2c0ce764dfe59359b9a248b",33],
++["ENG","0033 W [LW] - SPR2012 Reshiram (ENG).pgf","8d0831db43a2fdca7db88d80170aa638e2d2ffed",16,"","53d811f9dbfde20fb54579685a9fa6b9f5a3fcfda3cf5c0f734cff104b4e16db",33],
++["ENG","0037 BW - WORLD11 Scrafty (ENG).pgf","d525b0b4c522cc0cb2b154074fa5fad988d2e9c0",48,"","650866d8b44535a8edc55e7c03317a9f462bcbf1346eb90854fa672a59ce0baa",37],
++["ENG","0048 BW - FEB2012 Mewtwo (ENG).pgf","6b8f0ecfb276f5ea61a2e4a529ef76bba0f48eb2",48,"","d1e4fdd7108d11d68d002de9b739393f1da15cac6c5df9d02ae521e65ff77ef2",48],
++["ENG","0061 BW - VGC12 Larvitar (ENG).pgf","666f523d075af34fc0d9a6344a729e8e35994d29",48,"","2ad75ee035ecf50571671f6b2a63e0c70ba5f675b43c1fb1543f4f94942dced4",61],
++["ENG","0069 BW - SMR2012 Keldeo (ENG).pgf","ec5b8b7f0d0ac568073ff67c77419a80f62b2c3c",48,"712a27163430d426dbe9066867e15e2573c4c011","9d9d2dd91b676ef3f64f26ad380f20b32a4127405254285ca09460c7032febab",69],
++["ENG","0071 BW - SMR2012 Pikachu (ENG).pgf","27a7c4416a06f8ce0fcfcfa8e10b6168563b5394",48,"","c20c78074d427e23a9cb52262e41618b7f384c16ad0ee427ae53e17d0b87369e",71],
++["ENG","0096 BW - Fes Pikachu (ENG).pgf","7a53ad9eee060d32572623e91777f4d74e8a166f",48,"","9792a707a52747b17a0deca7096dcb5000767f97f62a712367c29d3d26ec9600",96],
++["ENG","0099 B2W2 - Plasma Genesect (ENG).pgf","f98b6d102a001fc344354a4183e09c6b130463f6",192,"","9a6764470a50dd3a182011a00f9d43a2cfbe8d8e2b21954d708b646b92142c02",99],
++["ENG","0100 BW - WORLD12 Pikachu (ENG).pgf","7e28332f63d16bfc541dc45ddedd7ef0de628608",48,"","452e8985486d09d6b31ddc5d88ab57afe3b487778c130ac8308a99cf5364aae7",100],
++["ENG","0128 B2W2 - WIN2013 Keldeo (ENG).pgf","4bd1167c6fa4c0f1f9d2ba31e1d3a873f71f2528",192,"","95451fb54a33666b76f088c6884511a7f882526bab92c260f8ffab74f24b7458",128],
++["ENG","0129 BWB2W2 - SPR2013 Meloetta (ENG).pgf","e66873475383ee5da865507533d85cb020b57b91",240,"79e395039ee6b483517a0925aef7b762a76dbd37","896a4841d3e4f8459cc589a6d78f5dd5177cb7cf1e739a2ccc41ef9a75c57d4e",129],
++["ENG","0130 BWB2W2 - Abram Cloyster (ENG).pgf","d781c65271da5ba15bba18e6d02c8dbcb873c766",240,"","84142793b7978eb0ab585b8f853b3f31012e334a4a29f5ede5137c25db43bc4a",130],
++["ENG","0131 BWB2W2 - Toler Ludicolo (ENG).pgf","c394f79718345368f63288de0393f4307465308c",240,"","1e0c37555886fb888a7c7a2fa6de46be588253594887ffe6f767f94c5b0b6ddf",131],
++["ENG","0132 BWB2W2 - Ray Metagross (ENG).pgf","426af0405b41409a04e521e185a65b8f4bf335e2",240,"","22bcafbb12165405a2711420d300578b6d39415a83e798c1b2c895c05252ffd6",132],
++["ENG","0133 B2W2 - Plasma Deoxys (ENG).pgf","726665d721674548598a099e9b6188f3112bb908",192,"","018e3bdeeb1f1d66449f6caf53c4431432f0d1c151d8b08bbd35d6ce56ab8305",133],
++["ENG","0135 BWB2W2 - Ｐヒルズ Mewtwo (ENG).pgf","5e58e197fcfaa5d0212da62b460f41e79a6b49f3",240,"","2e20a10c86ef7b137289fdd192d4e645fb48ef8dae8e5946124c5486e22759e4",135],
++["ENG","0148 BWB2W2 - (08193) SUM2013 Shiny Dialga (ENG).pgf","43968f4933466974666011059de31061e35db2f6",240,"001d09fd79ac0a1bd18158031f91c464e87410b4","ec3bc237346c2a4d76b27b5bbc21bf7de26fd430b682d568225c9d6087e9b810",148],
++["ENG","0148 BWB2W2 - (08303) SUM2013 Shiny Dialga (ENG).pgf","fcee533200c07484f804b65bd34fa8b31a69281d",240,"bef3fa509bb0634f560f2228acfd711fd7587b70","5e412c57d64628ab4f43579a19dbe2660afda12a3026260426b5208891626429",148],
++["ENG","0149 BWB2W2 - (09093) SUM2013 Shiny Palkia (ENG).pgf","1224aa55b8010dcc88f2b3746ffe242cc4e0b456",240,"5ddda9253ade6bb0c655c598244a0c73d2c154fd","0ad9d4b00c693250ccd60d4e16a232ba62905e6c45999b1d3d3d7f080cd6fce5",149],
++["ENG","0149 BWB2W2 - (09133) SUM2013 Shiny Palkia (ENG).pgf","c83f8f89171e8ee7b4088f7dccbe76e98dba4da9",240,"f61bb7ee4da50a91c11a976703e1e872f90032d1","dedb0a0551f3f02b1fc5bf5c2ea87e1a9c3b5363884a8a1e3e564d2800a4bde6",149],
++["ENG","0150 BWB2W2 - (09273) SUM2013 Shiny Giratina (ENG).pgf","4327ab23f3e3df062edbbfe59dbb35acebfa0a16",240,"fdeb9d8dae19372313c34ec8ae6ff064df35e466","52d55515b91faf5453bc64b80afa536a9bc202f26bcafc49a8ff39aa7ffd4a82",150],
++["ENG","0150 BWB2W2 - (09303) SUM2013 Shiny Giratina (ENG).pgf","850544d6d8db70022c3725e8e0ddbba1632da2d2",240,"c34e91ae4462b78644ca7ab2152dc13f6ec33e99","6af04bf7f71d5365d1e24bd2e32826515726aed238b541c77a2b4fa77c43e177",150],
++["ENG","0155 BWB2W2 - WORLD13 Smeargle (ENG).pgf","6b534ff19daac06878fb4f8a0a8b88735373397d",240,"","45cc1380a608dbb74353ec29889e840a363a89f84c7da9b34ecd77b99cf5d099",155],
++["ENG","2046 BW - Item Liberty Pass (ENG).pgf","f7bd0314e6c5bf42dd22682ead0b437ade36d6c6",48,"17cda6e71808f0880bf8141ea4cd183200c7b54a","1f4dfc631601bfea9f7073758f69c4d9d54ae165bf5e8a1b0b44eda7eb89848b",2046],
++["FRE","0002 BW - ÉTÉ2011 Karrablast (FRE).pgf","56465621aa1719b093271645e66ed0bddcfab669",48,"8f5da560213e62d5f88f6709aff1725df224c60e","031d358379845c5a04d4e10a9d53749075d005fc063e3a2dac80b221eb0ea3d3",2],
++["FRE","0003 BW - ÉTÉ2011 Shelmet (FRE).pgf","028a3ca71e7d1786aa6d84299151331d20a6134c",48,"d03d20aa693cd991c2563cab3fe897c30290e1d4","74eafb1ea1874794f17a24f3ec48b242b1a1eeb72793e36e28f7274f838c27d0",3],
++["FRE","0028 BW - 2011HVR Darkrai (FRE).pgf","6fcc5531d4217906ba5399a0fed0689188c54ae7",48,"a918599199acbc45cea05be0fac35a0f0271cd70","8d7aafd49acff7eaa34db6592dc1ffb191cbc441c5c586d5b9ac05616c0c00b6",28],
++["FRE","0030 BW - ÉTÉ2011 Zoroark (FRE).pgf","ac973d4952b19b4da38c0d56bfebd6effa95fef6",48,"4b37099b5fe905b444c92caea4e7e185e6763078","4da230373edc13e4ae93fa5f921108c9d4bea03689ceb11a21f7c0fcdcbf4f77",30],
++["FRE","0030 BW - ÉVNMT11 Zoroark (FRE).pgf","2628b6d81027badabf0c0b5ef1bbc73a1a9c11fc",48,"1d63cc99bdf5b42d56482a8d34db34d1f2285ed3","f7c0a7debb35b7ae19b10f6984e60d746374bf2740804a68b7fb258997b08c39",30],
++["FRE","0032 BW - FILM14 Victini (FRE).pgf","741fde487c87d014d23d694ff6214f97d4ef801e",48,"","b293438765a4934d05eb7896ad51c77b20c374ec2ed905db89a20f8cda7fed0b",32],
++["FRE","0033 B - PRI2012 Zekrom (FRE).pgf","123a6b4ba2013afd47022cea85afa568fb1cf93c",32,"","b6a36889d76a88afefdc82b53e9c6514f2eb558cfd63cd30d4a9ed0fd2b72e1e",33],
++["FRE","0033 W - PRI2012 Reshiram (FRE).pgf","e3fbcfcf8444a7c1748b07dbfeec2a370a6ec3d3",16,"","752fc03bade0518f82ba7a6f3706ebfe81d3b95234155466dbbf023719e93ca4",33],
++["FRE","0037 BW - WORLD11 Scrafty (FRE).pgf","61e819c6b7d69e1e5a2c43b8d9a5fa5e4a695a29",48,"8ff105fc74ca0a257c94d46322d707e7780ab6c6","6d221e0af19d4d620fa748296751a9fa5f4daa62171b8e060b6a8e4e90e87be9",37],
++["FRE","0048 BW - PRI2012 Mewtwo (FRE).pgf","fbeb280e017da241b830261d4ab43ef754a3e670",48,"","6c7b48641ab45d46f45bcbedeb2257697ec2f647df4141a7cd9561e2ee20fa14",48],
++["FRE","0061 BW - VGC12 Larvitar (FRE).pgf","e45397972b288ea4219d11a352e6d386a02624a5",48,"","698ce6fa3b7cbde625869b3bc8ffe61eb52219f6e0654c45a2cfce362c021ef4",61],
++["FRE","0069 BW - ÉTÉ2012 Keldeo (FRE).pgf","cbe11987e97c75cfab79f980133dd0815a7506e2",48,"cb00c8b826f4f0dc22afcf6002ca275cda4f7f87","ca0154661bfdb2ef1a9592e2f108fb2ee6fc037375a46aeef08884f852cc6185",69],
++["FRE","0071 BW - ÉTÉ2012 Pikachu (FRE).pgf","ca8918cfa5c631f6eb6f81b5dfb0980cbdb9648d",48,"","babd368228855aa5519004871df5910b83d69e423e06c00f8685d034eb26fcb0",71],
++["FRE","0099 B2W2 - Plasma Genesect (FRE).pgf","24f255450a9aa7755350f79a5d4a0c8cd3356dba",192,"","ffb78d8e4c34646ae3abcac99ea2d4471d0117a6ba91ebcd9a1d4dffb9fa2374",99],
++["FRE","0100 BW - WORLD12 Pikachu (FRE).pgf","b484960ef47005c055c1220a87fa0a4724d9c169",48,"","db0ec230777feb8b67cda2920b5b85dcc07df3d86b56842b44cf55b01ff2b727",100],
++["FRE","0128 B2W2 - HVR2013 Keldeo (FRE).pgf","a882f774f63aaf158cffeef8f238076e0a0f8d16",192,"","23766fc44c15f2ee1427df77b3bc1bc66898c22f89fc2e1becd6639ec055e0b8",128],
++["FRE","0129 BWB2W2 - PRI2013 Meloetta (FRE).pgf","07d2d2d0815c270c8487000f90fb634e657adad1",240,"ca7b25ef7fac9b48fe13772dfd1235d378ec8d57","913d516fba4147ab970fd0139d6fcb8381bc2135b8d32f51baef0e6886d5d6d1",129],
++["FRE","0132 BWB2W2 - Ray Metagross (FRE).pgf","477f599f504e442a1a056e00681f0c6ada28c90d",240,"","6141b601cddf5904ae790d954ce9e5df6ad6fd1c4faa2be3819fd82dfad92e39",132],
++["FRE","0133 B2W2 - Plasma Deoxys (FRE).pgf","243ceaeef67c9bc0539bb166a5eeea23afe9685c",192,"","370a40e748344f25edf84f97a7ee6e394eae221ad67ee9aab540036fd7fd4ad8",133],
++["FRE","0148 BWB2W2 - ÉTÉ2013 Shiny Dialga (FRE).pgf","618114392ef5b87dc4add06d8e9b16822999884d",240,"2b91a38701e983d4771f21eda5c3977613b4c006","2e9a95ab0bbca69b800fb0d7dc177153fa361c788ea03726877ae3a1f6cf5ee4",148],
++["FRE","0149 BWB2W2 - ÉTÉ2013 Shiny Palkia (FRE).pgf","394f911fde0ef646b86458e0dd485c193ee2c50e",240,"3e30f10a1a1c91cc32d17ec4c418ed0a234543f2","f76d7c1468545a734424f0718d2d110a92027f88176568f7c1442e787fe72974",149],
++["FRE","0150 BWB2W2 - ÉTÉ2013 Shiny Giratina (FRE).pgf","bf1ad2dbf109a4e21e213623996686bd2f5553ee",240,"6d64a7f682555044cb753707806f315db5389928","4331dceb2eda645bdc81f3a069f3b26f44cdc2002f8b69146e13923bbf85c9e8",150],
++["FRE","0155 BWB2W2 - WORLD13 Smeargle (FRE).pgf","ebbea547f56240351c7d2f677f8b68a8115f284b",240,"","094bbfe60cf8b32f76de9c37ffd28803377b0e8cbd8d29f59377caef5d7663b0",155],
++["FRE","2046 BW - Item Liberty Pass (FRE).pgf","97cd5e185f4976e233c6d997f1b1ae4280ee8593",48,"7516939764f99a95820a09fe31fc08320b335372","7ef7734433df8e5104470f0349c48a735373a6a85eaa09556a718f421026d281",2046],
++["GER","0002 BW - SMR2011 Karrablast (GER).pgf","70204a1e75ea028334bca0b0e5143591c61eae76",48,"693127c7252d56df85f0a7ddee558dd61eb76d1e","32d35b84dda86e32bbb356a0ae9db8df48bf12f20687cf189896948939607ca3",2],
++["GER","0003 BW - SMR2011 Shelmet (GER).pgf","3bc8996318bbbad8be62eef2a046b14f80577ba7",48,"177fe4266b0f1e89a44813d4debfc1cf370429f7","44d9d1136b61d69b3b536c0863a4f1593d2417f48ebe887726e17dcefb4c0bc1",3],
++["GER","0028 BW - 2011WIN Darkrai (GER).pgf","badfcc2e9c92b9a40cf722d1b2d6186998003057",48,"5d175a48ab102f4f59bbf3d294f1a6583ec5bea7","a074b80a224fdf328af5d68852a21e8a9bf337ebfe157bda9d0de64bfb60e4c2",28],
++["GER","0030 BW - SMR2011 Zoroark (GER).pgf","02a1cc5f72ef6d9fc8b409a5ce5c214a08d3e1ec",48,"4df79f1a794a0810532f3caea343a958254369d2","3e763551277eaf51ae449f5ed0e329a5f1beda64af574d4c001a5326821ca3d5",30],
++["GER","0032 BW - FILM14 Victini (GER).pgf","d6ffbfa1ab22b373ed8e8349dbdf20c7ed9ea321",48,"","da8f814dac32d3077c6b46030319ffcee75b4ffaec46e6a00754edd4ec8f841e",32],
++["GER","0033 B - FRÜ2012 Zekrom (GER).pgf","ee0c225cf363920fc6cbb7714f03dcb48e3d9e02",32,"","7d5f390a68e158078a566d08f7f1fe9cc0d4f20ea504e0e1a3e65c23abac9aa3",33],
++["GER","0033 W - FRÜ2012 Reshiram (GER).pgf","5c8ddacbbf1ae9fdcb554f38018feb4b17f1756b",16,"","ce87482077aa10180a073105bdafe110f1148622921660fb4180360e5ee121ae",33],
++["GER","0037 BW - WORLD11 Scrafty (GER).pgf","c82566ea93c9b110b39037ac61d169326c8f4398",48,"e8971acc1b3bd9010e3bc561e6a68f163e41b843","071f8a282c01d54ebdc38dfd1cf8371cfc413f257fac31baf9724b0ea661268e",37],
++["GER","0048 BW - FRÜ2012 Mewtwo (GER).pgf","a348816c9a5da99c9aca01a810866b97d0499143",48,"","5928864dad66e5a5c4fba7e504100e16df979093a7714b4459b9714fd1b12ab5",48],
++["GER","0061 BW - VGC12 Larvitar (GER).pgf","bd856cb3ea2a7fa0e852ba934d5e2ff18da75308",48,"","d657a00fe20ccf33459ba57674d6fb1d1b10d11b097df8d2ee4f12ed5f714c64",61],
++["GER","0069 BW - SMR2012 Keldeo (GER).pgf","0dcd0f3594d2d4520434a3f26640d0c5b8cd1983",48,"2fba750d87835189699c48a5ddad3cc6c07e1709","be05a3ad2cef3f3ff76f2f19f5b5b22c7afec420baccfeb60e8c0bb85c39658f",69],
++["GER","0071 BW - SMR2012 Pikachu (GER).pgf","b0a33b1327b7b2456b5dc113e5405d2775f0a1cf",48,"","9de641a30ef04603add51f68503c10f1875c4866fccd131155cace71539a9ec6",71],
++["GER","0099 B2W2 - Plasma Genesect (GER).pgf","dc6ef07baf3044f6b812df5278bc8bed41a60f70",192,"","b1c6233780cf8c37f281a6570770b5cbf096415dbbb3e3c343b4267d20ff13ea",99],
++["GER","0100 BW - WORLD12 Pikachu (GER).pgf","4a20e12e875e22400966d6a0f5995e59576f96a2",48,"","354052deddc821052d88ca3967093165670b08ea69120ca58085502ae5891633",100],
++["GER","0128 B2W2 - WIN2013 Keldeo (GER).pgf","48090987eae5cf6adbe488ced0d1037a214836da",192,"","2ad38ad0e9a9035fd352df48df5bb0380226b6cc2472e4872978244ee1e8863f",128],
++["GER","0129 BWB2W2 - FRÜ2013 Meloetta (GER).pgf","b4540d6d38447a822cf981f0d53e6211e2cc3700",240,"45af59fac6245d708da2c223c23656147361a5cd","0700d3c970a1425351012656636f38bcb150144f6e2c7b28283861c2c90f23db",129],
++["GER","0132 BWB2W2 - Ray Metagross (GER).pgf","77c7cc34f1dd5028ca4c99835fdea860edc40fe7",240,"","c4e4bab118102ea143b4da1defc95776363a3d23fdd34bbb2b20618455934416",132],
++["GER","0133 B2W2 - Plasma Deoxys (GER).pgf","8f52e1076d6ac6668411169a4eceb2cae478a523",192,"","122a33eadac24e134130c638e031effa879982e1c1805b326da353a2053ee009",133],
++["GER","0148 BWB2W2 - SOM2013 Shiny Dialga (GER).pgf","331fd760835e439a668fbfc1dc79ec07b572f396",240,"8a6fa09554a12da9aa6c92ca2039966f2356baea","ddcdce88e0822cfec9fce4bfd33dcf663a19853b10036e75c4abff0d154de8e4",148],
++["GER","0149 BWB2W2 - SOM2013 Shiny Palkia (GER).pgf","7c6cf4e4a508b873a047b28fe75429953d2efed4",240,"3b0eaddc11025cab959cbf73b33f83ce10d7ced0","7fe3618e2581d11941ca119436627d42e148697991064d461cc42dbf4f8d3764",149],
++["GER","0150 BWB2W2 - SOM2013 Shiny Giratina (GER).pgf","d70765e0d87811cb3960eb0b198e47fce90d8154",240,"d59bd7ea930e47a720df27efef75958661055411","9171367f9de1949258221314d4d47b3feb7e4e404e099492030ed7319645446e",150],
++["GER","0155 BWB2W2 - WORLD13 Smeargle (GER).pgf","1c0495142d2417b91cf98abad65b1e9fcbf53bbe",240,"","ec7236ea6dc64025fcb5faa14bda64c8b60ec15c644e92f55d72a2776f6bc687",155],
++["GER","2046 BW - Item Liberty Pass (GER).pgf","10af020ec476bb78dfb80f0fc7ccdf8860461599",48,"163ac1cdff9a67e1c022d6396685274378301f54","ebea1307a38f6a0742d322796e510dba4cdb6535bdecb963c34ff010ebdad106",2046],
++["ITA","0002 BW - EST2011 Karrablast (ITA).pgf","eb70c238aaba31462081e08f34f72f8d1b40786d",48,"d32941fd84c6fb66bf7f9561bf39554f79575d2a","acc15fb2bf188ee56c5b13bde3cf51b25575562d8ccab056dfe7551ad6438250",2],
++["ITA","0003 BW - EST2011 Shelmet (ITA).pgf","c6c8eecb08e4b4b05edb2acee8a0a4a09b68f4c4",48,"21cf0023fdd6fd8b102000237bce1ac094ba01d4","6df81dd1e549ca62816bf35774dda6dc93d98d7ef0c6988c2036074233ac6a34",3],
++["ITA","0028 BW - 2011INV Darkrai (ITA).pgf","5a0f298aef66df150df8e55cef94184e8b84f6be",48,"9f70fdbe7fe4af178c22cfcc128bc387c24eda2f","a96c2743a6b6faa2aeb6898b6f43fba8b3b67379acc926746cd7aa6952393267",28],
++["ITA","0030 BW - EST2011 Zoroark (ITA).pgf","b031746740ea2a032c0e217c4cf06a3e06892d82",48,"f64c1d3911290f599f45f92161165cde4e296988","8b94da418bd483fb6b2d8457b0ce15cf216b485046c1aa536c2175d13beff937",30],
++["ITA","0032 BW - FILM14 Victini (ITA).pgf","c31d0553667acfc6e88f0511a949cb557e7fd838",48,"","7064e66ac2a8e40e851d6b81a0561d2f254a2d547e1c83ac941f1b6db8082399",32],
++["ITA","0033 B - PRI2012 Zekrom (ITA).pgf","c5e2d9820212a3c8dcdaf99844a00be93324f895",32,"","79cea5962c20a6f5a9145de02469097b07729436f44fb945cb1eac3c118df245",33],
++["ITA","0033 W - PRI2012 Reshiram (ITA).pgf","fa767930c52f0c315dc2080e5ef0508d403817f2",16,"","7deb1a5be4b2e7b0cb53e4a3e7f722c988b56a9ba0529eecbfe2a9b407c34160",33],
++["ITA","0037 BW - WORLD11 Scrafty (ITA).pgf","157de2081902c50917ca14400b453a05cc0d1880",48,"fd931110e1a6c6accec698f217dabeb459e16fef","a5cdcdad6357079ae5569755b8751d77de0c0d753789b3c693d25875832c42f5",37],
++["ITA","0048 BW - PRI2012 Mewtwo (ITA).pgf","f59c1782930ad08c83fd5e4a8d14d501d51bfc45",48,"","24dd10ea31d96f722427818ad40b7671f9a912f5e52659cda4c2ec05ab1829e6",48],
++["ITA","0061 BW - VGC12 Larvitar (ITA).pgf","b5e15327c4f0a5a5b4f9a1d14a25f337fb4a722e",48,"","53602040ae9323059043731882af9a0375bfd087c6f6db2f9aaef1f1d334f98e",61],
++["ITA","0069 BW - EST2012 Keldeo (ITA).pgf","525a6977c8cb1d5261ce3912078eae08852f2bad",48,"eb7f1e45927953720e79b5aa3ce667897671dce6","b6316f72914be26c86d071e9aa16a4be0ac244f07d7547d54e997dc3dc86e3b3",69],
++["ITA","0071 BW - EST2012 Pikachu (ITA).pgf","f1e8a30323533416043658008706d375a148e7da",48,"","5d3e134d3604c345008336fc42d11b7ba74ff3eced2d0920153057e329ea7f78",71],
++["ITA","0099 B2W2 - Plasma Genesect (ITA).pgf","e9c044f75dbcf1d018e1c4ae84c684cd7f2c34c8",192,"","5c938d437f5c2527724d6833c2b5be3aba0752871b6f6a1ace53b736fd5646ef",99],
++["ITA","0100 BW - WORLD12 Pikachu (ITA).pgf","76d408839f28302987577e2f2ca5707d65e006c8",48,"","f73306e6a4919b9a4a9f7bf32c260b101144f686840794fc856c93055812bec2",100],
++["ITA","0120 BWB2W2 - ROCKET Meowth (ITA).pgf","7d1cd11e0af206fca239a9f8eff91841c587e726",240,"","a45fdcc4c0c76d909b23c10a790e43e867950f2722cb018375ed4cd8ae3c83d8",120],
++["ITA","0128 B2W2 - INV2013 Keldeo (ITA).pgf","965aefabd8d93f8d9949fba8df37a189ed26e1fd",192,"","b9fc39bd88b8f6d7cd6059bcd1afead58cfeca304dc9602797d650e22908af4d",128],
++["ITA","0129 BWB2W2 - PRI2013 Meloetta (ITA).pgf","5d3f1dc28c21136abcbfe0cec81750252c978eba",240,"563bf249b4942a26d444c5647e47e7a41ea2f548","3d0b9a270bb4134c78875c52fce83647dc49ab2d0417a6fe395577d3e27db7f3",129],
++["ITA","0132 BWB2W2 - Ray Metagross (ITA).pgf","8056ede0b21460ccd58a65f633f410604f1c2700",240,"","18a8386806d1f4020f7ac83ac8ab4a246d880ee87dfc4cdac50257a5173fdc6b",132],
++["ITA","0133 B2W2 - Plasma Deoxys (ITA).pgf","a0659d76668b4511023d96d90e87bdae2f6009b2",192,"","c754f6b78342bc1c863f2f4ccbf10234456938cd8f7d2845f7f764707310e499",133],
++["ITA","0148 BWB2W2 - EST2013 Shiny Dialga (ITA).pgf","421ffdc4aba0101039c3d1e95b490dd831327fad",240,"ddf599bc02840f01347bb880c34e02501e967663","318931a5b28d2c218c09e832e12393a9ea7b263a4445fd329281090dff1d138f",148],
++["ITA","0149 BWB2W2 - EST2013 Shiny Palkia (ITA).pgf","a73febfa3c6d171a974d4e0b1ad2d862e34ab250",240,"a4d4c8035d92af80f7d23fbe47919acea0cd6e0d","4d69ecf7330e71b69f7db12d86458541a31992733f036c7d249c4f6b49dd8837",149],
++["ITA","0150 BWB2W2 - EST2013 Shiny Giratina (ITA).pgf","93a3d73a60c5a51b622b89613f70ed7302faf62b",240,"c96d148fe53459b6666c5ca92f4f3b893b632376","67707e507a86a53fd4ed25445b3e36672927407366cdd218b4f33f2bda420365",150],
++["ITA","0155 BWB2W2 - WORLD13 Smeargle (ITA).pgf","ce64a51a692514caa679ab633f72af8950dfb295",240,"","ab6fb13e8eef8f4a8c79b49b0f3aeac3d376e68ee4d821874582d434b919b579",155],
++["ITA","2046 BW - Item Liberty Pass (ITA).pgf","7d57d0492b5fae009aa7a5f7707db1d26d6693e2",48,"aae96ca6ae3c60decfddf7f2b74e78f7ed5511b1","b8eb47ab39bd1d844e29d3736c571238272e01659689a6d1abcd9e5cb61144aa",2046],
++["JPN","0001 BW - ポケスマ Cubchoo (JPN).pgf","a90e2bce51795e452ac426f6d4733583d85d42c5",48,"","08cb9e1d9901b689426bad7a4ad7e1c97dc7ae06d132835c965703f2f122459e",1],
++["JPN","0002 BW - きょうえん Electabuzz (JPN).pgf","9dc73af1002009590e6619fbb52fc682a5d2006c",48,"","0feb8b8e68c5ff055788601b426b07cb42e8b4f8afc01609e5cfd90777de82da",2],
++["JPN","0002 BW - きょうえん Haunter (JPN).pgf","2c54584a556eb70468222b29eea186788f0b0549",48,"","0d3c7ddde49bc2cd804022372243a2f1c098ebb6f1c289d93895ace655b20044",2],
++["JPN","0002 BW - きょうえん Karrablast (JPN).pgf","46b96d754dbecf4c799d0da04350ba7439f6c771",48,"","6d46dd36028abd5a0a73a86460702696069e9a59de5432c7cf8ec6c6cd27ba70",2],
++["JPN","0002 BW - きょうえん Machoke (JPN).pgf","a481ac31f002e8590befd50680d34a6ace4221b2",48,"","a878fe28870ac5561134b4cace5efe73af39d1367921e71ecb780088c8234e9e",2],
++["JPN","0002 BW - きょうえん Magmar (JPN).pgf","e699d8ee255f96d35a081e8dd4c3dc4b2f6a04a9",48,"","41ca923e91afdb0c0b5b9f2da89645cb2f474aa8619be254056ba91a58c6d8ed",2],
++["JPN","0002 BW - きょうえん Scyther (JPN).pgf","5bc99ceaf978e268eb8b55f7d43f636c7378d46b",48,"","30430b09d24e55b5e5d7cb4507a1e3a08785a2399a17070ff11c9e0adaec779e",2],
++["JPN","0002 BW - きょうえん Shelmet (JPN).pgf","76e625f1bb18e0f5a34ee98b7c164363cf817094",48,"","f3c3145288720f0665270071387e42835f13c754fe4653d19c3028515b84d98b",2],
++["JPN","0002 BW - きょうえん Slowpoke (JPN).pgf","2d5feb96d26c5195cce609e4ede0a2b120adbb6a",48,"","cb737a37f4b764deb93626292c848c65e796dd0a691ab4e65637ec5b173f7b8d",2],
++["JPN","0003 BW - オーサカ Audino (JPN).pgf","7a044b46b5afc1a45c8beda92c982b2076e30a90",48,"","a52379038d5b4c5487e1fb6d3401c5e87877f5348f54ddd37af9cea8b88df44d",3],
++["JPN","0003 BW - サッポロ Audino (JPN).pgf","795384e24f82246bc2922548027c30a9c7d716f1",48,"","1c979dde27015937695854d0cd7ced3f4891258d3616652ccb453ffe37615fb1",3],
++["JPN","0003 BW - トウキョー Audino (JPN).pgf","f61e3882244879dbead90f7c0519e5dd7aabc1bb",48,"","bbda0c158616e0efddbddc10e6a0a111137e0dcf6e8fe96d4739cad3348aa26e",3],
++["JPN","0003 BW - ナゴヤ Audino (JPN).pgf","e5074c114afc16d6f87f0017e0301bb3c1963de2",48,"","9a798aaffc24613241a24bed4772157ca982e8d0f660b7423c3a80211ac6eea8",3],
++["JPN","0003 BW - フクオカ Audino (JPN).pgf","884830933ec95cecc07ce5b1ecd3610b51046c1e",48,"","1f0a07c1a42e8fe1b874fb58c24bf6d2cf2b4ff8f3542ce52203c0766fb1d64d",3],
++["JPN","0003 BW - ヨコハマ Audino (JPN).pgf","9b19094f63b0c17216c7539114094a5ffa1763f6",48,"","00d0dd56b949fe43c0238ed5f486d43e4b906fffcb3d70edb21bbf724574b19c",3],
++["JPN","0004 BW - せいしゃ Electabuzz (JPN).pgf","e3bd1f34a2ea56ad20e14033637a6627a2fcbf4d",48,"","5a452b1c34a1e09ced768903fe01ed9054fbbfbe6bb326da209890347dffb80b",4],
++["JPN","0004 BW - せいしゃ Haunter (JPN).pgf","af86cd47bd81f09e7cdff1577a6974bad46a2087",48,"","b26649306b2e344971d1ada03469cea277d345631e25349b89f28858814e12a1",4],
++["JPN","0004 BW - せいしゃ Karrablast (JPN).pgf","523e3308ed71ca94594ab9531fa98d4ad7266873",48,"","ca007477e47ec11d09d71e960f8a4a1b5c84bd77a7841b9a4bbdb3bc19e0ea0d",4],
++["JPN","0004 BW - せいしゃ Machoke (JPN).pgf","e82f7ec5b008df6540c4c484c160b04beba5aa8c",48,"","3dfcb7d2be155b45e6264f8acd02ef7549ed150326f1c27a9b0ddc4cd236caff",4],
++["JPN","0004 BW - せいしゃ Magmar (JPN).pgf","346fe42aee596bccac132843072c153d4c912a0a",48,"","c33d921ee02be7158b5001d34c692cef00128233864acd4f77d35be18e5c7a47",4],
++["JPN","0004 BW - せいしゃ Scyther (JPN).pgf","850b8e33baaa2dc3a51ce6b680514197d23ca332",48,"","d0a9eac5b7db8d8a0b09bf0ea22946c0d1ff58bcf5355933d20e4aafc09de83f",4],
++["JPN","0004 BW - せいしゃ Shelmet (JPN).pgf","97e8ae15314552332d477a2ca925d1bf14647671",48,"","7418f6a01e0232eb9dc5a666a1ed8b2ef9dd10e08181b0cb04b3e12471dbccc4",4],
++["JPN","0004 BW - せいしゃ Slowpoke (JPN).pgf","dc3d13fbad6775f3580d7f664d5dea92322facae",48,"","f8545be8ba6a40a287abe08872e9606ceabd70f5c4376f0ddb26cb3b6f098d7b",4],
++["JPN","0005 BW - めいじろう Electabuzz (JPN).pgf","ae1ce683dcfd4c0dbf98bfd900cfa7fa3f9ddac3",48,"","ba052dc2d398ee2fa27afca5d994a552dd1369865c94de0d8b82fcd0a0754acd",5],
++["JPN","0005 BW - めいじろう Haunter (JPN).pgf","e86a99c74bac2bb4c58b7c59f77baa28f0051828",48,"","a5b3bf3eea09f8c1a7f47a0427761bf5967ed19607a172c1b0adce00fe7588ff",5],
++["JPN","0005 BW - めいじろう Karrablast (JPN).pgf","8cac0c568412f078edc357fbf1e84c6f9336dfcc",48,"","b64528d1cf5ec3f07b4051ebcf0bbaac44dfb98e0517db6d8fa5045690d41939",5],
++["JPN","0005 BW - めいじろう Machoke (JPN).pgf","29149ad80db092e1965bbd08dfe2abcbde686916",48,"","bec07ba25d5e5ef7f8a57d56afd9c37f8c5b893ebb82082670f24cf2bc22e20f",5],
++["JPN","0005 BW - めいじろう Magmar (JPN).pgf","a52e6199688b8b4427f665640a3cae6226f1c652",48,"","bf2220be4924009e55612fd8fb33c414ed70282bb8fd23131b048f99c048647f",5],
++["JPN","0005 BW - めいじろう Scyther (JPN).pgf","82bf79451b1371912b0805bd0fb4bce0525e19b0",48,"","682446595a95e50ad3e29053b05485ff237d297db1bc99c071e9d95452066e09",5],
++["JPN","0005 BW - めいじろう Shelmet (JPN).pgf","b5e769781bb2761f92cd602c7209af7096384f02",48,"","0d7d65a2e607c6119b421fb1ca1b73fa33a4a04699423d1291710a75d2aa6562",5],
++["JPN","0005 BW - めいじろう Slowpoke (JPN).pgf","1a8b14a070b00672066afa4d7be56e3bfcb6c0ca",48,"","38289dbc9d2c895f8fbae6b32818b365886235d123a89e2f76202397f1cc6be7",5],
++["JPN","0006 BW - セントポル Electabuzz (JPN).pgf","d857787773675286bce33feff2a03e2719577e78",48,"","d5de6c1805aa20d6ee93706347ea203c7dec73300455571461fa77f2ef34fb23",6],
++["JPN","0006 BW - セントポル Haunter (JPN).pgf","580999a22ef443d99ad5bb368fd7500fb5ea333d",48,"","9b14152912a1088d7fa37ae1f664c0a5533a09f992c7285a45bfb89a87f3db05",6],
++["JPN","0006 BW - セントポル Karrablast (JPN).pgf","5a828244007440581869cc6bf8c8b756b04ae437",48,"","0b55dbf9eb401ec19eceaabe2729984709688a74cd605be382d26065448b5d9f",6],
++["JPN","0006 BW - セントポル Machoke (JPN).pgf","4f574ff612f305d2c6fc17e527e48bcc66c8df2e",48,"","e5a4e2b4b348bed55742b7536c7ac724e68dbefa725454378349c837b933fc58",6],
++["JPN","0006 BW - セントポル Magmar (JPN).pgf","b27eded809cc2744f6e8c87f098e443cb9345ab9",48,"","6f1c83bfd03022c908785e9d03e43a7af83ee85868f0b661129c482d30b3918a",6],
++["JPN","0006 BW - セントポル Scyther (JPN).pgf","1cf0ddd3bbea0e4a940cf5c3925bfb6b81c686fb",48,"","2077776de0f79963a696ee006379afb26b149ddc861b865ab1161c37aa8a9415",6],
++["JPN","0006 BW - セントポル Shelmet (JPN).pgf","19cbddfb9bdbc580733eef13977d38f303eca369",48,"","d7232479e7adb84848c60f5a98f034b9577200d9d211532ff7aa8776350322ee",6],
++["JPN","0006 BW - セントポル Slowpoke (JPN).pgf","d48d9901fab55ed6737c7d2253256367d0cc0085",48,"","8729f2cff8c8e7ddc29804494c51706fb6959848b15ef700d72928c53c82d766",6],
++["JPN","0007 BW - ミカエル Electabuzz (JPN).pgf","776b5a402765aba5e7c36e9c87fe18ace373adae",48,"","364babb4e52df48cdb53d8a82ef59c9daee15578bcebb3d5a3b42357a3649786",7],
++["JPN","0007 BW - ミカエル Haunter (JPN).pgf","210571ddafb50ed0b08de11b4243b168c1f5fc08",48,"","8b6ea4366b50cf4c571201251dafa3b6cb4746edf5eb78243f199f59c256ecd5",7],
++["JPN","0007 BW - ミカエル Karrablast (JPN).pgf","d158468deac01defff7b094dcc2a00d15d94aed8",48,"","3815025d89862af248b26eae3387df0bb9074286f003f99bbdce72e45eb9a305",7],
++["JPN","0007 BW - ミカエル Machoke (JPN).pgf","a5af370939d15635941b6ad64ad2a8c23de167b2",48,"","dc24c22c736d8ca8f5f36fa5f742e2c89934389a2e9923a27f102f50f19cabf7",7],
++["JPN","0007 BW - ミカエル Magmar (JPN).pgf","b400d96072cf8a496bbc6f368e586ac4b3590590",48,"","64b601d1b72875d3ffe5cdf88277676f6ad13bbbbc090d4e202d505a4ede436d",7],
++["JPN","0007 BW - ミカエル Scyther (JPN).pgf","2383c84beb45826a6b26bbd83e2707165947dabf",48,"","4e3d9281f1c39777b5751cd2e40a0cbfe031c36adfce868bd94db990b3011127",7],
++["JPN","0007 BW - ミカエル Shelmet (JPN).pgf","099c88af377294e792f94d68858f2e509abdc5fa",48,"","7fd0143d681ae6fbe36b566c9f303629100d971e326f15ee54ec6f529eabd755",7],
++["JPN","0007 BW - ミカエル Slowpoke (JPN).pgf","2f9b5626363bfd301b20d6534910a6a93014f116",48,"","431b2c2f00a86f2374232319bf25b7555381bab1bb48b2346ed0b4a73b8a5e97",7],
++["JPN","0008 BW - いちだい Electabuzz (JPN).pgf","5be288cc7d9f62e05d57cc1b560ec55426b1979d",48,"","0c049949ac4d860ea62db89f1ba12b9c88f2aa94676d08051df77df99d71c7fd",8],
++["JPN","0008 BW - いちだい Haunter (JPN).pgf","c8170cfe5d8ecf04ec36995668ccc611ea8e7e99",48,"","63e703f112daed97f80af24e34a22627e17a3ce8aa7935dd9170efa21cbcff8c",8],
++["JPN","0008 BW - いちだい Karrablast (JPN).pgf","dbbba2b67ce0966bfe28eec09131e8b07ef5264d",48,"","52b785d1eb44efd71dfd4d74f3854cb6fec009764c346160919b9325bcd670fc",8],
++["JPN","0008 BW - いちだい Machoke (JPN).pgf","530639dcc969682eb13cba34eadc1ef7d62f72ec",48,"","cfa3c139907fa278072319fdb42e64b94717a7857293d2041cd52959749df806",8],
++["JPN","0008 BW - いちだい Magmar (JPN).pgf","725e1a17306cc3f6332c516b891a67480e31f032",48,"","8d78ea16d0e41acc04dbab617592210e1b6aba71474ce345c1ec3291f2401b5f",8],
++["JPN","0008 BW - いちだい Scyther (JPN).pgf","bc0eb4097fde482f9de891a600d6f2831ae0b8a7",48,"","a5dd207a96139a9fba1f8eca23ca14f6889d8a71d13902a5bac0c7b3f6505ac6",8],
++["JPN","0008 BW - いちだい Shelmet (JPN).pgf","c337b60e0c76b9672d55e30afc059686afdd6ed4",48,"","98ebf3d8dfc06ecea76f74535f3146001ec242462a4c213674898ca08dbc5036",8],
++["JPN","0008 BW - いちだい Slowpoke (JPN).pgf","9d2358eb570072229ab69cbf5829cc4d9ccc7fd9",48,"","aee3ea7df76d0d97dd832e2c75ee84fd6a9a715419f750eb5670db62a214f4d1",8],
++["JPN","0009 BW - はくもん Electabuzz (JPN).pgf","3e60be389f6060b6a897341d99d8e0ca18761366",48,"","9801466f8b77026c7c5d4d445ece27e271633ff66149799edaadda678fad7773",9],
++["JPN","0009 BW - はくもん Haunter (JPN).pgf","ada052f6854998513308fedfe94936d08959d066",48,"","36708e58dbb904f6205ba6df19857c52018a54111f33b3555617b0afae8679ae",9],
++["JPN","0009 BW - はくもん Karrablast (JPN).pgf","7455c3bf2676548329a049dce719424edb768ecd",48,"","3fbedb558f24a9135c7ab7693969bc6e3d96a65f7a8b7259f01feff26f4d01ac",9],
++["JPN","0009 BW - はくもん Machoke (JPN).pgf","595b24c90e781da951f66635930a1ed9c0903ab8",48,"","d54367ee24c19dba35d05df88279199c4f762846499016945f4fb5e328c74583",9],
++["JPN","0009 BW - はくもん Magmar (JPN).pgf","f5e9326e0e896e5d8bdf6ec426d693ddb51bb806",48,"","620d9da5fdb98a400dfb3787e7643136f29b18418b744d159a828dc8c9e84be2",9],
++["JPN","0009 BW - はくもん Scyther (JPN).pgf","1ec2bcbc4bf93e5e083c090209dcf5dc5ff35267",48,"","e7f5d840b15172cfa2f15952dfedbac2a8fb1f8f13f549ad10faa7e57304e937",9],
++["JPN","0009 BW - はくもん Shelmet (JPN).pgf","042511caed257a287ac0ab92206c3c6d82710bf2",48,"","437d270e0c57e072014bb12d5988a1c09dbfc58aaa77ca8f6b40e26da481f01f",9],
++["JPN","0009 BW - はくもん Slowpoke (JPN).pgf","f6491dd3d3fcdc01277998da8e3dd21871c71002",48,"","0079387441f596ac21b19040cfd10949ee9709bfca9cdb958b60fb614be33d5c",9],
++["JPN","0010 BW - ほうせい Electabuzz (JPN).pgf","86d9614bdcf801f25a8d2f2c0567b11826ee9795",48,"","27d3e7b78c58b2fd2d9136c5c16177a23b6ffc538593fc6687e7500eabaebdd8",10],
++["JPN","0010 BW - ほうせい Haunter (JPN).pgf","debd3230af9e1b910a5b960bbb003d684d0b0f60",48,"","335992ae60a5af1a36b81af6a4cb8d0946b5e89b1806bd6eb2f0ba1478496490",10],
++["JPN","0010 BW - ほうせい Karrablast (JPN).pgf","4735eb8ed9bd0b76a0439f98fefea2a1bb05acfc",48,"","6e927fbad8f3e23592e7973855b13101ff4d48ea9bca3a0479c042623dd0e0c2",10],
++["JPN","0010 BW - ほうせい Machoke (JPN).pgf","597c123ae1da007be26f50fd47f3f89b14998a98",48,"","1860346ad0581971b3ab6aad23a0b8a4a6f4cf3fc49c115e579b44c3a83ba196",10],
++["JPN","0010 BW - ほうせい Magmar (JPN).pgf","af87a273806aed9f8598e07263d0d15e8e353479",48,"","3da5a6da70d6f74dcf08540719b91a231a67c7df48850607378ec8117455e63f",10],
++["JPN","0010 BW - ほうせい Scyther (JPN).pgf","efdd996c65effcb35b187ac01cc5b9bed1da7ccb",48,"","50ad0ae5346ad24c071cae16338172bdbd1c313d57bb395487e4210861e3a160",10],
++["JPN","0010 BW - ほうせい Shelmet (JPN).pgf","368d16610a8f95d4f05fdf36fb274074a0d43168",48,"","6d998817d549b506b08f55d3cc18460b115a0947e089b5de3f34147b4de2142f",10],
++["JPN","0010 BW - ほうせい Slowpoke (JPN).pgf","ea69cd666579ac1e89f801a23d04883371d6a914",48,"","129943d81518d6db53a594c7960ad52ce0e58890d6ab5dd6a181deaecebac38c",10],
++["JPN","0011 BW - とうかい Electabuzz (JPN).pgf","8a6265486bfcf118e1938c180be1e90ccb67863d",48,"","cc89bb4678832c3e8b979196c6c365fec316f87d021d652fd8bfb218f895b952",11],
++["JPN","0011 BW - とうかい Haunter (JPN).pgf","f12b8d425e6dff7762fcd275a42558d0b2efb6a3",48,"","818228d1f1c7fb3a3bf617414cb29e2176f8daf338f78d8d8930c27a02cf1556",11],
++["JPN","0011 BW - とうかい Karrablast (JPN).pgf","a426aebd605f975ed260826b4e2fa76975d7460a",48,"","6d1e007b67df6cf6831987847a83a3e18a19def9093f3039800d5bb6daae78cb",11],
++["JPN","0011 BW - とうかい Machoke (JPN).pgf","91ac1c7d717b2d9d62fcd3908fa73dd0acdd003e",48,"","36434f1d392956fc1f2ee102e5133897631f45603f668bdca640cf8d5c8bf398",11],
++["JPN","0011 BW - とうかい Magmar (JPN).pgf","6a5e32d171a5354a13a7d364cb743eeed92cbea3",48,"","0b933b707014009280acffdf9ab69d56e70a178217b86232e4bed48054a5d8ce",11],
++["JPN","0011 BW - とうかい Scyther (JPN).pgf","b39fbf5dd5d479c386cc103de52402336cf278cc",48,"","41cad7063296d1f1f31cefbc0b6092e3291dd154718246d16c1c342e41c3fb2b",11],
++["JPN","0011 BW - とうかい Shelmet (JPN).pgf","f62be111e0c89fc399073b004c1fa0c065e44162",48,"","370e63aee37caeee783b7cfd616f1a3e7be79ab72822dfbb6896bcc8b654b51e",11],
++["JPN","0011 BW - とうかい Slowpoke (JPN).pgf","ceec9e43a2cad553bdcd7b725e84c7b989438f9b",48,"","15f76f0d26f1e504b4a7d80d0dd468cf2375643ba091a0527866a42287408189",11],
++["JPN","0012 BW - めいがく Electabuzz (JPN).pgf","87743dad70dddedf10557f34d0e6d2f8fa6cd09c",48,"","6c1e5c5faf7530f89447af36633344ca51e8aeefebf50b04a69c560d428166ad",12],
++["JPN","0012 BW - めいがく Haunter (JPN).pgf","92faf3ce9998618aaedcb55c8cbe016cc7287a1c",48,"","49982c50a434b74ff76df08f047e888405e7c837cd9ed90a92b83f3b6eba357d",12],
++["JPN","0012 BW - めいがく Karrablast (JPN).pgf","aebb0e19093808db826c5cdebb8d68226aaf4252",48,"","a3acff19706a76ce33663e2de81b52fc338e3a7e98cd4fd2cf64ee00f6fc05c3",12],
++["JPN","0012 BW - めいがく Machoke (JPN).pgf","b8e53c9005ff37f97a8187843b0e26950bfcc689",48,"","831c839fb9ae2ac1ae45e806f529561ef0aac9df342b05d106659e8f24ff425e",12],
++["JPN","0012 BW - めいがく Magmar (JPN).pgf","b1eb4be060c9a868e409fea4e22ad14233702beb",48,"","bb2110ee531b732d0e8b9aec8a27c1cd1f1a5684b93d047e5d2ee55ac6505b0a",12],
++["JPN","0012 BW - めいがく Scyther (JPN).pgf","5cf71084c65757192a5e0f2f9355c29c7ad55076",48,"","c08ea0e57819425e55c26e5ef158a2f21a2346534692dd9268853ea3f06e2352",12],
++["JPN","0012 BW - めいがく Shelmet (JPN).pgf","1f7d72d019d9cebaf8b1ea6c44ccb2662fac2ba8",48,"","1dd454ada9465778adb89bfd4580bd5226ce621f59fe06a32b613fc01beb0578",12],
++["JPN","0012 BW - めいがく Slowpoke (JPN).pgf","a27a03b59c3526d30acb75300c4d4943412f5923",48,"","653a6f7093f6223de8efd86b8cfadfdd4b12db5a5c604e88831b6c30448e6cae",12],
++["JPN","0013 BW - すえかわ Electabuzz (JPN).pgf","507aea2962e226cf45e3aac27d4872ed557ff8ce",48,"","1284a5e3960245b8bd14e4ed0768ae488ed65a508039bd56baab6a01a5535d44",13],
++["JPN","0013 BW - すえかわ Haunter (JPN).pgf","0df90dbf39ab31c249f1e13b69875347679aab65",48,"","f925a0829c03d02866557680e5d1e9bdd0e87b837d08b6fa2a5d0845239ccb6a",13],
++["JPN","0013 BW - すえかわ Karrablast (JPN).pgf","c01f10fdffad0e3dc452e38659cc7034d5f1ca55",48,"","cec618c61ca3d4597df9d286aecd1ca518301a0579f460a6797c17378d1bb8bd",13],
++["JPN","0013 BW - すえかわ Machoke (JPN).pgf","b3a88fd3cea24c13ee070d15cff6648faeb8fa82",48,"","3c2d12e5c9c7b26995c49963e06a87b463b893f4922c3b76bfb1e2dbc7b75a4f",13],
++["JPN","0013 BW - すえかわ Magmar (JPN).pgf","4f26d07fbcb488867cb995ce63b11dec8b78ac19",48,"","9cd6b546cf9d9f43ae40484ca9c47e33df2e32d8ee3f499d8a523eb685d534e4",13],
++["JPN","0013 BW - すえかわ Scyther (JPN).pgf","fd765fc48ff3d4e33e64042a02d34eb5479311de",48,"","9d10667eb371b61d0bc538ce9dcb317aa7d589875c9698829e3e1ee307aafcbb",13],
++["JPN","0013 BW - すえかわ Shelmet (JPN).pgf","a0e546f4036d3f722acc1b0e80b0209882dffbcf",48,"","fbbcd6bb81872e92d41e733b60e508135e330a53054d647e21073b9169e74492",13],
++["JPN","0013 BW - すえかわ Slowpoke (JPN).pgf","c38c7758083799f1a817b9faf7ef70c89b9e08e0",48,"","644547d44588a598b8af5926cf482375ae2ffe51f499e0e0fe8e1eb55ed4e5ba",13],
++["JPN","0014 BW - おおくま Electabuzz (JPN).pgf","da9348f3ce601c03fac03e96f04d25abd9732fc9",48,"","5c79292544383d1c4d972cedfb1e9f70e96d9e00ec8a824764766a18052ae15b",14],
++["JPN","0014 BW - おおくま Haunter (JPN).pgf","3717f1201bed5a02fd0aa9eafeb326dd53efdd73",48,"","a15a9b7f2ae36bf0f01ebb6f744b19138db3a9fe145fa60924759ebabdb85ef9",14],
++["JPN","0014 BW - おおくま Karrablast (JPN).pgf","77edacdae0ea3d80b642cbf263614be0ead8ddf0",48,"","f5289737e80e33221e74b3a0fee125df7ab4b70121b33b203d051cfde00c5af6",14],
++["JPN","0014 BW - おおくま Machoke (JPN).pgf","4c45a31af5051245c6d2b0cb63bc93e3afc90f45",48,"","23070f8c51b5f011af1a09db9f375150b64e20d49eb0e7118743a72adb328981",14],
++["JPN","0014 BW - おおくま Magmar (JPN).pgf","9a07765700dca950c011f5ab0c3b5092c6bc819f",48,"","a2f9f6c454170cc0717e27b79fab6e979cd90e7d7d440f5683af271014e0a2e4",14],
++["JPN","0014 BW - おおくま Scyther (JPN).pgf","9194e91c17d5ae6d5d491002700a27d428634f34",48,"","a098d516eeeca77c42f0d053faa67c85d534a67909669a4d3ce51b02db730d96",14],
++["JPN","0014 BW - おおくま Shelmet (JPN).pgf","2e5798b9b2aacd730a5c033dbd45dc8762487b06",48,"","bdeb46de9921d6da35c2bc9c73b8bddffb74c3d4ae6ae579e214c821fe22abc3",14],
++["JPN","0014 BW - おおくま Slowpoke (JPN).pgf","40baf797a23f2ea9cee404ff74c670b1ed9b5083",48,"","064ea10c19262dd2c33d1bd687422d32af07fe31292910b1c1253c1088620e22",14],
++["JPN","0015 BW - こまざわ Electabuzz (JPN).pgf","5cc3c6ddb73506aeb73b651981756b5ddacb196a",48,"","7af487dddf832b6234b6d1e425c8f6b7c34ac0222be6406b7d177e6e14ea1d65",15],
++["JPN","0015 BW - こまざわ Haunter (JPN).pgf","6ee8e5a44139ba83f3254e8e472ac483188c2adf",48,"","fc80c161d819f99c3be53a2b8fee0a382a4aaca30c7671bbd87a6356536c4d69",15],
++["JPN","0015 BW - こまざわ Karrablast (JPN).pgf","55cfe52e40ed2fef4cc2d729b46a4cc1981c58c5",48,"","f09a5f9e7d89a62c0e1c6855e7c768bd3290ccde5ffd80cbf9db3b8bba08a799",15],
++["JPN","0015 BW - こまざわ Machoke (JPN).pgf","bb569d29a207695ad282d8b76d0ba3a132331620",48,"","ea83f6860d90e7ef53b0b3d10db6022e395afd431aae4118a1088a12e2ecc4cc",15],
++["JPN","0015 BW - こまざわ Magmar (JPN).pgf","3f9131872cf6275fc5629d6e1e5b94da48bf2f58",48,"","bb26d53de555da0479fc79a23e7b5a0deb7d0d146f81c39ff3639e1bed6c5a66",15],
++["JPN","0015 BW - こまざわ Scyther (JPN).pgf","5d53a3260f262b87ef0a84f8e413609b51584855",48,"","1e533fffac3e87dc18327a9a95a1636d5b7e572e59dc74b105934feeb5629358",15],
++["JPN","0015 BW - こまざわ Shelmet (JPN).pgf","7db651850636f97d0557162b53ad07622ca24ae0",48,"","4167fba86fd37674ce2714ca55b6c26deb4de95cf242ac7ae31b9bf619fa2aa2",15],
++["JPN","0015 BW - こまざわ Slowpoke (JPN).pgf","9076a339b0a2aa6d339758e422a91eff48059e5f",48,"","e9a7067b9298465c02afeef7e6f8e38ff6a4c1151ae3fe2f041f06fe1e95c432",15],
++["JPN","0016 BW - YNU Electabuzz (JPN) (P).pgf","2aaf4a034217e542e6d6917240b0d818e3c2592b",48,"","b86077f64def66e64b15e09b02ae068ad4203b6ddb606fcde4eceb528d838cdf",16],
++["JPN","0016 BW - YNU Haunter (JPN) (P).pgf","e203eca219dafdfb755c11c505ffb140b919a473",48,"","9a3cfe24bf86f0ce0d07348b541f6f899559f751b24d77674f7886a31c3f8d5f",16],
++["JPN","0016 BW - YNU Karrablast (JPN) (P).pgf","409403df6b376edbdb8e6bf935d21269082c60a2",48,"","589d5bfe264aa30cb0a3a18ce16168a0e5b51d29ebe414fa4ca40f3fe671d9b0",16],
++["JPN","0016 BW - YNU Machoke (JPN) (P).pgf","cb51e937af4fcdcded5bfdfae085bb916705d136",48,"","41102d05a30a5d008bb00833053c103c6eebbbfcd1d014bdc29737522f170af2",16],
++["JPN","0016 BW - YNU Magmar (JPN) (P).pgf","68ec55d8e6318cda8fc73cde699336331fc5b63e",48,"","2efc7b21bd45da7c15af8b485650450fdf9e4564da0d7e8a7b5fde5c4d8e5fa3",16],
++["JPN","0016 BW - YNU Scyther (JPN) (P).pgf","6d16e5109a7c76c0d483458e3ba35e569074c8f8",48,"","5a89a0914a8c6078db6c7657f412b201a87c7c798298ca7482a2b00f25afd985",16],
++["JPN","0016 BW - YNU Shelmet (JPN) (P).pgf","7639ef51909b0b5efc8790ab26d793ab06121c8c",48,"","d4fe5236bff48d8ed22e63f0a0e33ce7a3610f706854fc301239784034ce2663",16],
++["JPN","0016 BW - YNU Slowpoke (JPN) (P).pgf","69c4232ba3e19d4c5f6914e07034d90385256193",48,"","3eb875c494960387a00afba8ec77c916ade68ef2994f1f967db855dabd80fe55",16],
++["JPN","0017 BW - まちかね Electabuzz (JPN).pgf","3c19263b6d9c8be91d8875eb3fee37adbe1aeeb2",48,"","3dc503843a07861428dc0c187976a5842c7118646370ffb9799f4b4290e40328",17],
++["JPN","0017 BW - まちかね Haunter (JPN).pgf","5ad34447139f9fd5685e78c24ca3910df515cc40",48,"","dd1ad5c0d76c1ce7e6574ef129abbd70e3ed2ad702a7b5d4522846fedfd898da",17],
++["JPN","0017 BW - まちかね Karrablast (JPN).pgf","97d7a30b59e3c441470fb9c76ff2f75f9997969a",48,"","6f8cf3cbaa444b3cf6c3dffa9a5a55b4c518bf31a8f528e4f9ce3fd634d824c6",17],
++["JPN","0017 BW - まちかね Machoke (JPN).pgf","a586588c56cb6de8e894835bd3e727098ac5fadb",48,"","412bc537211f4f1b614401e803b89042c85e4789836b57b99c36828d85c7bd8a",17],
++["JPN","0017 BW - まちかね Magmar (JPN).pgf","c4941aa50252747db2cc1b2b316c3f4b223e7b83",48,"","13cc0728438ed62e4a9da1c673e19def7e3ec0a46ac159d8b7042712fe974883",17],
++["JPN","0017 BW - まちかね Scyther (JPN).pgf","0c9719dc439313368cff1b4498033c081e2c3a49",48,"","b4d3dcf5e4dc56bf761e83fdc6abe4c14c3f098c80bdbb26c39736e7a0613e57",17],
++["JPN","0017 BW - まちかね Shelmet (JPN).pgf","b94d534bde912a5da4ad9586cfb0053b673707e7",48,"","0f099f96513ec7d17b5843f0d2b96eede0c2553f925b7debf121688787be8524",17],
++["JPN","0017 BW - まちかね Slowpoke (JPN).pgf","f0892e82a94e8aa70d63b0f1fb50278c1fb16575",48,"","77cc6010cb53974925c381f03b4517f00cd752c6672a066aefb3cdb7e4e703f7",17],
++["JPN","0018 BW - もみじ Electabuzz (JPN).pgf","c72f4f01c49c76fe70615a164f8b8b7818068214",48,"","d848414de656fa29db0f1259d4555fcab77a61256c9b85d9a4134655b75ef664",18],
++["JPN","0018 BW - もみじ Haunter (JPN).pgf","6a02cb6e2c0e42fc7135523335d8440419bc0b7a",48,"","6e08a123e10c855c40cf40244a45755746f26ae26ca33e47a30594cd70fd980d",18],
++["JPN","0018 BW - もみじ Karrablast (JPN).pgf","7d4a20b565810c014dc2ca26787334b5c4b160bf",48,"","ff1c682cb2e122bf45f87cc10101228a702bdc0db5e55b3a0106485b08b2136b",18],
++["JPN","0018 BW - もみじ Machoke (JPN).pgf","406d586f3dd898f3b27ae158568761551c626439",48,"","629e79226586149953453f20f640540f6fc216fd75dbf06fb30e32e8888dec9d",18],
++["JPN","0018 BW - もみじ Magmar (JPN).pgf","8570d703f6d31b2e2db8204dbe76422c64b5c0bd",48,"","86c32039b7b637a775b25927437710e75bc7e7892cbcb624bebde48253fbcdce",18],
++["JPN","0018 BW - もみじ Scyther (JPN).pgf","8790ac8ae5463c669cadebbb812d3b7268fd794b",48,"","fe3bf0228b09ef15fcd3a41391717e1ef181d75d3950bee494b29eb145feeb44",18],
++["JPN","0018 BW - もみじ Shelmet (JPN).pgf","52a840a0a49542f5becd24e28d2713f13e01a432",48,"","d664006ecb2b1dedd3444142c347262b655b0fd0ff0709735fcd0d56b8c38823",18],
++["JPN","0018 BW - もみじ Slowpoke (JPN).pgf","124790c2575db575ff2c1e7ace056de1c7854dad",48,"","9ddc64251c904a3127ddabfb5bb1ff740eacd3b8872fc6da4b9a73eb8bb8f178",18],
++["JPN","0019 BW - ロンクー Electabuzz (JPN).pgf","7dcfb515e5a292680b331280f149fb2986f1727b",48,"","6c4c5cbdf2a986cd716b87172f11ed878c0e0f49865caa6eb6f7783f40eefa97",19],
++["JPN","0019 BW - ロンクー Haunter (JPN).pgf","c08f9bdb3b426a813cf62e52602012c0e759f23e",48,"","1f633daa80d8ab2ba8a982e4850dbc2110ac006eb7ad6cba07e5143415e40b9e",19],
++["JPN","0019 BW - ロンクー Karrablast (JPN).pgf","13eb62e2b583d5f81b3de5e3aa39ec6f71052533",48,"","d47356652528bbaeba3bf4ae7391dbc57bc6333ca26be9138f03f77dfb4e12a0",19],
++["JPN","0019 BW - ロンクー Machoke (JPN).pgf","24c31646cec967a4559f5a3ae8394086ea38c21d",48,"","5c7338d5de1577e904de2ee914993bad18ca89e4cc6c74571b2a6e6f553c1f40",19],
++["JPN","0019 BW - ロンクー Magmar (JPN).pgf","f24aa47946154135d170b7f129b11fa8a1240acc",48,"","5c1272815f9eed20ff8d37ab80c3dd50a549ca6a0d2d628cd5959e81616b27a5",19],
++["JPN","0019 BW - ロンクー Scyther (JPN).pgf","f603539081a11d25f0ed847f1b3982c68e2a912b",48,"","03e1f67a068991bdb90de22b1a856f29833392668938badd44e8600b5e428b80",19],
++["JPN","0019 BW - ロンクー Shelmet (JPN).pgf","406593e85e20dc1dfaaa933604810663274153e4",48,"","efce9a9a8bdfe600ff7e5b70d8d2a689fe1a33a947934818490e73b0aad2d384",19],
++["JPN","0019 BW - ロンクー Slowpoke (JPN).pgf","7319bce5b07ad3ba95c512c10015634fd764f2be",48,"","ad51eb86462bca11b34b75ee701fcc132a4cefdd6713925178a7b22e375c0597",19],
++["JPN","0020 BW - スエカワ Electabuzz (JPN).pgf","d724e2378abad3237f84859c9346235f7b50361e",48,"","a51de1c9fda356fa137c85a81c1ceabbb7c00fb81f1d2c0e0b31e3086a13c648",20],
++["JPN","0020 BW - スエカワ Haunter (JPN).pgf","5f160f52abaf000c7d708e2d2b593cdf2197903d",48,"","a5354cce0fcd9ba86ee6c7b7f45e40599889510f1fb5038e7db0ffab45d6dbbe",20],
++["JPN","0020 BW - スエカワ Karrablast (JPN).pgf","3194e691a7ce7de4e94616a894959c117823e28e",48,"","a0122bf2933aed401dd51791e52cb331f45d17a85945677dc71c734868dba304",20],
++["JPN","0020 BW - スエカワ Machoke (JPN).pgf","47ec4ce074f43bb875ab4c1be465bd5df07da7f9",48,"","ac1ce43677ddc88a9c9e74a868231b24b0db214c46e2d5fad0220cb2c44bad0e",20],
++["JPN","0020 BW - スエカワ Magmar (JPN).pgf","75fb9f5116c1b442a436a659f7f56066f435351c",48,"","0fbce80bab3696f4077a590c57aa94e0e091ceed3624ed75e725a1c4f15d8b78",20],
++["JPN","0020 BW - スエカワ Scyther (JPN).pgf","b0303f438698dbcd194b196bff7f21d605ec3803",48,"","23790aa39a665659e7515bdb66a4d70619d8846ecc53bb8f7c42645e2be08850",20],
++["JPN","0020 BW - スエカワ Shelmet (JPN).pgf","b6afa4ee57481fe2157c865ccc8fa99f276fa2ee",48,"","e7c9fd354a44b73c95f3a4e54512f4d2b066485d26cde4e9638561326e6e3269",20],
++["JPN","0020 BW - スエカワ Slowpoke (JPN).pgf","b7fbcfcec76141c661d35139e8d3fd94ca091401",48,"","320eeea79f15d963934ff7691951fda28ba2704780d7926fcbfa514556848195",20],
++["JPN","0021 BW - しずっぴー Electabuzz (JPN).pgf","3ff18e5ce5a792d7fe43e561ec5ca0547240b75b",48,"","c6754667b1c9ea071033ff0dd972d728ffffdaab07f823ecbae081bf9df14135",21],
++["JPN","0021 BW - しずっぴー Haunter (JPN).pgf","5d496514bde896e0cf746f6b6c57c7a9941beee0",48,"","1f45b0934f51f01ca0ac3fea07f36e3befaef365513aaf9c9701384ad24f1d36",21],
++["JPN","0021 BW - しずっぴー Karrablast (JPN).pgf","a6f13071f31caf28859893df17825c76d000f950",48,"","7719f53fc50cc3e3cfc12e4dc61e7006cf40e06b03a7064bd6cf7280bf140f11",21],
++["JPN","0021 BW - しずっぴー Machoke (JPN).pgf","799a05ed00df074a344bbb246a04fb1066d267aa",48,"","21a891ef9474f0821a31bc0753b7dad1615f02d0be897125fc8d11a17c254287",21],
++["JPN","0021 BW - しずっぴー Magmar (JPN).pgf","48a00c7a661a8bb16ef4ab1bab34da01d83c1604",48,"","83fd40f1ecfe74dad4417bb8aa2f5feed5a5ca29940aeead923cd2f87dba7815",21],
++["JPN","0021 BW - しずっぴー Scyther (JPN).pgf","e4b511f14ead8b670e0d781aa551677ba32ee7e3",48,"","c0667cd0e00f379e6722d49a9b500daa2594810e8f6080a1d072ea99a5e371eb",21],
++["JPN","0021 BW - しずっぴー Shelmet (JPN).pgf","663c9ff48d849ea41306372814dcfa53f7d24212",48,"","00f7d61ed52217261580564e4f5226c5ba516046eda48ab53019f7127499c18b",21],
++["JPN","0021 BW - しずっぴー Slowpoke (JPN).pgf","489bf3f89ef7ab539f7efd79bd236173b21d7d16",48,"","74959c8183407f6114453f87f7b9ab947a9a5d4c13ea30071706e30c492a1b47",21],
++["JPN","0022 BW - もえた Electabuzz (JPN).pgf","eb8ca44d09399915cbd6aa858e11662eaf48cf6b",48,"","2da4f92116c5eaa05951e94984766f59f6e1753a119ab00f682875c7d39dcf51",22],
++["JPN","0022 BW - もえた Haunter (JPN).pgf","739849f38298b1729104c08899c261ee1fba75b8",48,"","1b1c7d1c6357c4ce18f784d962563d30ca03aafd2c05602e7f0de091db88f73a",22],
++["JPN","0022 BW - もえた Karrablast (JPN).pgf","522c5d500333ffc2886b801ec3e1482b4bad746e",48,"","9796c37d785c08889cb5934c51b81a0914754dfa799f1a8a413f5c742250c266",22],
++["JPN","0022 BW - もえた Machoke (JPN).pgf","86ba7d0853b0508c131424b1eb537afbdb80f439",48,"","d9cc492624037ac88bdb6912456fd4a3cd2cdd5ba7a8dc7969cf577e10b7d5d4",22],
++["JPN","0022 BW - もえた Magmar (JPN).pgf","53dea7c8b48aac0f168c1b4da110de5eb52cfb6e",48,"","ba6c442b9de6f7ff39dc7a7906bd77de77149929d38ee8e9525ff1ef4d71872b",22],
++["JPN","0022 BW - もえた Scyther (JPN).pgf","9c92dd7e50a485609d3f1c318ffb015cb437a0d1",48,"","f769e12753ee665aa42d6e55dfa696683d8e441a4161377760c76df8f723bcd2",22],
++["JPN","0022 BW - もえた Shelmet (JPN).pgf","6bf1c4d530eff04adbd83ab5c530870361d1e9c7",48,"","1cf579a13eb98aeb044443eb197bc26b57f16acba79a882c4f7778bf5669d22a",22],
++["JPN","0022 BW - もえた Slowpoke (JPN).pgf","18a6835fc8e83b5c4b51111712a2b8bd26d3b74d",48,"","ac2a05dd30d175784108f6c95b688e617a9ac994a5fa3fe59497c06bf1b6b9b9",22],
++["JPN","0023 BW - わだいさい Electabuzz (JPN).pgf","1d4332883d6bfb6227c01412c8ff13f43f72513e",48,"","f21fc146e7fc412824eee4099efd1dba15c72f3a3b4ee50ef3426192649f4ca0",23],
++["JPN","0023 BW - わだいさい Haunter (JPN).pgf","cbe51c237c8430127cca10bcc13d55d43b33058b",48,"","9e32b6f8c4fe7628a14b58296c5d3fbe5aa688a0fdc1ae64a07e2ca397436337",23],
++["JPN","0023 BW - わだいさい Karrablast (JPN).pgf","370a9c70fa88cbb4def8410f934781bd1e576771",48,"","97de304975feeac9be6c777c4ccb61f622e6d3fe753bdf4e82e5777413375d3a",23],
++["JPN","0023 BW - わだいさい Machoke (JPN).pgf","bc3e60c163ab4f7624f2f72667f75a1a08fc6b9e",48,"","70c3e4f6aca81801ffa485addcd63acc52c8672dc45c5a79ef5eccfe185145a7",23],
++["JPN","0023 BW - わだいさい Magmar (JPN).pgf","62c909e62e9c9127003089ab00e357d019e91447",48,"","e854b85c015173ac47d6be4127741cc582eb92cbd7dcbf7813230950d4019dbf",23],
++["JPN","0023 BW - わだいさい Scyther (JPN).pgf","5dcf470d4a55ab806274a3f475e5dde6ca60bd57",48,"","b9861d26372d42298ccbc9f2b7ab87ff8e1ada66c7f9ca76e0b8aa8f7222462e",23],
++["JPN","0023 BW - わだいさい Shelmet (JPN).pgf","45ad04ff02abd72cea6f85ced9d1fcbbb40b8843",48,"","5eb06bf00aed6360bdb42238e13663c24c3d4f86ad4e1a50beef12aec639e0dd",23],
++["JPN","0023 BW - わだいさい Slowpoke (JPN).pgf","22ce4a136b3be2f7474b30e0890a9186e7de25d2",48,"","ec82dc1a589e204c6a2a7a6abea28bed9cde13b12624356b51eddb1a34eabd4e",23],
++["JPN","0024 BW - ふぃえすた Electabuzz (JPN).pgf","be447381d8c21d99838ee18cb3306794387b725c",48,"","d98da3471af49da0b69e3b11aa9de25ca8baa39ac9a16141bc6dad7070e7fc43",24],
++["JPN","0024 BW - ふぃえすた Haunter (JPN).pgf","39e39414b8c6fc8c4f48e593581f9736091d2a97",48,"","bbc770f7e3b4e0b36f5ea2479dfa22fe6280d8b3a8c04f3e8acf926b972a577f",24],
++["JPN","0024 BW - ふぃえすた Karrablast (JPN).pgf","6d699f0ef48c30f89ce738652bf5bfb1b6adf8c9",48,"","4df5048ac6d50abff5ab4f15f6003c4f7ca33121116571a6df1ca27b54d89f5f",24],
++["JPN","0024 BW - ふぃえすた Machoke (JPN).pgf","724dc60cf288f385f18ebbe7800520435e3e79ab",48,"","33a8973fac4364d2af44639be093aad773b67614e4d7052a29af280133fab8c5",24],
++["JPN","0024 BW - ふぃえすた Magmar (JPN).pgf","2599afb983b19987bd250885bbed46bd35007c40",48,"","d25ef0ae20ac5ab8cb8e8ae667ab02417bbd9ff1a473882314908059f138c4b5",24],
++["JPN","0024 BW - ふぃえすた Scyther (JPN).pgf","6fa1b97982200daa24fd5cfabda34927035c24bf",48,"","9011b1962f84d51cb4bcdcd71c72f057276be638b3edd46f3a83f3ed4eef04ed",24],
++["JPN","0024 BW - ふぃえすた Shelmet (JPN).pgf","22a48f7a11e915b567bfba0129a2150b5db2d278",48,"","42dd280547f3e7cd6a48522d6d1d48c3c0009856ccdcd6089ffbe4c47e39732f",24],
++["JPN","0024 BW - ふぃえすた Slowpoke (JPN).pgf","cb5cd20e64df84766ecbd9c83f53031d05f6e76c",48,"","99356a279b44c030a48f7ebf6de17de998e8ab591de06c558ee531e6a3b10525",24],
++["JPN","0025 BW - ピーチくん Electabuzz (JPN).pgf","911983aa625ff65e939445324359eefc0222243c",48,"","0032a99fc097b8bd30443dc40c44ecb7bb408a1e419a4d18a2fad04363bc3dd8",25],
++["JPN","0025 BW - ピーチくん Haunter (JPN).pgf","b91225d060bd5c46c7c74bf608ca0c6b8e16de91",48,"","aa148abbde6fd179461357224541263dcaf4f1e61339ea7d3d7f1f4e11713814",25],
++["JPN","0025 BW - ピーチくん Karrablast (JPN).pgf","825732390aea6714742ec8509a10a405527074b4",48,"","0724abe910c37fa7e477aac5a8482c6659a248ef1687b3357921119e6f547f21",25],
++["JPN","0025 BW - ピーチくん Machoke (JPN).pgf","313364dab7383d774b83c868ad7cc399144f7bcd",48,"","b41aa17ea8b735c01619012f07d67545b98caaa2efd23d8a59184947bc65ff70",25],
++["JPN","0025 BW - ピーチくん Magmar (JPN).pgf","fdb6074c38bdaa73b6877021f469c6304a0e69fe",48,"","ea47a332b0816faeb54a311e85c71e169dda74dd5179dc6a97c73a2d3f640e40",25],
++["JPN","0025 BW - ピーチくん Scyther (JPN).pgf","967a14b2fff7ae33a76a502e8afa328cd9adda7e",48,"","a914f2ed8f1c2e0a13220506ea502d6c137550de908ffe7e0c59c1834678e95c",25],
++["JPN","0025 BW - ピーチくん Shelmet (JPN).pgf","ea42e222204a0c3be3173d652ed378c1603255df",48,"","f23f3c6f2bdf8febd698a62822a11258286bf8378ab695ad50ff8897696ddb10",25],
++["JPN","0025 BW - ピーチくん Slowpoke (JPN).pgf","b23a7762842cf7cffe665ff4d7a4fc7d07bb9045",48,"","ec17b036a3aa166cd975592ea466ef67c0f39d80e22f86c2e1bc066f60489ba9",25],
++["JPN","0026 BW - しょうだい Electabuzz (JPN).pgf","a768279657c7b7f7e0abe8d05b619301257b78ce",48,"","22217e740f316b25ad4a5bdb44d445cf6afb7a3aa47b7e586963608e97e65898",26],
++["JPN","0026 BW - しょうだい Haunter (JPN).pgf","d6fcc3d797d6f363ab307f975bec220d662118f9",48,"","f34a3be436c958c1eb4465137101fe84ade12b3db9561f85e5aa2493bf95633c",26],
++["JPN","0026 BW - しょうだい Karrablast (JPN).pgf","9f6d1407c997a5f66028123589b84c8348dd2d88",48,"","a31335012ccf06f80d1600725976db176a41e0388c41270a0333459e7ea26ea2",26],
++["JPN","0026 BW - しょうだい Machoke (JPN).pgf","f672b5dc13fca03012950dc9403d2f1f16aa582d",48,"","7d91a0844accc99b79bd3f4f84dbb1b9386bf2e23c1b368af3901431574846e0",26],
++["JPN","0026 BW - しょうだい Magmar (JPN).pgf","74e4a5d5315263821113b1b1128de8ff77a2fd07",48,"","af0439b8ad06993f29348fbcfb810f8806660d20beb446cefa43621d75ec10a3",26],
++["JPN","0026 BW - しょうだい Scyther (JPN).pgf","db7829505f7d23b7ea21f1697c3e2f50e0f62983",48,"","7b9fe7bf8ecf38cf60330728f3953fa3b5c25224b65b5853e8de1912521e49e4",26],
++["JPN","0026 BW - しょうだい Shelmet (JPN).pgf","bfcfad83bc28dfc7e3211f19d1335d8207085e86",48,"","92cd0bc12a212b3a84c4c866582bd29b9808c7812ae0ffc3b81611815cc83b08",26],
++["JPN","0026 BW - しょうだい Slowpoke (JPN).pgf","7ecc47e7a661e43f551afef35e102842726f1deb",48,"","74974a63a3b5a801ff9f8985e4d830240975d1eea77dd27b8d9831cd41f55179",26],
++["JPN","0027 BW - ちゅらうみ Electabuzz (JPN).pgf","8d693e3e051a7dc483b353c7bccfce1fdcae93b6",48,"","b97d69563b393a3535fc61741901469f13d46c7c304365e3314a2832e05705ae",27],
++["JPN","0027 BW - ちゅらうみ Haunter (JPN).pgf","ff02cd3447563b7e6860019998b9d60f1b8cde6d",48,"","e69b76671b3514fe49beada269ab3a446f4ebddbbdbcf4f043a51d745bbc2024",27],
++["JPN","0027 BW - ちゅらうみ Karrablast (JPN).pgf","7f5072719bced166f8354a0d11101f4ae2554cff",48,"","82c01e19f71dbfede155bbc6c0262ce8176aaaa653a9dc8d7f83a30066cc1e45",27],
++["JPN","0027 BW - ちゅらうみ Machoke (JPN).pgf","6b264ffa6998951ae172d2adc18041d1c0c367b1",48,"","045893fd7a44f3133f8d96f3e45bae40c183e82cd2ba7edb4ec527854b98922e",27],
++["JPN","0027 BW - ちゅらうみ Magmar (JPN).pgf","276b828b2363fa4f3112e2c4a2cacea80b2a3607",48,"","2e2359b0341113f1c792145e38552219dc36a56437e1134265c46ff56af54a77",27],
++["JPN","0027 BW - ちゅらうみ Scyther (JPN).pgf","6b9e866180285e27dff156882ae9f92c0a31b165",48,"","3a741aa6338b7d214c8e87b5ae96df6b000d2cc69f934d5411c0586eaa42d780",27],
++["JPN","0027 BW - ちゅらうみ Shelmet (JPN).pgf","1d6979a56abcae54a467704b5d307b37487e8aa3",48,"","3e23138d87aa195ef879352d08aeb9c2eadee07416c77fd08424c5a67aac0022",27],
++["JPN","0027 BW - ちゅらうみ Slowpoke (JPN).pgf","d0107f324ba9045abb48c6ee4f3b4192e7181137",48,"","a1d3eb02a292bf020c38bdaebad822580cb98b7e9b95d876d53de5f9396d82c0",27],
++["JPN","0028 BW - ふゆやすみ Darkrai (JPN).pgf","9d3d54a482743184bdb8c80a2d8d216ffcba92c0",48,"","c37fededa0c498f06c28e43c335117990565d5454011495be4a15df259d31a5c",28],
++["JPN","0028 BW - ＡＮＡ Darkrai (JPN).pgf","09abab495b5f4401c40c820bb335703532a43a90",48,"","535d13bfd5af860c445c16b275ec73e98305faaa88718ff920f0b3c5edc3aeb0",28],
++["JPN","0029 BW - (Trainer) Axew Egg (JPN).pgf","0be247c42b44467ba42f9be1d67913b81b792e4b",48,"","63c79b13ea45afae34f0d33938c589ba60f1b4b3d2d11ce7bf2c4bb4456b91c9",29],
++["JPN","0029 BW - (Trainer) Pansage Egg (JPN).pgf","ac9db11434d7b2b353e8f715817b3e9d993f5ddc",48,"","6af73cedaedb172015ed883563aaf534f1c858d4132ce68b773a15d0627f18ec",29],
++["JPN","0029 BW - (Trainer) Pidove Egg (JPN).pgf","c5dd7ea1a7a4c916efc2775473598adb4ba02547",48,"","6cbd3a44a96ed7fa932499a101294fdae293fbdcd86a5e021c1aa20e9ab96bc4",29],
++["JPN","0030 BW - ポケスマ！Zoroark (JPN).pgf","2b793da8d49c1da683917708ad8933d1f8c6e9f9",48,"","8eb7435e5b0701551343733caca73dc18e5d64513814b3ccfbfa774f59ed6cc1",30],
++["JPN","0031 BW - サトシ Scraggy (JPN).pgf","165cef03359d05627129def507f8f33bf09d78e1",48,"","551368907360d179eac02043c8f0c0af8981fbbdc2492a9a622d13b92f69f04a",31],
++["JPN","0032 BW - アイント Victini (JPN).pgf","2c4fa436f8df2f7e7079dcbfb6d25a4b32c8b414",48,"","0ab546c4f3e20e6aaa4551ffc9f845c34cf61ee5fbef247f0b67d10768ad59b2",32],
++["JPN","0033 B - サトシ Zekrom (JPN).pgf","a007002b6b637f5ac0edee8c8c7a34010172c0fd",32,"","f97699470c433d30d755907ddfa970a0e2c464a9f7c661cf133fdad2bb49b37f",33],
++["JPN","0033 W - サトシ Reshiram (JPN).pgf","bae4f5f7a02841dd4ddf75aaf65e581e9e1137bd",16,"","3480e9496ad9973197386f86c3a2c20139dac5b4f7ae32c458019c9c2a3a0190",33],
++["JPN","0034 BW - サーチャー Axew (JPN).pgf","4820d22951bb0c448dd1f05333e2eb0474d3d404",48,"","8991ee380f723bfdea8cddbf1cb403f002af72675a87ee9572e3a5d6b0230cb6",34],
++["JPN","0035 B - サーチャー Hydreigon (JPN).pgf","b88f509460fa69733ede9e37821235b9d2bcb60b",32,"","963993bf05adc31a1bed175caffa832a9bfe4766e794e7d3a095376cfcdade97",35],
++["JPN","0035 W - ジャンタ Golurk (JPN).pgf","a232f1b2a3c0463fb207271c9972cd4e70282822",16,"","373d642d57bbdd326747027543ccbdd8c637eb5a9d8ab9e66d2f24bbd16ad4f3",35],
++["JPN","0036 BW - ＡＮＡ Pikachu (JPN).pgf","dd6f1d1a1c211b9c5bd3d6b63c1b0f27e78686d0",48,"","ead95a3e12171b3f1297c374d2a49737680d31aa4ae7a4ff6c37fb3c66fc931a",36],
++["JPN","0038 BW - ＥＬＴ Pikachu (JPN).pgf","4623a84175bf2626671410a5972dfd5e35fbe945",48,"","061bedbfebe82992857ea1d39503ac58149a9dee5c219150e43aa7c5a26d5605",38],
++["JPN","0039 BW - ＡＡＡ Pikachu (JPN).pgf","6844c456dba2bc98eb720463735d06bf69b3c8c5",48,"","4367c56c21e723f9644d165e9559ca36f8afe0a8e2058ed606d771f8f893d3b7",39],
++["JPN","0040 BW - チサ Pikachu (JPN).pgf","d8363e41e30aa6bd3e7e30815d4b819e423dfc6f",48,"","a10894e71092be4880175fb69906c3396be48bec451fa357589be7859948b111",40],
++["JPN","0041 BW - アミーゴ Pikachu (JPN).pgf","6be5799cff1787bcbe08ccee8df528929d2a1220",48,"","5119e1d2bde7a10f16a4877dd0da08bf1de85af0ebc43447dd9ba359d82ed04c",41],
++["JPN","0042 BW - ＳＫＥ４８ Pikachu (JPN).pgf","44bcc26a0e3e648483d190f1d24d94164495b0d4",48,"","b7d58a4a993916c34251b4e0c4e2ea1cc94022ae4347c2c6f095e6771a22a411",42],
++["JPN","0043 BW - わっしょい Pikachu (JPN).pgf","ffc55b9d684ae46fd969aaf086af32992c993ffc",48,"","475db13d4bfe620548ef84c6d9a0fe0ce4a7d04c0daa6a29bcc3d7d7d4bb5c9f",43],
++["JPN","0044 BW - いえるかな Pikachu (JPN).pgf","b30022bbe7942bd72bedb9aa03b4b98ec7f47d9d",48,"","9ba3897a24ea5068fa5254f6d1faf4175b01bb6444af53febf9506e96f99c185",44],
++["JPN","0045 BW - ちゅるの Pikachu (JPN).pgf","871e203b4181776c9b0b1fa1632ab86621a9f6dc",48,"","8c7a2021b7378c14179025ec845ba90975eae9ae6b63300c34670d361e09d677",45],
++["JPN","0048 BW - ポケスマ！ Mewtwo (JPN).pgf","3de13fd6a636670e7c6399334ad6b191ba16857a",48,"","0ee7a1deb2f07863f7c75f96e5c68b1825cc4fc7ee26b70c540f082fb3896289",48],
++["JPN","0049 BW - トウホク Snivy (JPN).pgf","ad5664a21b76234cd52c20016055acd722e1b505",48,"","0dd971ef0ab9e03cc9025cf4d0f86100b9328470149bff4b5d5465255b13e182",49],
++["JPN","0050 BW - オーサカ Audino (JPN).pgf","8f174d6d33d3f956d12c0f57ecb636b1645de5cb",48,"","3d6e330a918b34474a156eea2962d54659cf9e852de5fa12a3a3d22164cab669",50],
++["JPN","0050 BW - サッポロ Audino (JPN).pgf","55e3e5ab8f24511b7c7c0e2476502691b5fe429a",48,"","119bff1b3ae0958d577c73fe7ed927757eb8b5923235c13d3a0553c6432508eb",50],
++["JPN","0050 BW - トウキョー Audino (JPN).pgf","255bb5c449d4271bc24ad7a9f2ba59935ad1c7c1",48,"","a32d72e0de3a2f0fd66693a1dafdeae0ff5d48c19fb0f174651b27807319e494",50],
++["JPN","0050 BW - トウホク Audino (JPN).pgf","03cc2b6aa41d5524120b2fdf99db792bef3f77b8",48,"","7f827c5d05fd83a7c873694ae165e7a22c3bde7d72239f6c2bc9e933bd491c87",50],
++["JPN","0050 BW - ナゴヤ Audino (JPN).pgf","fa14824f7bf62365ee63d264a6b681d86f80eab7",48,"","d64c776f1d66eefe8138f026c450aee547e1bd48a9195dd8cef3a8178bb03e2f",50],
++["JPN","0050 BW - フクオカ Audino (JPN).pgf","af62071ca8b77b386d75da5b80cbf00e5b721780",48,"","9cf176b831d4cf3243e77150e8500f78e45eb411cae07c695509fdd3d0767d7a",50],
++["JPN","0050 BW - ヨコハマ Audino (JPN).pgf","9fd30ec52bbcab22bc6d9b6d4624ceaa76f27ca9",48,"","996f5d85da601d0bc55910f0715478fb8bf038a29d8adfbcf92a79a181b6f6a3",50],
++["JPN","0051 B - ミロスとう Thundurus (JPN).pgf","031ddb37db01c1496431f67309fd0316bcbf7f1e",32,"","7cbb96c7aaee0d31c91988ae1ad7b7b96601f0b901545cbd5615489116243a2b",51],
++["JPN","0051 W - ミロスとう Tornadus (JPN).pgf","a24a68aabb8ee87763436ac8f05406387eef9b0c",16,"","624cfca0687e9b00d792918502e9b6784aed0a048204e3efd858eabab420b3bd",51],
++["JPN","0052 BW - Item Master Ball (JPN).pgf","a33aa5653dc21d489e10d9d957f765dc9f27fc63",48,"","0b4bedac0d77e33f8f21be120e60b90614bde1c52cae83c8dc40e324a1711264",52],
++["JPN","0053 BW - ＰＣ Shaymin (JPN).pgf","4cd3b36ef8ec9a00fbae176fd318ca4846364748",48,"","ed5c489788e10e7a5b129cb3f00ce7949497ebc5e4aa07e46b2e7f20d929acce",53],
++["JPN","0054 BW - (Trainer) Bagon Egg (JPN).pgf","88092974b476b096527195de0508cf5ecdf9ddb7",48,"","712ddf6b3122d2ba2aa7db805c6df59cfa1ef3abe865053baaff1310b586ad3f",54],
++["JPN","0054 BW - (Trainer) Deino Egg (JPN).pgf","70e1e39cc4b2e49980c675cbf75179b38a622023",48,"","19980e5dd04a9b18930b154fa00f78498ba3eefd465cffd4757f112f2f431e05",54],
++["JPN","0054 BW - (Trainer) Druddigon Egg (JPN).pgf","55bfedf14a3ac6964ae0519d95bc417d28dd11e6",48,"","d7cccebf31651032d729633d8f92f25988c37d01cdbf2447c71c25f0af6c192c",54],
++["JPN","0054 BW - (Trainer) Horsea Egg (JPN).pgf","8637dac30508cab90d0154db853a0eb5668f765f",48,"","c409267c0cb240f5789c41ef34e7b787a67c4766469512531309919dd3d82615",54],
++["JPN","0054 BW - (Trainer) Swablu Egg (JPN).pgf","fe059dc8d6ea61d08e4c2c496258429877801bcc",48,"","ebc89c99be25b40ca723a3b9c25c4295163e80d54ab5dab9fed5116ebf86d6ed",54],
++["JPN","0054 BW - (Trainer) Trapinch Egg (JPN).pgf","4c9dfeed8a625340099baa03f1bc4bb869842dc6",48,"","34326499844ea3d55033261b10d9eb97db29a676462aff14d44d60364627e085",54],
++["JPN","0055 BW - (Trainer) Bagon Egg (JPN).pgf","0598d01c34c15013c5b6d4fb1bdc70b858a95f0a",48,"","fe28b019ab33b626ea32913804673f1548e1dc0b1b3171e6df4c7de946ba6007",55],
++["JPN","0055 BW - (Trainer) Deino Egg (JPN).pgf","c49646fe62a9bc3fe4a4d4b7eb13b96413b6a20b",48,"","f2200784b957dfa6f072e1430be92da53eaf9ce370bf0acdc5b513846af07e95",55],
++["JPN","0055 BW - (Trainer) Druddigon Egg (JPN).pgf","a2ec14c21dc3967f0f5bc40e32b54f6c02dbb6ba",48,"","711942db6504a7ebe82a0110093dcb1d835b9376d5facba9109541980cea612a",55],
++["JPN","0055 BW - (Trainer) Horsea Egg (JPN).pgf","3d8c81cdc91d878f98bf729abf372ae16903527e",48,"","13a7abb5967ea007319d850e2b310f0105027fe3ef7207060ecac1092b633923",55],
++["JPN","0055 BW - (Trainer) Swablu Egg (JPN).pgf","895a3631d027a46b95b42b304a94567cf41d4ec2",48,"","a8ce910855f9f0aa2f1d63c946d855a5dffc2414c71a889b5d1cbecd84e2bb70",55],
++["JPN","0055 BW - (Trainer) Trapinch Egg (JPN).pgf","262dffaec2974f7aec6b6d3f2e1220e574beb71d",48,"","cd71271f02cd160b1a86a2721a753b14719feb708766baedd6448b1f8309e138",55],
++["JPN","0056 BW - (Trainer) Bagon Egg (JPN).pgf","4e8d1bd9496dae0242e605c247697c302cb734fc",48,"","33a6a5567408bab4261e4a5757ff6e8c1c0952a4ad60a75f88ab66ef699e95d1",56],
++["JPN","0056 BW - (Trainer) Deino Egg (JPN).pgf","855256dca9e59f5193a434d6fc2a5fcb568c5596",48,"","1d3143b733107a85d6803bdc2d1e23011e086365763b2064227e5a135348e24e",56],
++["JPN","0056 BW - (Trainer) Druddigon Egg (JPN).pgf","5fe4ec37a6a78238f0d1bd55b89cb286f706313b",48,"","177a1c98af6765981ebd75a968104d044985d6cf5afc7bf90d954705454276fd",56],
++["JPN","0056 BW - (Trainer) Horsea Egg (JPN).pgf","9aa0efdbcc4503dad212dbc0d17ca1f3127e42ff",48,"","1c948edc1da0fe0e888030077271de289f3387ca309140c4c2ad1621d3379d3f",56],
++["JPN","0056 BW - (Trainer) Swablu Egg (JPN).pgf","a4a261008873e6a925d0a291da97774a4db27243",48,"","546aaf940ccc54ce92cfd6de4de16c0a3e52516e4c12095416c30e5612bb1631",56],
++["JPN","0056 BW - (Trainer) Trapinch Egg (JPN).pgf","336cdd6b12af6d584c79de7876911df1296f53a9",48,"","af3f35c8335bd80889309b061366e84ce414d23225f4d932a0052d7704a259a7",56],
++["JPN","0057 BW - (Trainer) Bagon Egg (JPN).pgf","feff257a9efc6cedc52c7acba6c21c8d4abe722b",48,"","c6de73b2dfa8c5c01c82cad7a8606ac574e0d5357b4eca67679a6398169b0db3",57],
++["JPN","0057 BW - (Trainer) Deino Egg (JPN).pgf","f753514e7314396df04d20f20497943062a82b13",48,"","4658d599c5c2d55050c4e6a4752b327696867ee4c4112d18fa2738d6d4b6e05f",57],
++["JPN","0057 BW - (Trainer) Druddigon Egg (JPN).pgf","ad06da74d405d4901753b9b686de082d92a7ac82",48,"","f57a2ce65cdefef917f5b6e9a886a780df1525b96d75798a113f74b48db52da0",57],
++["JPN","0057 BW - (Trainer) Horsea Egg (JPN).pgf","26f10ba90d6c2649e587cc90bee23f8846755f4f",48,"","4fbda77bc8a9e553ff615e485a7fbcb14999f711e09032379bb93c42d42c7dcb",57],
++["JPN","0057 BW - (Trainer) Swablu Egg (JPN).pgf","808270c33c2f2c1f99cb397a160a7ae9640fc1f7",48,"","e2cd2d86004b24aac08b1b0001bf5443c4007e5c85ee57b22ebf82fc2764936e",57],
++["JPN","0057 BW - (Trainer) Trapinch Egg (JPN).pgf","7eb5b39d2a831e5740170e63322fe2c0abbb1bad",48,"","13293dab2d31059d451095f7cc6fdd5f3cf22ba1094cf4eb889abbbd00d32698",57],
++["JPN","0058 BW - せんきょ Rayquaza (JPN).pgf","2de38ffa87103c7926b8fdf88c0e8bd50fe1fb08",48,"","c5acc8eedcfe446ee00625688df0ad9310de07483a56dc18305ad87d5d5ac899",58],
++["JPN","0059 BW - ノブナガ Shiny Rayquaza (JPN).pgf","ded1d52c2247bc8ff36e5c74445aa1c8e9b62b36",48,"","9a1e297003c49eb8056fbd630e18f60dfe61c16529b9ad0c474db33f37e528f5",59],
++["JPN","0062 BW - ながさき Blaziken (JPN).pgf","151e848e54b771b1ba92ed1d751d823afea536c5",48,"","2d61e20459adb62c48dc1048b0393f0dba985cb5621995a501122692a5dda518",62],
++["JPN","0062 BW - ながさき Sceptile (JPN).pgf","9c6798c5a669321c45715fd08684336515ed65c9",48,"","295397b7bbcb9de5f829f05f7f2f1afeec84772423d6839f305a4bb45b3a99b4",62],
++["JPN","0062 BW - ながさき Swampert (JPN).pgf","03cdcdb9cc7d8717b13ded1549e5e1608c0d05f8",48,"","a26cd2e2f4b9e7fa6e9e69f9c1c421c3f3a38e03903baa67aaf2acbab79842e1",62],
++["JPN","0063 BW - ながさき Ludicolo (JPN).pgf","6aceefbed4802c4095430ceaa641409864ae085b",48,"","b62b36663a38df441f7a24f0d8370fddb88acee39110844c191dc2e1de65daf0",63],
++["JPN","0063 BW - ながさき Milotic (JPN).pgf","5effebcca589c951e8dc0580519c524ded37dc78",48,"","424653574697d88a9d9da65c70e0e837ea129440bef37dc9bb57d0c28e24b0b5",63],
++["JPN","0063 BW - ながさき Walrein (JPN).pgf","518bc166dc415b3ee4a960f6797b603335e95e0d",48,"","e72c61ee91e43d43b4f3e7371027917a560317176c781da1ec60cc389c47b1a2",63],
++["JPN","0064 BW - ながさき Gardevoir (JPN).pgf","950a1ee46741abe8de57619ab7129c28f9984311",48,"","bb78a090778dffccf41f3b118924e4401d503fb10247ba4592e912bed2cfafa2",64],
++["JPN","0064 BW - ながさき Metagross (JPN).pgf","29fcb20260660e8b9c7d56ca31f1fafad54de5c6",48,"","18285cbbed142e9876c3a03fd3fa0e91693240cfb835ff966362b034e22cdec9",64],
++["JPN","0064 BW - ながさき Salamence (JPN).pgf","4d1d74c1dccb41743b05b30829f9fecd2131a020",48,"","120fdb97b4fbe620a62cec0ccbab76ce1d2e01556021bfbb914dec7895b68ca7",64],
++["JPN","0065 BW - フクオカ Groudon (JPN).pgf","21e4b665e866e8a859b7170a2f08aed3861bbb09",48,"","2d3c64baf6533db1b8f76bc9d6b4f023630371d4fd0c1d1c1e54c515fc946591",65],
++["JPN","0066 BW - フクオカ Kyogre (JPN).pgf","3a1e5a4c804f3666eca0eede1ced994bda20b45e",48,"","175af329ed941d6fe0298f04ac5ec7c051516b1e1ac0e3ce28dfb62920483d89",66],
++["JPN","0067 BW - さくら Pikachu (JPN).pgf","9b791ebff2e2c733ab34d249a960ee86d294b734",48,"","10602416cbf79b71809e5b4c06b2956e7534135139695fefcf15798571d6a3e1",67],
++["JPN","0068 BW - Item Master Ball (JPN).pgf","a25e1e20caae33be5cc46bb5c657aaf4e84e61e9",48,"","05aac75b4a05c5ad3fd50620d59ed3e23fddcd7dbbe9102f1d60c66f2dd381ec",68],
++["JPN","0069 BWB2W2 - しょこたん Keldeo (JPN).pgf","d78743aaac4279d18b2cf6fa086e893ed941ea66",240,"","51fdc5992daa15c03b8b07a8d1505724590f1fd7a0fac3f38669ffd5093cbc87",69],
++["JPN","0070 BWB2W2 - えいがかん Meloetta (JPN).pgf","982ce154d7237519feb0afc4b61b574e0fe11e34",240,"","82f44851bae256c00eb44e2867e205d11d6beb7c19d9b7d7508a1b722619a665",70],
++["JPN","0071 BW - トウホク Pikachu (JPN).pgf","2ed2fc7e3198135816d62bfe674b2c9648bc5877",48,"","6976e2552c3e23ed37e957d1e0be8e1207cb0ff29b629984be12b7a497b1c940",71],
++["JPN","0072 BW - させぼ Blaziken (JPN).pgf","802eaf3fb68cc9d6c9ab154f81a765eb65d22b36",48,"","8d7750408b800283a1d00a72e38771875de622a4df873150b7146961850e858d",72],
++["JPN","0072 BW - させぼ Sceptile (JPN).pgf","de275df7d485137868f533eecbb21b66372380b0",48,"","fefe983ff7fd9d386a0a98c1d045394a9a5d6564e54f5e1df11d48faaf8ed459",72],
++["JPN","0072 BW - させぼ Swampert (JPN).pgf","aa6e28a45b16b2996bbfc35bf6450fb43edb0839",48,"","58bcdc7409b123e96a29a479f7a4f94508ab166c809a591f287df5040aa00ffc",72],
++["JPN","0073 BW - させぼ Ludicolo (JPN).pgf","c78937a6d45874038a78264ca83142e9afb954a8",48,"","9f7acef9f1ed2551d371d4e2ef64c743ec03028be0a53134606bfa458e8997e2",73],
++["JPN","0073 BW - させぼ Milotic (JPN).pgf","ca7f9f758e20a844bc0fa7be275909bea15c1ad2",48,"","1e592c17e3bf8670817ba6593e01319a2373ce22b56b640add2d79e25dfc7205",73],
++["JPN","0073 BW - させぼ Walrein (JPN).pgf","289375f325a57c5f7596516db972644283c298fd",48,"","d892ee64e264f2f4e735bb59338674544732f3b2c0f307c409de51ff951195e5",73],
++["JPN","0074 BW - させぼ Gardevoir (JPN).pgf","b2f8f03290f73c5512477eafd87e7af924d3b753",48,"","9bc7e038496eff417b6946f8404ddd17edc45339603317581b1e0e31fb1a0ad5",74],
++["JPN","0074 BW - させぼ Metagross (JPN).pgf","1402d8467cd7329277d66d158fa82966b5a20270",48,"","9b747913ec0b060d2cad7fbe1d7e133f43913dc5252d49732032e6f1a28ff8a9",74],
++["JPN","0074 BW - させぼ Salamence (JPN).pgf","5accb052d277fe145e2205c4bd38ae222f1a8c9a",48,"","18a8d27c3b847909748642b85d59e3bb9b505194008bf00f0883a86fca42aa68",74],
++["JPN","0075 BW - さが Blaziken (JPN).pgf","6e25576350acbc3f81b2e31dc7468db644090334",48,"","b9f24b0e4808c631dab9e91c90daf33d3b28401aded357e326424c1dad829a13",75],
++["JPN","0075 BW - さが Sceptile (JPN).pgf","2509809999f7c3850b1b3c4ad69726e29fb18f17",48,"","c22005480f7d6bf3af8f6ea60bd649a21fdb3c2d20ab73188f4aa2ca3191a9fd",75],
++["JPN","0075 BW - さが Swampert (JPN).pgf","afbcbc21cbd130614f011521c0b6e601f0a6ae1d",48,"","f83a6fa4cbe3130e4fc8c6eeb057e07a5027411ccb92cb97c90e4a4069a94a3e",75],
++["JPN","0076 BW - さが Ludicolo (JPN).pgf","0889cedf890b1182645a7dbd3d32ed9f98cde7e0",48,"","a60a6c30644efe36202885d48a40560e2d2a99cc98e0cb1ac13be6339e4ead10",76],
++["JPN","0076 BW - さが Milotic (JPN).pgf","69ce46698f7f13ad67858e970bba7ea5ed7d8da9",48,"","34fd765cd3eef5ef480a21c4b2340b42ff510bf879d1b6de5ca4d055ec9bbbd7",76],
++["JPN","0076 BW - さが Walrein (JPN).pgf","372168d1c0d73e3a7b20671167331c506cd915b7",48,"","5cdeb2da26f49b288271930d8cdd5598468cb6b9da973b812090cceb66e54c20",76],
++["JPN","0077 BW - さが Gardevoir (JPN).pgf","319ba59aaf37439ac58bef647be7b5f0d2fabf8d",48,"","8397cbf8d336f4abe1d7d682916db902c1154531ef48b848a5fb5886bf14542e",77],
++["JPN","0077 BW - さが Metagross (JPN).pgf","558e6a829c06f015114c1b5479a4842a424e81cc",48,"","f4bb009d3bc2de083c841594f40f472f3cc12adcaa7cb48cd92a122a263b0617",77],
++["JPN","0077 BW - さが Salamence (JPN).pgf","275c65716db6aef43be598cdf0c2599e5a852480",48,"","a4775cd76dcbc101eccd7f62d9768a7ec57c67d5243902b06d2a2e1bc8afbc04",77],
++["JPN","0078 BW - くまもと Blaziken (JPN).pgf","faa2189f67e461b08ccfdb0d84a236a63a2b0aa6",48,"","e43796d5b2a32eef9c193c0caaa0e9efdac1670fc4fc770a155b39112fed23d7",78],
++["JPN","0078 BW - くまもと Sceptile (JPN).pgf","77c111db4d501454f71b3dab2e574854aa9394c0",48,"","13bf42ce546f49b9c1aedd447efa29163c5a541c2d08ba29a24260d5288891b1",78],
++["JPN","0078 BW - くまもと Swampert (JPN).pgf","f6394ef0ab8d700e41230bf55ec6c66dd74d872a",48,"","c35c453641af129310f02f43e8caccc6e3117a5b688ac0ce296c5d355ca5b6f6",78],
++["JPN","0079 BW - くまもと Ludicolo (JPN).pgf","7bffe4544d8a940e6b2ea0d4e753a6e199c55f2c",48,"","7042e526e4f12b538b9e95b5ad0e901732156b4a3af7a04b0f6d202134ed1e15",79],
++["JPN","0079 BW - くまもと Milotic (JPN).pgf","71aa1b0c84a6022acb700ccf2b2418bf1118aa1b",48,"","22407ffe5c2fb3d8d9ce8330dd5c17fb6f11ce62678f2c55ef9e27654002a4e4",79],
++["JPN","0079 BW - くまもと Walrein (JPN).pgf","982026b736eea3d9c3dabd1b2494197a2d7d8633",48,"","2f888be172aff433b600ef9140a51e3a090e96889fa5538818c650101ab104f6",79],
++["JPN","0080 BW - くまもと Gardevoir (JPN).pgf","f952844b230f5eda6bb3eb8e09bfdce8ad2e15b7",48,"","049137601d5c7ed8089e43e2bb2da3f67036d27fd4e5ee0cebb984eca7890faa",80],
++["JPN","0080 BW - くまもと Metagross (JPN).pgf","904083ba26cd46b03421c207c58dd7cf0fac3604",48,"","37b5e95731ea2ede9d65db3db8767aa287e0d7f4b067737e1ba6aa9a2a1377cf",80],
++["JPN","0080 BW - くまもと Salamence (JPN).pgf","108584f52aa4659a1f38de30514cf0dea2215eaf",48,"","55b038058c75a016b0e118fc4164e2e536757e940fdeecb88dc17bb209c02b7d",80],
++["JPN","0081 BW - かごしま Blaziken (JPN).pgf","6f2dac4635d64a741d7fccefa78d911a94c5b19e",48,"","0704a5852e9a4c84fa2feba6ef95a11396885ea88f5df01ba3d8f90ef37cf96e",81],
++["JPN","0081 BW - かごしま Sceptile (JPN).pgf","979d74a249d56de2723955c53c50c834d5e89e90",48,"","4dbccecb7438b2981bc4c205ce47004f886ea52130921ea264d00ef8a3dd1881",81],
++["JPN","0081 BW - かごしま Swampert (JPN).pgf","c549af5ac5905684fcff18cb8c7809d229ef7373",48,"","342a38e63fe94377da61ea08df41cece535ed06789ba87c2398484848e9e73bd",81],
++["JPN","0082 BW - かごしま Ludicolo (JPN).pgf","dd812f08e1e8b85c540440e032dfe74de513ff17",48,"","d737468d70ed63965dbee6f6674390c0e6dca8d2f4690e8c5232996c8ec9cd69",82],
++["JPN","0082 BW - かごしま Milotic (JPN).pgf","63e2904e4f63f76633f2f25d8cfb7e5e50f16734",48,"","43cda6cda238fef113de86db843f1353b33dea61107a83e9008141567e7adf67",82],
++["JPN","0082 BW - かごしま Walrein (JPN).pgf","e77f6d61fc1dc2df930509280a22a25cb20d030f",48,"","67a1ececf157ab71cafd1e0d81d884a1d2dc7b31575ab3a239f2fe5473119de8",82],
++["JPN","0083 BW - かごしま Gardevoir (JPN).pgf","36c148abbf0c90d2e81f9067cb43d39323fc56c3",48,"","3b9cf5dc3521943a56e87063bee77406fab7d372d0f7b1e7a0deacf41c6a5df0",83],
++["JPN","0083 BW - かごしま Metagross (JPN).pgf","dc72facc9ff7d327675b68bc692486e681298125",48,"","fabedde6d2a395902aba673ea4ab8d44f1d3d2cf5164ced3a0ab1dfa185c44cf",83],
++["JPN","0083 BW - かごしま Salamence (JPN).pgf","f8ecef27da8ff2c37dfad61a841ff35b1af6f587",48,"","704c351af8bbb173a103a1c1e573b50d44acf719c69b744df385df6349698846",83],
++["JPN","0084 BW - べっぷ Blaziken (JPN).pgf","640d10b888a672059713af8d34b0a7d44882a368",48,"","af27b0c96bb5f962d38891fe29ed763c2a68101630b42e52c01b9f175729c404",84],
++["JPN","0084 BW - べっぷ Sceptile (JPN).pgf","b636d10276f3fe5307349aa9f6ff07399a21d84c",48,"","fcb3414b7b3a0e05d36e3eaa08e093e7019d77e69b726e8fcf5bcafc70af1c2c",84],
++["JPN","0084 BW - べっぷ Swampert (JPN).pgf","ecb050d092abe2b5bb580c82ab7083603c364200",48,"","84843066f9d9ceecfb77e48dc293b58dc68994ce3ec235f105a12287c3206b11",84],
++["JPN","0085 BW - べっぷ Ludicolo (JPN).pgf","84ac01669208648ccf605c16d77ad6193249f61a",48,"","209c1b35262dbdf66d55dcd366e1df983d76b5f19b4a5784ad9601a4c6ce4ce0",85],
++["JPN","0085 BW - べっぷ Milotic (JPN).pgf","38d47c2afabd8209230d7e3cd648a98b76c4bcbf",48,"","184faecaadb30bd293fca63965d87bfcd459261908820a521214d7894373bd5b",85],
++["JPN","0085 BW - べっぷ Walrein (JPN).pgf","a0fa3363cdf9455ba45a0278c051371d340759ef",48,"","e22cc84d8a2f381b48a48b9ef2b72df5df617ec1bc7d2a1a735e7371cf93f3d3",85],
++["JPN","0086 BW - べっぷ Gardevoir (JPN).pgf","186a9d9e2a35c39cac42b96c8b019fcbb191399b",48,"","07221bcac19b774d2535a58f32cfd33284a0c9dc212f504cdee15fffb7a2663a",86],
++["JPN","0086 BW - べっぷ Metagross (JPN).pgf","abcdebcd0da5299022735fbeb3250d9be615fdae",48,"","d582ee25008082027ec274ead7eb19fd217e85d92ec92ce42115c94faed34e7e",86],
++["JPN","0086 BW - べっぷ Salamence (JPN).pgf","0cc97dd5c32ed01077a3aab4b07893048cf1981c",48,"","3aec8f87dfd7b6d13294da2450b2e93d83b76f4dcefd122fc9dd960b81822242",86],
++["JPN","0087 BW - みやざき Blaziken (JPN).pgf","3d86864d955751763c247ab9ef7cfb62c486dbdf",48,"","809b21054514b0e40cced4847f9ef0fdd4e428b8fabf7222390653d68d0a0c92",87],
++["JPN","0087 BW - みやざき Sceptile (JPN).pgf","d09afd10f5a1534df2516a906c96f2a2c56e7722",48,"","67a12b2d942e08380d7c318a06c4addcf2ce3c0c48b4ce15404fa5a2e7dbf97d",87],
++["JPN","0087 BW - みやざき Swampert (JPN).pgf","a997c3cb94be6edfacb2f3d0509fcca9abe43b40",48,"","d7c1b6639fdbd24752b43ff9a5644ca772d0c7fb448be02392273691bd0003bb",87],
++["JPN","0088 BW - みやざき Ludicolo (JPN).pgf","ef010adaaaa3a10430520f6b0cd8eea1a7485364",48,"","898c15dc36006477319628746e4b2d91dfd830e159c9e9de1f9cbaf6ec3d8127",88],
++["JPN","0088 BW - みやざき Milotic (JPN).pgf","33e9870104dba9d46ac4456a6ccd677ade941648",48,"","a66e7d747d844d02d9856e325154385fdc3ecf0299cdad64807a8f17f9f8c4a8",88],
++["JPN","0088 BW - みやざき Walrein (JPN).pgf","aa470ba64bec4af8c744ef48888a6267995abe53",48,"","871c5c9aa2e85225d9a3710d658bd93530fe205d2e71e618972b4ef3b31f42c4",88],
++["JPN","0089 BW - みやざき Gardevoir (JPN).pgf","1d8dfa126fb5a2d1979ea5c632d5f4f0a1f61b91",48,"","b943abb099cbf4f40cb30dcbb6d1088113eb612675ab810a8fa4fc8fc3407ebf",89],
++["JPN","0089 BW - みやざき Metagross (JPN).pgf","d96fa00c62d3d889fb41118c003e50e669e79e68",48,"","b6121f4cd332d5d9f82ea286b8657bff3bf34528ef3e731c24e5f510b9754280",89],
++["JPN","0089 BW - みやざき Salamence (JPN).pgf","20d4dc3ce356fffcc06b40aeee0d46b2474b5d4a",48,"","8e2380ce774493312bc6b51ddcf5ebacd5ae9942006061464041110b6c2c3e08",89],
++["JPN","0090 BW - こくら Blaziken (JPN).pgf","7dca0d068f04110530e0903dcb90028e00a5fde7",48,"","3b4fca1662f6d32f258413542555678e88dc1cd0c2a1ae4291adc7a975396303",90],
++["JPN","0090 BW - こくら Sceptile (JPN).pgf","0b481d73a9f139c1e4724cd541423039f17556e4",48,"","b48d4f652c0106716414cc30217594697d911cdd0d70ad03cf99967f0693a5e7",90],
++["JPN","0090 BW - こくら Swampert (JPN).pgf","f9a8ad19af83ac2a081a77774c963a1291e0ee4b",48,"","0430a59d8dbe189ee3f433a6c429a00043b05bd59d565390d7f82dd57f3c74be",90],
++["JPN","0091 BW - こくら Ludicolo (JPN).pgf","fa745930acf67aff69c045ef55e94cf0e1c65183",48,"","9cf0070016bc9cefaa50a88e98aa075002d081a2da0533920bb5a00237d34a7b",91],
++["JPN","0091 BW - こくら Milotic (JPN).pgf","b9e86c5194ba91aff35266997fd1ca941bf1590f",48,"","ef1a008d039bd7f03db11b07269ed301630d5ab2e2d69b9094768bb28236e930",91],
++["JPN","0091 BW - こくら Walrein (JPN).pgf","0c66fd7be335eef60dab31819b27e2f4092d55db",48,"","0024dd0e9e8782a37d8aeb5dd245b5d93a9fbc3fd4209a416bf33ccf8e9b1a17",91],
++["JPN","0092 BW - こくら Gardevoir (JPN).pgf","b4172c58b1d9a04b060b71f70a48f915d8504afb",48,"","27de51beb66963eb94ff5350d231b9f7f4d9cd792cc5450f668049edee4979cc",92],
++["JPN","0092 BW - こくら Metagross (JPN).pgf","240ca66d3009cfd673b7d77bce27023acf2ff713",48,"","37c7a6232a49796bd57896cfc7200f3ff0242cbf5087ccbd13e905679a71bb77",92],
++["JPN","0092 BW - こくら Salamence (JPN).pgf","a1430868b7d3b7c66c3690c45baa48e44ce5fbb1",48,"","ff3b3a5e7a1ad0010c1318f778b478c30fae377966c040483542dc1815b07f14",92],
++["JPN","0093 BW - サーチャー Piplup (JPN).pgf","59278d3f4d66b839cacdeb08c05b8c952d509f53",48,"","1586891e480db7199c9fb0a55e6dcae7a166b882d869b5349032755fe7d39b61",93],
++["JPN","0095 B2W2 - (Trainer) Bulbasaur Egg (JPN).pgf","f20ac571d829aff4b721dede109d0a1429fa9136",192,"","550768969be6ae049b20afb1ed6436a298dce7817d62bde459ea2e1cec49b1bf",95],
++["JPN","0095 B2W2 - (Trainer) Charmander Egg (JPN).pgf","ade91dea7d1cfb5fcabb71fda05f66c8cb6a4ab6",192,"","01a3584a6adfab9e98dae42f9e1a5d6865e020da878062443aabd20b345aabc4",95],
++["JPN","0095 B2W2 - (Trainer) Squirtle Egg (JPN).pgf","16a98cf4312e446ceca7e254f3dda8ba521de4f7",192,"","a0a00065b675325ca7966648e306fe14f36834d699f4bbb7592897c7c9df5b80",95],
++["JPN","0096 BW - おまつり Pikachu (JPN).pgf","d6ed6bf9fceb0ff6d80b303af479715a3d271919",48,"","8b5d594bfcf28fec1bf3b62ff14b158cbaa871aefb6c8f264ddfb32f60bb834a",96],
++["JPN","0097 B2W2 - リサイタル Piplup (JPN).pgf","64f6b6d7069fa2ce2f413d81fb3d8703c8c8257c",192,"","b242b25a2034dad70e0815f40fb2d64d91cebad717db8c76df4dcc84f5a149ee",97],
++["JPN","0098 BWB2W2 - キャンプ Aerodactyl (JPN).pgf","44667cfb645c627b23ddb6a35b98af711361ff43",240,"","7b46fece36070e25b6761766c926c8b7cf9fae0bc1d8a71a15f1f07a16687282",98],
++["JPN","0098 BWB2W2 - キャンプ Anorith (JPN).pgf","077a89868a21276e8bfc801c4eb4243b8de17f53",240,"","3f0ddb5c8befeab782aadd49bf49b5bace131ab8c70d63e5e0be1b136ff93ea0",98],
++["JPN","0098 BWB2W2 - キャンプ Archen (JPN).pgf","a12e2d9900eace381076cdc7b39857b31d284cb3",240,"","8ec628f33c706c9eb6033e91da6db77a1bd3ea7107c445157845a1d59bc84021",98],
++["JPN","0098 BWB2W2 - キャンプ Cranidos (JPN).pgf","e324786ab5f01841a954826f5f4c2e2f5be7a74c",240,"","76bde60ec6afc16ef72ea19f473ff19d7dbf8bb7bab5e31a8ee6b832e0c444c8",98],
++["JPN","0098 BWB2W2 - キャンプ Kabuto (JPN).pgf","041e7df5609ee8802ec40ce0f977f90f041351db",240,"","16e3fc65b42c6139c2cf53797600172abfd45b7b21314eeb2454cee89d16d27a",98],
++["JPN","0098 BWB2W2 - キャンプ Lileep (JPN).pgf","db9612f6201bbcc9d493a848ee63fcadf6a459f4",240,"","b4f73f2bbccf62c8e1c22c55d81f84fa5250cad49d9adb8a88854f8c18c7c657",98],
++["JPN","0098 BWB2W2 - キャンプ Omanyte (JPN).pgf","5b9f57955ef5b6a70270c5a06ce7db3770ef4a94",240,"","d6568c4b0c22dad8105021cd040e101b142fc4fd4fde03bc7d0d39f51706e2d5",98],
++["JPN","0098 BWB2W2 - キャンプ Shieldon (JPN).pgf","c7c136bc230cb5584c348995581b63682fff2589",240,"","648f5484cf38a6cae0323ca8bec0ae3108cc25816be5fe8b9f92d76709ce1db4",98],
++["JPN","0098 BWB2W2 - キャンプ Tirtouga (JPN).pgf","33d5e155a694c63c95d678595cf3feedb6e5690c",240,"","1996a6e3f070bd74b2f73730255c26563cd257ac62b0a6f3819768ba690f7e3e",98],
++["JPN","0099 B2W2 - プラズマ Genesect (JPN).pgf","d7166a521060b4eb57883d830e94987b8e44f64b",192,"","e8d9e245ca1e596233c7c3d4b63bd9313dcf022e759e1c3ff69553ce818cf60e",99],
++["JPN","0101 BW - PC Ninetales (JPN).pgf","94ff9a8a85ecb7d97d693d85f3e683829dbf2700",48,"","174ebafa37d01221d32b595327745ce3c513922dd4a5ff53f285e856f797c243",101],
++["JPN","0102 BW - PC Chandelure (JPN).pgf","8ba58b6ad1e54a427a5c2df42d251b340bc1bae7",48,"","fc78f470f4ec3d8503c43512db22e59ef1338bb1baad527f03cd873737e1131f",102],
++["JPN","0103 BW - PC Whimsicott (JPN).pgf","16b8429e6ccd43a05dabff6e5576c047883de112",48,"","b20df372eb4ea2ba7838bf87ec1bfda36ef25ef989119bd97a0f02e0388b76c5",103],
++["JPN","0104 BW - PC Lucario (JPN).pgf","8c8ec0499b11ac83932c53bd4bebc010a1d50af9",48,"","4471e2b3e1e045ee8cf787b7f345aa55dbbcbe7d0d695e94ac57c1906ca13c18",104],
++["JPN","0111 B2W2 - PC Dragonite (JPN).pgf","b794a1e5b68e3c02085ff7ca4eb306e6f46e3af9",192,"","57da1ba9522bd9f097a2ec52431e16315b2ca73369b5271936dfcbcaf71b3d15",111],
++["JPN","0111 B2W2 - PC Garchomp (JPN).pgf","f2b651f516e096983af4a3fc3481f4de3ae44dc4",192,"","69ef10fa2daca681d6606a7585435b904783c23f8246492cc72963af9d64acbf",111],
++["JPN","0111 B2W2 - PC Metagross (JPN).pgf","b9f7da749a66775ff8498c94d382f09504791c0d",192,"","da619ba5edf07c247c96c166a036de39484734281437b77d305c2122d9662f48",111],
++["JPN","0111 B2W2 - PC Scizor (JPN).pgf","e27b9405f79143ba539710138bbcf3ba4da42081",192,"","6fcaf7a26301c60d804d4fa0f2439f4a479e9e53c33f29090996c43d29a39ee8",111],
++["JPN","0111 B2W2 - PC Tyranitar (JPN).pgf","b84a7ac4b4859317a3f56d16f20959fb34f1c832",192,"","92eb7e1fdf03b8564ada617bfca80ec379539dbcd7fd13ff371bebd4240c447a",111],
++["JPN","0112 B2W2 - PC Dragonite (JPN).pgf","94e7ac15a5d8abfe2d49d6c1107b357dc46e557d",192,"","185b16738be3dbc49bf4748a186fc9403e99f1eaaf10993565123b6f60059f63",112],
++["JPN","0112 B2W2 - PC Garchomp (JPN).pgf","42eca96687b956fce5c3aa75d3aa17ee00aabb86",192,"","113b0fb7fbb44e3dc5fea24ef5d78b6635ba15682786c7d49093ecb1b3643b37",112],
++["JPN","0112 B2W2 - PC Metagross (JPN).pgf","07a526cc9a6fb631d69135a88a0047bf3d15f127",192,"","75205ee254f3e8a6a51cee08c02494aa459ab1db0b1b58e0a7c33fb064fccf3a",112],
++["JPN","0112 B2W2 - PC Scizor (JPN).pgf","359814a5c2dc857f0ee1ef4752d5e32de00a8a5e",192,"","71e64997cd17e500278d2fc3849debc196fed433d04e7db414561f5b799a288b",112],
++["JPN","0112 B2W2 - PC Tyranitar (JPN).pgf","c70127f570de9532ca6e3d67cf3d47dfc49f84f5",192,"","b3ca4079860b86c0ff7520199d3177e8de0c27438d0a0a24a0132878ec6e8feb",112],
++["JPN","0113 B2W2 - PC Dragonite (JPN).pgf","3c534918c26c0447eb04c1895985fd0c173789f6",192,"","67386fc1a9c1536e1250a500c38f37fe57fdec4b41eb44aee101793ff0ddcd4b",113],
++["JPN","0113 B2W2 - PC Garchomp (JPN).pgf","ebe3d74b55f7dd764e3c5269aa5a8e8bbe0be3d5",192,"","fabe6bfe789e2468923e04f579989e3649a0e2a9ee09332d3c649ae6ef86954c",113],
++["JPN","0113 B2W2 - PC Metagross (JPN).pgf","c2e7a8e042e8929d35098f9fea278c17c28fa651",192,"","bbd4a0dc6dbcb29c28f4e390da160bdb2a8727145d18817ebf75cf240d36fe52",113],
++["JPN","0113 B2W2 - PC Scizor (JPN).pgf","ede91f9ab18649ed63f6b32ed9890a691f2f1983",192,"","389f6a7b687896927318b3fd703eab81ae497ceb4b5858ffb5628109272d36e3",113],
++["JPN","0113 B2W2 - PC Tyranitar (JPN).pgf","8379c0eb3453e8a663c4dba4985f0fb7907a6290",192,"","92548b8d72e0630aa86e7e8d619d065536c201403b63629e9a42d796098bffa8",113],
++["JPN","0114 B2W2 - PC Dragonite (JPN).pgf","a81eb473d40e0f857758581c6d29023c4e61e0e8",192,"","de71a92bc09430feaef8570e401670790ba6eb2df9c3acd7c74554e1da5efb7e",114],
++["JPN","0114 B2W2 - PC Garchomp (JPN).pgf","355690d1145484ba8bf55ccff1502a51b59d3a4c",192,"","47d920067bb165fb4e5ebd043a4845602fae51073346e4fdd99604aee6e014db",114],
++["JPN","0114 B2W2 - PC Metagross (JPN).pgf","17863777034e0d75b52cfe8d65c0ae72598abad7",192,"","d72de2e093ddffde2f49336d0221b21c273c18bd30c224a027c10416fed8648e",114],
++["JPN","0114 B2W2 - PC Scizor (JPN).pgf","75b5c73261796855ef2cb3add78f8b25f9f8a4d2",192,"","6f628c86b4f84b5c15b7c49685fb9b4860bfadaeadc1352db9d004f39c20f05c",114],
++["JPN","0114 B2W2 - PC Tyranitar (JPN).pgf","60b833d2f4db8200b67e178dcbd8e65ec4e045cf",192,"","1e99050ad83ea75931fba2b85f1f633bb7f078dc6734055d3a6c29610505eae6",114],
++["JPN","0115 B2W2 - PC Dragonite (JPN).pgf","96f017feaa2ec8610dceaeafc8c704a32bef9a1d",192,"","aceca95c9d77922d70cc88b1380018eb3099bceb69515e21f30c197f2da62860",115],
++["JPN","0115 B2W2 - PC Garchomp (JPN).pgf","b21293ead74be7b0d6744901789ca64abccf5598",192,"","94afb2c054e203a035c6a14e883d093d1fdc58775863b3f56a81e8622c596ccc",115],
++["JPN","0115 B2W2 - PC Metagross (JPN).pgf","dd89ecb5f7284034677eb2a7bd7e338ca1753963",192,"","631cc6619dd3eef74badc64fd670262db3127fc30d80fa3aa8a31f26467f548d",115],
++["JPN","0115 B2W2 - PC Scizor (JPN).pgf","c790576388e6ca730093c72e0063d8352b986ad1",192,"","bc3b71658e611b222568d2ad7d0eae6f3e793d1eb11e642c665afc0180c786d2",115],
++["JPN","0115 B2W2 - PC Tyranitar (JPN).pgf","021878ecf9c3af9b67bb6cd2039f06f13675648e",192,"","d7a3ad64a34323ebd9d1e8a20d12df9a00700a9e7dbbefcfd406d95b619b2c19",115],
++["JPN","0116 B2W2 - PC Dragonite (JPN).pgf","2481382c0b24f9953e7847ebc27b89401421ec8a",192,"","09d040abd63a69353000f2c797de156994ddd92e4e15d7c6e2f234b426d6cfa6",116],
++["JPN","0116 B2W2 - PC Garchomp (JPN).pgf","c98e93828d27bb56b30ee3304c11efbec05ff240",192,"","c65a8ab0b3f1dbc7baabfa78a73dddf05ebd5c984bd7e752dbad73e71aeaef07",116],
++["JPN","0116 B2W2 - PC Metagross (JPN).pgf","7448d07e3ef56b4cfd4094bfe0c0c7f9eec4b035",192,"","043eeb3829e3f8199571ba939f7f8a5770096c1d5545ebd38fb92b0b9d806d4c",116],
++["JPN","0116 B2W2 - PC Scizor (JPN).pgf","5af0f8204b237a4aa5e15b5b0b10d91045b85ab5",192,"","2ccd471ca66569c817b48013ce52156f9dacbbfabaeead14839b442c5a71f3f0",116],
++["JPN","0116 B2W2 - PC Tyranitar (JPN).pgf","c2d94f1749d53731e91769023a65054a523d9a88",192,"","f6fbe54af3690006b32c10114ae04bff03858363fca653675db41fb4ca816590",116],
++["JPN","0117 B2W2 - PC Dragonite (JPN).pgf","105272658f2cef566e21fd941a23339d34c98c82",192,"","3ed40901d88ecb01390a98e46b6e2b51f6f487a1a7b4e93102992264af188e6d",117],
++["JPN","0117 B2W2 - PC Garchomp (JPN).pgf","3f0e648f7bd9a3cc81aa3582f8c863d9fd209ea2",192,"","f40e8897fb394b8678ec42baba8e07f557024b12f0fc068a47deb0b3021f451f",117],
++["JPN","0117 B2W2 - PC Metagross (JPN).pgf","e4c888858d9c2b1ef02e049edf85b247daf9ce0e",192,"","d74636901c13e1fb4c0f84f1c07265fe75611b7bc6bd28ba18f2381c21f429df",117],
++["JPN","0117 B2W2 - PC Scizor (JPN).pgf","f6ea64aa0f76070c749295448018bad70e4b3042",192,"","7d74cd7952b68c0b5748cc1f639664dc3cce019b8cb9b8b10ad5d56fe2b5e104",117],
++["JPN","0117 B2W2 - PC Tyranitar (JPN).pgf","1d2d473bb54aa437b5ea5efc9d4de0431933125c",192,"","9e3d29548183d52f342fc300027a28ad3542c891e04d9d19cb587bb83e1019e5",117],
++["JPN","0118 B2 - ルビー Groudon (JPN).pgf","690c93ec832752fc12c60c08f224fe521326da70",128,"","7fa748470748ffe3bbc91ecc3f6d5f99445b38eea3a0d6c8d11cc924aacf0c38",118],
++["JPN","0119 W2 - サファイア Kyogre (JPN).pgf","5b26edbedfcce3091f54d097897414a63762d8ab",64,"","7fe32de589117511abd05b546d66616d45a662eb25c853d2f42318857b8d3b78",119],
++["JPN","0120 B2W2 - Ｒだん Meowth (JPN).pgf","147ea45ceffc67cc075b2a0fce751773d5370924",192,"","1492d847581dad0ac67cc2187065af085369cf00e67214dd18c0eaa8457e5f78",120],
++["JPN","0124 BWB2W2 - オーサカ Audino (JPN).pgf","3be3d26d3ccf9eee4b225786ab9eb45f8e327bbf",240,"","808e3b4e60720814245038825e88393b0fa710da7c4842f8eb48b5a0868b803e",124],
++["JPN","0124 BWB2W2 - サッポロ Audino (JPN).pgf","8ac6e79a33c0747b27685dc22d1d73f26007c580",240,"","605edf7cbc373a4093dcd6e2c1c328a01ff9c9bf068625916145c96b6eb859e3",124],
++["JPN","0124 BWB2W2 - トウキョー Audino (JPN).pgf","1893ecc4a050787358aef6c8ae38de61621cebf1",240,"","0a2975cc4e3f90fe0d7f7f4268df72d882919e9da9063333f70b2c3705d45d99",124],
++["JPN","0124 BWB2W2 - トウホク Audino (JPN).pgf","3bbde37ae575f05ded29d114c0eff47efdfb356f",240,"","843e1bb93185f88811bbab3e90b3bed790cef12fb5b7474fde86a2b6161fb3f7",124],
++["JPN","0124 BWB2W2 - ナゴヤ Audino (JPN).pgf","3c3490a659322fa95cc4f739a9575fb084a97aa4",240,"","bfdaae8ba02c1a661a849208e70a824c3c0a945e0bde860b6d83087121d92082",124],
++["JPN","0124 BWB2W2 - フクオカ Audino (JPN).pgf","0742a783faeafa815070d470d0cafbc2c1118872",240,"","79d6a5ac0839943abe1e34a2238426cf102eef6ba643942ddaef59a1a1e2343b",124],
++["JPN","0124 BWB2W2 - ヨコハマ Audino (JPN).pgf","d8e197063fb5b63f5855657ece7c6f5fd39e30d5",240,"","a4b15a4fb156dd5981c157dc0059d43b4621ba1973c70f6c50404046d2150d8d",124],
++["JPN","0125 BWB2W2 - トウホク Victini (JPN).pgf","a853db45e56cc9795bdb74b1cd8a08708da7bcac",240,"","c122ccd52a72c32fe462d6b54abd30737fc9d7121e453dd6f2065213f5927891",125],
++["JPN","0126 B2W2 - マスダ Deoxys (JPN).pgf","b3cdadaf6e13386941cfad54fe3811b566897ad0",192,"","901d2a93d477b65a80254a83a69e23a4cb5e5ec7b441ec9b9b3dba90e3e59290",126],
++["JPN","0127 BWB2W2 - Ｐ２ラボ Genesect (JPN).pgf","fad4b7295c3789b4f21bf88f0b7f4372d0545fa2",240,"","432ab53b6d87a79c5e65904657f92c7ead0fe97725cf6784227fa9a9c7d08245",127],
++["JPN","0133 BWB2W2 - マスダ Deoxys (JPN).pgf","f3c0cc00f1925004935d1de7fa40f752b7752777",240,"","af2dcd6952e5d01170fb32681403826b44b51ff5408d2fe889be4bb9e4791f34",133],
++["JPN","0134 BWB2W2 - ナゴヤ Shiny Magikarp (JPN).pgf","4811b17466df683ba28fde4a9c0a562b8ab0fc72",240,"","7fdb92e09aa718744f1c1397b4834690d4ecd643aae31b5e498d5cbef1d916d1",134],
++["JPN","0135 BWB2W2 - Ｐヒルズ Mewtwo (JPN).pgf","693982128e3bd8fd83dca126481460188385287d",240,"","dc237a05e8507abc46286644847760a76857eb1c8e6583b758e0e9dc8abc099e",135],
++["JPN","0136 BWB2W2 - えいがかん Shiny Genesect (JPN).pgf","41b32aa2a9608053ebd2fd833a47777982db1b76",240,"","021221b662e5750222679384aaf424786245b6a4ee110b16dd559df3cd88f98d",136],
++["JPN","0137 BWB2W2 - デコロラ Jirachi (JPN).pgf","3e73d9464bf4e830439c903f13213480056ec36f",240,"","94ffd0bdf25a53a2e227bb3b1b3c9def11b436f420a47d9196ac1a1bf951ed65",137],
++["JPN","0138 BWB2W2 - キヨ Eevee (JPN).pgf","78855bdea6c74e76570acac2c6b18600ef61c6d9",240,"","cf4a193c2d9a82341f4d7c8bc689ea185a76432da6297760791373db8771b9e1",138],
++["JPN","0139 BWB2W2 - ＰＣＳ Empoleon (JPN).pgf","79142ca42ea4c7a10a69517a63e652f9f6cfe267",240,"","cc4fb05dbae76d385b0bbf0ea0d793da8e48b0ccc9bc45eb207aecbbf7916e1d",139],
++["JPN","0140 BWB2W2 - ＰＣＴＨ Serperior (JPN).pgf","561bfd6162502954bab076067b5a8307c5ed6839",240,"","5f4455d08c887d152e10d7580f087080f64747db0902264752a8d4385b56e07c",140],
++["JPN","0141 BWB2W2 - ＰＣＴ Pikachu (JPN).pgf","7e7e09900f324ef4ca515f82b5fd7898495cd586",240,"","347dddccbd3d4e41baaf86dd7a04adfec5ee4b3af126ab87de11fa7970638e69",141],
++["JPN","0142 BWB2W2 - ＰＣＹ Torterra (JPN).pgf","9895a7e3c00aa79123c3e72d3d3979b928c15c2b",240,"","1635d826d0d4cd7139832333678c0589d085c2f799941ca3b2c2b5f92229b30f",142],
++["JPN","0143 BWB2W2 - ＰＣＮ Infernape (JPN).pgf","53fc69f771d92a5a3e28b1f89ff8d05267151034",240,"","fa42b3e642a379152ce27b219066ea6ae8049e980fb42f7b3f2a44a6c00371d5",143],
++["JPN","0144 BWB2W2 - ＰＣＯ Emboar (JPN).pgf","5cc0478ca4e3786c2dcb018847c7fbc22ff8448a",240,"","890108d6fcffe30137af2719a90022fa1130d27bb43c2e47182172e0f6d511d3",144],
++["JPN","0145 BWB2W2 - ＰＣＦ Samurott (JPN).pgf","cd32cc5de70bb204c75c1cc00d80b8376b5c5e86",240,"","3bef29d4e878b2378fcbb798fac9a61b26f406f7870b18383b6de0d4e71b5481",145],
++["JPN","0146 BWB2W2 - ＰＣＦ Samurott (JPN).pgf","0fddfd41808b6f3f746a592ebf98f768e43856de",240,"","737e54fa925fe6e01e1c37521e2b5b7abb3cb94bdea8c8db352ea3ffac07c501",146],
++["JPN","0146 BWB2W2 - ＰＣＮ Infernape (JPN).pgf","a839df2ff103a12cefd9faa0de03d1ea6dc37e73",240,"","417f1804b752978d6464386af1810df1f1f557091507ea82ae229555681bfe9b",146],
++["JPN","0146 BWB2W2 - ＰＣＯ Emboar (JPN).pgf","1ea326cb749c07c09b463d0ce363196316290164",240,"","bc579bbc8b6878c01a2800a378647f8b34316384901ed897e1793430b96a3707",146],
++["JPN","0146 BWB2W2 - ＰＣＳ Empoleon (JPN).pgf","208816ffe795b9d22b586adae9244e9163a85a08",240,"","0ea4aac4a9a37e863e91b7a24158204e29bdba2e95de92375fbd07a35222c456",146],
++["JPN","0146 BWB2W2 - ＰＣＴ Pikachu (JPN).pgf","278fde8bc550e1d58f782d16f5a229ceb0858543",240,"","b262dd5f776ad005a7952502dd3316d1e4acce86aba5796d0008e7cb89acfe59",146],
++["JPN","0146 BWB2W2 - ＰＣＴＨ Serperior (JPN).pgf","488730f5361d9a9cad8ee4a8a805f1307fb9047e",240,"","645e607a11280df230c098e86707e814fcfd18fa5810f778e0617d7f6192bf9c",146],
++["JPN","0146 BWB2W2 - ＰＣＹ Torterra (JPN).pgf","361a825a5679b609d34015e57fdd8be277847dbf",240,"","d927d05403260cb2164d5c8a4cdc881f014f844ecd5fce1b18cbceac31eb8546",146],
++["JPN","0147 BWB2W2 - キヨ Eevee (JPN).pgf","49694245bf81bd54456b347e05dca0271979bb05",240,"","97a9e63ebc1ce9719c98e39817421bb20b28d9ec545651e581e531bf5a765728",147],
++["JPN","0151 BWB2W2 - たなばた Jirachi (JPN).pgf","a4ff1ef8ffc0fb178bff4f4b00bff8f8bf799fc8",240,"","f679d1c2485465e332c5c7c43857f2b00fb8f0323b6b79a37c0e42ce7d2fa131",151],
++["JPN","0152 BWB2W2 - イベント Pikachu (JPN) (HK).pgf","832c23fddcec4185964c8c0b763163b59f5cbbdd",240,"","4b4cc2d8e71182cdbe9b1ef2833ddac3971ceffbf36de0f8a81b5314439c40a0",152],
++["JPN","0156 BWB2W2 - アイリス Haxorus (JPN).pgf","7a9cecaee8223d749c3c3f29cd3fc1fa19da2e36",240,"","6a816d40e0f7de38416ab0dfcd81235519c424b7c45480c2e9669a09ff6a5215",156],
++["JPN","0156 BWB2W2 - アデク Volcarona (JPN).pgf","a31a7de09571b8809f54a64894103c10d9c45b90",240,"","eda17d3feb7ed32826b53b5d23d453f01479ca18583bc7765a73298335219bfb",156],
++["JPN","0156 BWB2W2 - グリーン Pidgeot (JPN).pgf","c8756b048ab51b4cc1ca16d96f799bff6473b9ea",240,"","9ebadc7f1ecce43f1d7aac807d7f913d110d018dd6e6568d695f319b8899b20c",156],
++["JPN","0156 BWB2W2 - シロナ Spiritomb (JPN).pgf","b5b415ab1a23408f320ac2f6578f78c7f3cfe3ae",240,"","9da4cca2c1f0be71e26a05e201979e421b9b40af8095ca6b36965fbea72c8e7b",156],
++["JPN","0156 BWB2W2 - ダイゴ Metagross (JPN).pgf","a0c4d84bf92a84e65ca000007196a006ac3535b8",240,"","70cf275db979159f3182100a70cc84a714956e04fa7d7bf5784d55856c98c540",156],
++["JPN","0156 BWB2W2 - ミクリ Milotic (JPN).pgf","ce137f96ed8f8a874d17033173600da2fb0e2232",240,"","852a71db8a5dd3660116348ff5575122f783dbe434a8f7ae6504eb7511f65463",156],
++["JPN","0156 BWB2W2 - ワタル Dragonite (JPN).pgf","596674035ff683f8d2d597f9b5504a8a49d79ccf",240,"","2810b2004290aed47073c201bfbe4bddb967ab92cb4f19d85c59a999c60d8f8b",156],
++["JPN","0157 BWB2W2 - アイリス Haxorus (JPN).pgf","5897e81cc3d111a568d961efde8789e3c21c2b9d",240,"","fe21a6056f0c09909c6c3c7fbac90b8965d6c54f75a94cf15fcc78302145a926",157],
++["JPN","0157 BWB2W2 - アデク Volcarona (JPN).pgf","1980f8001a0a90d7e5cdc0ee6986b624deca65cf",240,"","87bc24d5725f16ccc28fb1d3f15ed3ec779b68fe30b04e84d4dfc24e7a478980",157],
++["JPN","0157 BWB2W2 - グリーン Pidgeot (JPN).pgf","d881a9cb7d5622928301c5606a1719536c1e6602",240,"","6e4ff3b367cd252f30c9c4c7d6b4a37ef057553eb141d73d926a0b38cbaab6c4",157],
++["JPN","0157 BWB2W2 - シロナ Spiritomb (JPN).pgf","b248a61baa3eb7cd546a52f555099f77efe999ac",240,"","1bfbeada60bd27073c91f86d71d8608dcc0268cabf1c28ca2be0879e4ac42cc8",157],
++["JPN","0157 BWB2W2 - ダイゴ Metagross (JPN).pgf","172062a27818914c7d6d9dd390a5c50155295f5a",240,"","76d767c2168bd42c51b66ad585e623192ca9b51f19dc15996b56dcaea62d9336",157],
++["JPN","0157 BWB2W2 - ミクリ Milotic (JPN).pgf","3a8bb6d80e9148f9eaf962d1ac185312a27c6394",240,"","575d2d1a88e68a61e62a0f2bbc0a65a9ad507494224c44917b5d127e4b494ba6",157],
++["JPN","0157 BWB2W2 - ワタル Dragonite (JPN).pgf","e12004d8c93b3377485264caeff176092ddbafd8",240,"","7d58f0c9ee861e9f5ab2ed0956bae59b0c96f6ea37194dadfa642ec992fe40e2",157],
++["JPN","0158 BWB2W2 - アイリス Axew (JPN).pgf","c98288cde6e69b9429c6ca3d737598ed4ebd3a0c",240,"","7fd8e1777e16ef8c2888c4c160c35dbbb38dd9d02f983c12b1f511ac04820f4e",158],
++["JPN","0158 BWB2W2 - オーキド Rotom (JPN).pgf","d2ba1ca9a5cd782081f2f766d2d4be8009ed0a02",240,"","b3346e19c4437667e341c30599416f7af02e5dee5f73b80c65354ea1274dc275",158],
++["JPN","0158 BWB2W2 - サトシ Pikachu (JPN).pgf","552866404662c0b488ec3f047d1f8c22e12611fa",240,"","9fcaa42a77382a8ec5d4b8a9cfa8621359597b5c73636d7f4a971cc61132265b",158],
++["JPN","0158 BWB2W2 - デント Pansage (JPN).pgf","fa751a18df27b54fc0215bfbddc83bf267d21dc7",240,"","798f51fe604da79c89e5f5c9c8e28d3b528382f8e41315429b676981461a34d0",158],
++["JPN","0159 BWB2W2 - アイリス Axew (JPN).pgf","b2924feea4fc4c3763411a60b7477ccfbd9eae30",240,"","efee41a93991a1108dbaa3313fdec9d91bc2518792982343cb65d3385940c84b",159],
++["JPN","0159 BWB2W2 - オーキド Rotom (JPN).pgf","3adcb509a21c9bb766ab0400f14ad5a1cc715dec",240,"","3f81fde8a8ad51ce8bfe91c0931b196663160e598f96da9f2aaf0cad2ef721b2",159],
++["JPN","0159 BWB2W2 - サトシ Pikachu (JPN).pgf","5cdc9dca41242da3fd646d0819b2ac7f06a409e7",240,"","1860e97b5c96f74466eca2a4a2fb1a17094d07d056e3a59f3cbd07fd040dd264",159],
++["JPN","0159 BWB2W2 - デント Pansage (JPN).pgf","62341582180121cb8002aad72b48ebe93ac368a4",240,"","d9efeb36d9c5d3e8c44255035fb57366ee3d1e26be1bce0633a31b8a82d97b66",159],
++["JPN","0160 BWB2W2 - アイリス Axew (JPN).pgf","a9d6c406d56e7a6e85a1835dcbcbb0e8cc4ce746",240,"","69483944da54f45e22dbb00e9441ed8d1e65e24c0069cd9281d16d99e0a72684",160],
++["JPN","0160 BWB2W2 - オーキド Rotom (JPN).pgf","9a5d3cebcdaf1a95e2118bfb6b9e1d6fc1440daf",240,"","a13feff03a571b9b9b5bd8c9b06178326863e13224d5365f1a439fc6d41d4fab",160],
++["JPN","0160 BWB2W2 - サトシ Pikachu (JPN).pgf","a75107c1bbebff8c6d50e469650cc8bb75d3eba8",240,"","272363dcfb5758e65560389d6a4dc6919ac1d69380335cc668d1fdb9d56ee983",160],
++["JPN","0160 BWB2W2 - デント Pansage (JPN).pgf","32822b92ef366496ef6bb901aef7ebb5ccdfbc65",240,"","03a4f07da8cb982a6f2c2edfa492644ea23a3dd5659e42d9ff4a0a9b9d0b8c3f",160],
++["JPN","0161 BWB2W2 - アイリス Axew (JPN).pgf","bd986c339d2636beb180f3b6a0610530758ccffa",240,"","f31c1e1e2ec4a9f78a50da2c23c68e53866014089b8288e6f8319354b7e14292",161],
++["JPN","0161 BWB2W2 - オーキド Rotom (JPN).pgf","522bd82001863c8c94f8abba7ebc74914a98faef",240,"","cd0a9cfb8a886dc63531471092976a594346261da50488e7c880c8a2aa18a97d",161],
++["JPN","0161 BWB2W2 - サトシ Pikachu (JPN).pgf","354e0f3a67d915fafb86f2aa2c18c33499d1a416",240,"","5f8b4d33e81a8ef87894b119789e7c212eae22bab223a3f329cbdbff531a5016",161],
++["JPN","0161 BWB2W2 - デント Pansage (JPN).pgf","6326121a2811562b766df64fd2674d17d915dcc4",240,"","944b0e0130d89211c5fd5212ef72c5d38ae97c0d88f1cc30432d38f183289b43",161],
++["JPN","0165 BWB2W2 - しょちょう Sableye (JPN).pgf","e4a6c0342ce76a2546beb8d5effecd218c2bcd67",240,"","af03688f471d647b37a87370d7868b017e8f05e1ef8a0bcbaedd4994be4877dc",165],
++["JPN","0166 BWB2W2 - ヤマモト Politoed (JPN).pgf","7ac7b8dac056cfe6b6609deb661b4974f866960f",240,"","59c7d19a96ae043e60fcbb16a41092c3b7aef8fe888da8198208bc275796b562",166],
++["JPN","0167 BWB2W2 - ヤマモト Kingdra (JPN).pgf","24e16609e50bef7d15ed0e58154492ad3f3ceb73",240,"","4978c58b077bd9abb76ebe8761fd8a66e2699f9fdc09a3a9adea8569b41958d8",167],
++["JPN","2046 BW - Item Liberty Pass (JPN).pgf","4d2ba27f5d6c22a8937c38c955d384e2f63f0ff3",48,"","3b317fdc9d305250ea9356634764603a408d78614118e96cdc324c4bd0df2bfd",2046],
++["KOR","0028 BW - 홈플러스 Darkrai (KOR).pgf","9e582ef1866bd2910a588797fa9956b6245a5597",48,"","467e3f9c1fbc1911dacad00acc5e1181312cc02939b946668258e3a7f10f72b5",28],
++["KOR","0029 BW - (Trainer) Axew Egg (KOR).pgf","d6a21af9d534e53b54d632a7791a7817a4447052",48,"","eae7a8f7dd84ccaaac4f0f8ea123c906a3d913949d65f3a385e6a1e3e79d42f2",29],
++["KOR","0029 BW - (Trainer) Pansage Egg (KOR).pgf","a7efaf4925cf655d6f815e9be514e0199ed1333e",48,"","a4bcd653a2f4fc25946f622b3d206394fb837419a8a991d4e401be67261d41fb",29],
++["KOR","0029 BW - (Trainer) Pidove Egg (KOR).pgf","0ffdeebfdd9f489fdfcb4c98aa976cd430d5c1b5",48,"","a638a1be217b054750c624e977bc13bded1bfed4547f900cca1b1f6c6658e0ef",29],
++["KOR","0030 BW - 방송국 Zoroark (KOR).pgf","ef9fa4fbe043bf15c9ef11ac2c71f5275c908a05",48,"","4862f881b9f9e89aba20df4c7589936b848f038a4db6e03a5601bfdb86d9971e",30],
++["KOR","0031 BW - 지우 Scraggy (KOR).pgf","aac7f025e19555204148ef2dad817c5054e08234",48,"","f5e66678421f192b813075ef3e0cdebc46d6123421efb15ee89b433ab15bd18e",31],
++["KOR","0032 BW - 아인트 Victini (KOR).pgf","fca2960128b58f2b3b0a8c9488a490b2a17531f6",48,"","7cae7bf69aa6e2e54a790c63a264d5ba68a70ab149f92fe0cf566af1d0e0cfb1",32],
++["KOR","0033 B - 지우 Zekrom (KOR).pgf","3c565e5ddb6628288f9fe854a01c8607f901b787",32,"","4ee09eda5e1e9e1a5cbdd406d49c3b41e8c87c66da1a07a57bbb723de9064f42",33],
++["KOR","0033 W - 지우 Reshiram (KOR).pgf","7055651a5b52746fd2675be6a97b9755b6834f6b",16,"","5c3c6b737bdde36fa2a1adee489230c08acae526702a1b3b4f8a60310a6c93ac",33],
++["KOR","0035 B - 카리타 Hydreigon (KOR).pgf","49978c100ff2467dfba54c46676d62d18dd80b72",32,"","be4b913f4fa2f5ce21b48f6ee68f888e1d8dfcd1d3606414592609df43eaae84",35],
++["KOR","0035 W - 잔타 Golurk (KOR).pgf","c5fa02a7e691cee1c298216a45ded832f6c34df4",16,"","13990069d3f79884ae26b17e067d6fe2dbd3837d76356a4f4ce36a448ef38512",35],
++["KOR","0048 BW - 최강의귀환 Mewtwo (KOR).pgf","105f20d18a21dee2cf5cada27bccfc381c34ec4d",48,"","a23d2d4b8c627ecd4e4931aa0346044a25203b72efb34e420703ca9838b80fb7",48],
++["KOR","0051 B - 삼로스섬 Thundurus (KOR).pgf","53d4920f8ed225b675dbfce2e59c468f0c8e0474",32,"","700a8f4517214f9a4b9ff98a34033fcf28696cf00c506da576e75afb347f5853",51],
++["KOR","0051 W - 삼로스섬 Tornadus (KOR).pgf","2dc481d4f223f650410c2e313124a6d196565ab8",16,"","558a0e8b775600f5f35e753b1d04e24133de9a3243f534727c8b96b2dbcd20ea",51],
++["KOR","0069 BWB2W2 - 성검사 Keldeo (KOR).pgf","fdffbaf9663e1c172fd1b1907fb0ff62d8fa54f8",240,"","a445d9a48ab6dcb58f9487388ed9361a2f7a90a1eb8fe51277d4e796314bf3d4",69],
++["KOR","0070 BWB2W2 - 영화관 Meloetta (KOR).pgf","afe751a09ad1258dd71251eba984d39d45c5aede",240,"","e209f6ac5ba29cce39c272ed0b17b0d6a69c80d954b82735a3648bd5fb3accc3",70],
++["KOR","0071 BW - 썸머카니발 Pikachu (KOR).pgf","9f19fd12dd0dd7fe80a1fdb64953cd2c845af562",48,"","b81a419e1d750c440ecf91fe562d929fb856a4be65736d080d8f90f4e511e668",71],
++["KOR","0094 BW - 선발전12 Volcarona (KOR).pgf","6a4dfe768ee127ea1b60f01c76965e22aeabd7e8",48,"","965a8ec1a06474c85153dff5d0895ca3b5aeb0d4c5fcb8ddb159209f930747c0",94],
++["KOR","0095 BWB2W2 - (Trainer) Bulbasaur Egg (KOR).pgf","22dc8a64c9e58329df28e19a8277a7725003ab32",240,"","438483ea5ebef062eb07f68a71d5cbab194d34abd509fdb88119283c523ef4c6",95],
++["KOR","0095 BWB2W2 - (Trainer) Charmander Egg (KOR).pgf","2eab100806d8762b67b58626c1adf6d963415cda",240,"","b284e405b662aedfa6fd7c405d6d95275f0a4319b88683d92922bf49c62bccd2",95],
++["KOR","0095 BWB2W2 - (Trainer) Squirtle Egg (KOR).pgf","8fc82310aedda9e02646940c3a167321819f52c9",240,"","e2acd859515e16c2daadee1e9cbb73ce9a42a89ec41b633e88347bc3bd8d4a27",95],
++["KOR","0097 BWB2W2 - 음악회 Piplup (KOR).pgf","300e0aebdc9d7f4208609f7c292ac472659b081e",240,"","11aaccdbdfc38b773bf2a7c01634b95f2008c51aed51902ae6b27cf454e80f76",97],
++["KOR","0099 B2W2 - 플라스마단 Genesect (KOR).pgf","0b9bb024be997c1be5c298b74694ec16a1b226e6",192,"","8a54c75b3aae9145112592b2727d86336f495ef877f24589d04e59e2213b96f3",99],
++["KOR","0105 BW - 용의해 Bagon (KOR).pgf","b7d540732d4f93c2fe35403f8cdb82ede1c2f655",48,"","41823fad1501aba9614f8440512daf322288ba94f3e54b65849d8f47436d8b44",105],
++["KOR","0105 BW - 용의해 Deino (KOR).pgf","29890c3ef07c4033c405b5c3b5da574fb043b8f8",48,"","9d318f2572fb71ef2ad457accfa868bc7d1c40b6ac9908cd3cdc9d1dff9107cf",105],
++["KOR","0105 BW - 용의해 Druddigon (KOR).pgf","725cfa26b39f71ef655f4bf5b2f6f651067a0155",48,"","c35c10c9cbf174483ab8e148efc51651714424c6fbead70b911fd68844e6c376",105],
++["KOR","0105 BW - 용의해 Horsea (KOR).pgf","e862a3bca4e8543efe9a8e7b6434acb5decfe850",48,"","fe91c5daa5c3c0fe75b445d7638ddd4a2ef0f52d2c03e769874e01695aa6c435",105],
++["KOR","0105 BW - 용의해 Swablu (KOR).pgf","dc75a69fcc3859ae3db5d9688c270ff5b94ef8c8",48,"","cdf12c7b4f17fd4de5facd39cb1326e60369a2d70910f1c744e83a1e1751c886",105],
++["KOR","0105 BW - 용의해 Trapinch (KOR).pgf","41c524a42dcf0a5da9d1ed29d5415a214945f154",48,"","b495abe2cb2abc0c5d0c55d242326f7878cc87cea8f71fe51210dbe7621feb99",105],
++["KOR","0106 BW - 용의해 Bagon (KOR).pgf","5fcedb17bf8a1e052664b429f2d60488c3cbba1d",48,"","e4f73ab81b6898afe2bb312b25cd79edc3f06ed66d52b8a5b9c73ac963b5d7f6",106],
++["KOR","0106 BW - 용의해 Deino (KOR).pgf","7bd0bf6d79785c7c64a9e403a8e4159fe7d4146e",48,"","be5b8d32ec45e8598fe1150a18866b72f933e6d712b5ee3ba846d0daa64d2a79",106],
++["KOR","0106 BW - 용의해 Druddigon (KOR).pgf","a39f7a0322c725dbadfe83a3c593c4070d553f0e",48,"","ac504225eba1640e337943ef5c758f6bcd8cfc06d156bb75f04be4e22bb0785f",106],
++["KOR","0106 BW - 용의해 Horsea (KOR).pgf","2427cfb5a847fd4c90c3b1c01fdab8cbcf423251",48,"","1b15a7b21b2e7edca2b67c145687b14ef4784587fe9dfd6ca8c521c62363b200",106],
++["KOR","0106 BW - 용의해 Swablu (KOR).pgf","e69f4da1a643f674dbe0a23d2af88e1414068cf1",48,"","610b5b86ea651eaed97211f9ddc2be2b0b839126d49096921ffbdf12529ae288",106],
++["KOR","0106 BW - 용의해 Trapinch (KOR).pgf","8004283c1eaf59381c4450c3bc3052be127e9681",48,"","030a5a6ee572663d45fbd54001d84e42f7b32d6c45be0c2aa257593ae8c8f683",106],
++["KOR","0107 BW - 용의해 Bagon (KOR).pgf","fe87793ccdca470c167edb43d25ce0610768576f",48,"","30be2d23f6ffc01efb0f47259a02e30f8ef90e384a8fcba0ec22e7263c0b6112",107],
++["KOR","0107 BW - 용의해 Deino (KOR).pgf","df4349619dfafbdab176f5a08b22d5809c213787",48,"","95383577e08478de10b10376ff614c57ede6a74bb38684f2d0abd52fcb03381f",107],
++["KOR","0107 BW - 용의해 Druddigon (KOR).pgf","c23aaca458682b69bfd2b012e58fce5823ce2ab5",48,"","4c151a119e5c967b4251832a358122b07f30d0f69c8d4f48250c8b56bcb5a88c",107],
++["KOR","0107 BW - 용의해 Horsea (KOR).pgf","76f3bd6ca4673b6bc43f52a57b9add88c62e0812",48,"","a4f755f8a3300eac0dccd636deab53b85939b0e2a326fe01662f0bc7af1047e3",107],
++["KOR","0107 BW - 용의해 Swablu (KOR).pgf","24e58369b08673553195aadbe001a15c71822e11",48,"","91725a59f930c1952781da4bf51d7421010d73502fb5f5601552dfdd296e74b0",107],
++["KOR","0107 BW - 용의해 Trapinch (KOR).pgf","6a7c0d8d00b2a7ab908aeb94318f4b37ae442a7e",48,"","20133446c6eeaa72a0e1f1b45790c215ece3d3c0adec007db7cb4d90ad7c8965",107],
++["KOR","0108 BW - 용의해 Bagon (KOR).pgf","1d5c095b6c736ce740c83610a1c061fe60f5be64",48,"","c0a1f0932916006cae1d8691723e11b2ef4c82ecc418aa0c55b137acdae954c2",108],
++["KOR","0108 BW - 용의해 Deino (KOR).pgf","27daee864dcf446541881e33ce0423014b0d518c",48,"","65d7864e1a7e14023b7f3e5c158bc30324bd115d31f6df009d56a7159ed4b66d",108],
++["KOR","0108 BW - 용의해 Druddigon (KOR).pgf","481f342823b60ff08d9d5ea7bede88dd47ebae8d",48,"","6b9cd9613ac1c54fd79fb8aa6552baa5e27de132647330f94fdd971a61af33a5",108],
++["KOR","0108 BW - 용의해 Horsea (KOR).pgf","4a1fe88f8ae624939fd041cd24bf7694f7fff1ce",48,"","54f272f53b04f74cb1fc737545ca49395ddc377b1d4f7052193bf70b267c1540",108],
++["KOR","0108 BW - 용의해 Swablu (KOR).pgf","cf37a5ea04de7f32d5eea541b3c0ca66683ed28b",48,"","683e3f4ea91665fcb2d4d54376497ef772c605f80f739ba6e48de4e34cf46dae",108],
++["KOR","0108 BW - 용의해 Trapinch (KOR).pgf","dd210848e55ae8c6a8571eed52faa21d85780689",48,"","333bd53c039b29f7d3ee0ce29bd711becebf13e901e2601de91584ae75704eac",108],
++["KOR","0109 BW - 용의해 Bagon (KOR).pgf","364a098e22e437414950fe378e34011e0fd07f28",48,"","5a2788409025902a43bf6b370a7fbb16fa213f2913782fd0e007e60d48c01d33",109],
++["KOR","0109 BW - 용의해 Deino (KOR).pgf","0835761b72a76fde5b598f2ee07f410f29a74632",48,"","fe2074a4052a5e55ac5df30de537a5622026efb50166ec2026a616cba5ebd364",109],
++["KOR","0109 BW - 용의해 Druddigon (KOR).pgf","eca0448f4c95de1f544fbc165fb584d3998f446f",48,"","482e3a0300c1158b9fc2ec2e700c610acc2b71fe3b9fcbbcf23a269b610e0dc4",109],
++["KOR","0109 BW - 용의해 Horsea (KOR).pgf","c1ddaa86f25cc511b9a94cda3d08824f51634937",48,"","f46ebc8cec1be6d17cc189a7cd38fc29d5b4a41a7105774400a7650e2f1b0d9e",109],
++["KOR","0109 BW - 용의해 Swablu (KOR).pgf","07c5a7e5cbd2d10fb7cafa4c7dcfcb2fba885a71",48,"","1ffd00edc9a5a2bf434cff458167b98e95cf21466ec472b79f21333921b53494",109],
++["KOR","0109 BW - 용의해 Trapinch (KOR).pgf","b8b02a548b3ffe2b9dea40ed602db0be029e99a5",48,"","608596be82869e898354c873d6db211faa9327734b45efe8bc63b198e72fbaf2",109],
++["KOR","0110 BW - 용의해 Bagon (KOR).pgf","6c22b3b255355cba0ce7f8360fbb1279f9af7f06",48,"","578fe718c6256b0dcd04e6e3188c6126111facac47a15efebd315c28f25120ad",110],
++["KOR","0110 BW - 용의해 Deino (KOR).pgf","8aafb7372d44ecb62b39a7f2b5f701532861101e",48,"","4ac7e18cfe4d74bdc8234793fde8f34055e39cf4463ed675aec834fcbfbf9445",110],
++["KOR","0110 BW - 용의해 Druddigon (KOR).pgf","4fc1a4926037ec9eb5c49c92fdeb34045cdc1080",48,"","6f0d5a8c5767b98aecb8d834e2e57eea5ea40e932385ca93d8db33209865496c",110],
++["KOR","0110 BW - 용의해 Horsea (KOR).pgf","5deec5098e57d56d744c2da9efc3f3a2a4d6a4d8",48,"","393c74da625772f2f439b831c574a39eb7d7610a617292feb61d3784a6690545",110],
++["KOR","0110 BW - 용의해 Swablu (KOR).pgf","ed089a1a88ac2de4b483496926425aedee633da4",48,"","f5c4e28264020acda1a5d0b1276f11b38ca38e29f2329d80cdfa5c8adafea6c0",110],
++["KOR","0110 BW - 용의해 Trapinch (KOR).pgf","c096c41d1284b7d8064284af25cfb59e7d822666",48,"","5a2d7fc5e9af39d4d313dc1eeb5a5aea9ff0098ec9265681c9917ee3c3ba25fe",110],
++["KOR","0111 B2W2 - SETEC Dragonite (KOR).pgf","37e6353729991677282b12b16039e778e0cc1f4c",192,"","52b2f4f0cfd45118b77767b53dde9a33c91dd2bdafeae15c03862294d433716c",111],
++["KOR","0111 B2W2 - SETEC Garchomp (KOR).pgf","6d783271645c4a32e8f70edd697874ecc2b86dc8",192,"","f8a90eb979cea33706039fa2dd2bad7998f3dc30a6910debbc96592637d1e003",111],
++["KOR","0111 B2W2 - SETEC Metagross (KOR).pgf","7f93eb181d6aed29e92add5ed21e0e88df09533c",192,"","5437f22df99852e64d73bbab092558d8f99120ab16bd0e7b5afeeb90f9f53874",111],
++["KOR","0111 B2W2 - SETEC Scizor (KOR).pgf","f97474b9c339df64d48d5895d201a7a62369dc12",192,"","10f02213db0e2e91f13e495de2f5b4ccb6d8f28bce4f8f561cb58a9ae151940f",111],
++["KOR","0111 B2W2 - SETEC Tyranitar (KOR).pgf","9afe75eedd6e1b6850b1505877f9d2026f2600e4",192,"","99007196a20284ec533083a98fe096dc3dc32ead7127d4c4a837a703387fa61b",111],
++["KOR","0112 B2W2 - SETEC Dragonite (KOR).pgf","d4a6261e73cdaebe8efff90ef6520209271b2588",192,"","36dbc95ed8af9683330c962d71d22bcce780787379cda3401b9c975034ed695d",112],
++["KOR","0112 B2W2 - SETEC Garchomp (KOR).pgf","9a783ffc6f4bab559c34ed965f67e6b35039ffcb",192,"","7eb826355fc8adfd41e79bb50745961fbfa454670acf6d3a6a03781765e644bc",112],
++["KOR","0112 B2W2 - SETEC Metagross (KOR).pgf","827bcc5f7e9f86f9707aae9f9dc6d21d26852865",192,"","086fe355639bad59835becc0ebcbf940e8056877b999394737229fdfc93a828e",112],
++["KOR","0112 B2W2 - SETEC Scizor (KOR).pgf","75bc0c0d9685ab6898c096e984322860d95a64d5",192,"","10986179cc1027186557ba699145ab1f804461345fb02eafb640d027eeedaac7",112],
++["KOR","0112 B2W2 - SETEC Tyranitar (KOR).pgf","e38e2c7e69665711c5c44806a26960f7d9d9569e",192,"","8725b19396e0f41e2aa2f335f1bdd14686f961f39b74ea3bad0e6f734f661a86",112],
++["KOR","0113 B2W2 - BEXCO Dragonite (KOR).pgf","2df9ce08f3fa97a12fd8db7a201e8171c6209793",192,"","c68632ffc348a22e54c1419b019d46c721e9674bf296ff9b742cd918c52845d4",113],
++["KOR","0113 B2W2 - BEXCO Garchomp (KOR).pgf","947d54c2ddb47f46c0f522747f3dab87c757d1e3",192,"","002128e419f081002536eb114694bc53e2b41496eb96ddf1a55e5e6a55dd4360",113],
++["KOR","0113 B2W2 - BEXCO Metagross (KOR).pgf","e0989e52fae3213d47c933e83731f10fa1950be0",192,"","72b52cb530f25ec43fa7f6b0140dbd1fe38515adaa50ea4d3bded46a7b40d931",113],
++["KOR","0113 B2W2 - BEXCO Scizor (KOR).pgf","66d4fabd034a901395e27dc6f919d774b8f645a9",192,"","bfee9d9d1a30cc1eb520251e296da11965a9f1f1e4aa50afed9cda3d6a540171",113],
++["KOR","0113 B2W2 - BEXCO Tyranitar (KOR).pgf","1706caaa25f215bf3346ea328a8cc7cd2c300f5d",192,"","b9c30ed53d4027aa2101798a0144fbca10e92aaefecee76dadcb91b225d130ba",113],
++["KOR","0114 B2W2 - aT센터 Dragonite (KOR).pgf","a91bfc487eeccd2e1912ee7e174a86672902b5d5",192,"","f9010f74648e9dc4c089bd0819de3b1b75c565c2ecb70e5fd41ab17ebcbfcbbf",114],
++["KOR","0114 B2W2 - aT센터 Garchomp (KOR).pgf","c1221ba64a303a5103dc9bca6d146066fcb9a59f",192,"","fe2fc6ebc015df2044fb26fcc02dbf3485afeeecf0f581ef39c061b1750068b7",114],
++["KOR","0114 B2W2 - aT센터 Metagross (KOR).pgf","9f8a0aa5d19b369455cf597d758061d696e1c70c",192,"","b9d5e603e28a6cdb3b023f6d2ede9c55924a7bd079ded6ad13a4bb2ff9884e1d",114],
++["KOR","0114 B2W2 - aT센터 Scizor (KOR).pgf","3406f5fd2a820938e71daacf0a3bb435a392ee37",192,"","5ee1d6aba4e4a4c25bbe3948a184e04bb6a7c9ff93c5fbd50cc1b6516ff5348a",114],
++["KOR","0114 B2W2 - aT센터 Tyranitar (KOR).pgf","e54e83143977ff957573e1a2d36dea1696d262fe",192,"","307da02d7348bed8c929a6dac1a53f5653f8e47fb4d8c0e3f223d7138580c539",114],
++["KOR","0115 B2W2 - aT센터 Dragonite (KOR).pgf","66a25cbbf99221837d1026b81b7b86aa41a2742a",192,"","eace8e1a65399e15c0d6567e71ae000e6d1bd3201f53ebbcc45303952b805504",115],
++["KOR","0115 B2W2 - aT센터 Garchomp (KOR).pgf","a5a43700a420089ab26102df61f04f4e9fce8311",192,"","e7012ee9d361b425d94c040c5dc6f021fb2c017f0f26085d1c2579fb4a0944bb",115],
++["KOR","0115 B2W2 - aT센터 Metagross (KOR).pgf","b9edc7ed56fbc2285df43437bb0aaa08cf2e2dd9",192,"","0d97850dd2c547a2d7cc9c6987417ba97f7875988dd200ac4761d6f846e5bc65",115],
++["KOR","0115 B2W2 - aT센터 Scizor (KOR).pgf","4dab0c52156f27937234f564604e302ed808ccde",192,"","e32cd14e66d4e81072ddb9e391d851829af01b49320f4bb733af5e81b1c98f01",115],
++["KOR","0115 B2W2 - aT센터 Tyranitar (KOR).pgf","53ca6cebae08c7fe996a6344dc24915eb5d1e24f",192,"","2350c363a62a293464537a1356bef7bb186720304065b39f8ec979899a79fb11",115],
++["KOR","0120 B2W2 - 로켓단 Meowth (KOR).pgf","65e430c83d2f6fa107b49856aab300c34fce971e",192,"","316074aca561507949983229666350ace5840d4fa74e8e721c909149d63e10fc",120],
++["KOR","0121 B2W2 - (Trainer) Bulbasaur Egg (KOR).pgf","fa55ab5d33b9723fc718e4d433851ee2c1055771",192,"","750e979622a4464ce1864fbd8d7a9d130abf30be7edbdd278bff878db054617b",121],
++["KOR","0121 B2W2 - (Trainer) Charmander Egg (KOR).pgf","d6ecfd689b2b7077be09a8b970cc50b03622ab6c",192,"","f6b04ae9a54c8caadaf5a16222f1111b8795ae63e31313cf5a4635073a184c9a",121],
++["KOR","0121 B2W2 - (Trainer) Squirtle Egg (KOR).pgf","ef142de8825dcf74edc15cd269849060de398417",192,"","3e5b33696f74931ed33cc4c5f0fc2750c91c612f40b061069d3e7b99ef117c9d",121],
++["KOR","0122 B2W2 - (Trainer) Bulbasaur Egg (KOR).pgf","5ff6c73a2131dfcf645323e6322542a0a12e4e71",192,"","73028e66acc85df5c4280692a5e922089d6b5baf348dab524606bb6225a77133",122],
++["KOR","0122 B2W2 - (Trainer) Charmander Egg (KOR).pgf","33427e7af0e0a2ba28ba4706da6956ac01a2c3f6",192,"","bb8eb808842fa117eaa950756dc0a35c7b4889c4b77f1fde673c6532a626ed92",122],
++["KOR","0122 B2W2 - (Trainer) Squirtle Egg (KOR).pgf","a6468c733950b6847fee81cd95a6ab381d66286d",192,"","abda2ed5bb8665e3a2605b4d50f19bd6e62cbcf0658176fc495e20d5d7b7afc3",122],
++["KOR","0123 B2W2 - (Trainer) Bulbasaur Egg (KOR).pgf","d42b1a6fd69f6df037001c4caaf35b867a284e2e",192,"","6f911111876e47ba4fe58889f866b11187de96872bbc927b5f697011ce6a46a3",123],
++["KOR","0123 B2W2 - (Trainer) Charmander Egg (KOR).pgf","37e73a0f2364e17e4c7eb35df06c36b19d423916",192,"","0281c11519562eff8d659dd1c10795e014ad0551bb07817880e5f3949fe35b31",123],
++["KOR","0123 B2W2 - (Trainer) Squirtle Egg (KOR).pgf","f7eeb5f9a60035cb8446473f7e20f44303e7a5f9",192,"","16d53acf65d0f453039d5954460a8cb602d74669a76fdc4ace45d21e80674c42",123],
++["KOR","0126 B2W2 - 플라스마단 Deoxys (KOR).pgf","783d3f0ff9e012643ebb1b47d2199c01fdf743ef",192,"","d1af11a7cf38295d04efc492e78c311aa8d98452d1e4cb90b41943f73589ab40",126],
++["KOR","0136 BWB2W2 - 영화관 Shiny Genesect (KOR).pgf","b455308304ab02b93f02b257b4334da59f11cb79",240,"","b9e88451ac1824137098db22141b251b3f6ae5d75cc1fd3d48a3b3611adb9855",136],
++["KOR","0148 BWB2W2 - 10_12 Shiny Dialga (KOR).pgf","d05c3c9dc55946e298b3d7d1af1fe9cbcd370e9b",240,"","428fb2f51c775db4519116aec9e31fed129c5c0e637c3f1dc3e2c33f61cbb4c2",148],
++["KOR","0149 BWB2W2 - 10_12 Shiny Palkia (KOR).pgf","b84319191b58b90611168db4742559b2ef4284eb",240,"","68ce66bae6f9b6e94bb850498a82d0880c0d1d737807c4505e8ec30ab699720c",149],
++["KOR","0150 BWB2W2 - 10_12 Shiny Giratina (KOR).pgf","ee87108f87b4278cc62d7b26f91446e94440942f",240,"","e7443551af9b42a790ffaa99a4bfcb326d42da317e1dbe6d5b9fb491898d8323",150],
++["KOR","0153 BWB2W2 - 캐릭터페어 Jirachi (KOR).pgf","ee6acea9b611695680abd4c35b9320bc7e081ac3",240,"","532c5592f4db378d132f086e336c8a21f9138ea7c2031439b7426f1d5f710f9f",153],
++["KOR","0154 BWB2W2 - 칠석 Jirachi (KOR).pgf","3551137871485b8052019449388c678004e57d35",240,"","cfa5af1e9ec1d08572c814bb7310dd5c3676e379ff55d966f36b4c08117b0f31",154],
++["KOR","0162 BWB2W2 - 권도훈 Hitmontop (KOR).pgf","10414512f4f50cb79c63f5845d4ce1c7b2f82851",240,"","d9ea1ad9bed81638313be69db492081002356f3f31f2fdf922997efac44f522d",162],
++["KOR","0163 BWB2W2 - 사승헌 Cresselia (KOR).pgf","e8280adc3dbdeac6ff94ba260154346b73db31b9",240,"","b76cacd08effeb0543559bdb98f1d3904af7962270697a3b4b4fffeae79f84fb",163],
++["KOR","0164 BWB2W2 - 박세준 Liepard (KOR).pgf","97b22351ea6517b96b8847413f4d9415047b04af",240,"","0e61b467ebcf7659c2d137021fae0c69064c31e6c2bddfa828ec273fa736f88c",164],
++["KOR","2046 BW - Item Liberty Pass (KOR).pgf","7d5079f5d2e28d180140d04879452f7f0ea88959",48,"","e765a9c0b70e1f4f54685376a0ef939f02c7534d288770aaef3472bb248e13a0",2046],
++["SPA","0002 BW - VER2011 Karrablast (SPA).pgf","f7b5af344166e5bd6d9e4bb8063d83f7f315ed27",48,"b039d468c4a2b7a88b032cf085b283a196ff3cb0","18993e4f09a8747f031bdd6726a270ba8984b700f0c276f6595b8e0b4e80a0af",2],
++["SPA","0003 BW - VER2011 Shelmet (SPA).pgf","b74fa095ac04056b86cf9d1152b0c6d1f1143391",48,"f3c25816235260bd26c130af1e8d16d5ad6c3c5a","0e8657b618e1def9c2e5d0f4c3d4040cf7f21373042cfa28d192c7e1fbeba9e7",3],
++["SPA","0028 BW - 2011INV Darkrai (SPA).pgf","b5d81a6b0ef29975af7632b1d0090ddbb832f21f",48,"eb1fce8b157acfa72460904319e02d367fb3e571","a0a877939b08d21757ce5ea80efd802256233b5802a70558b2d1e79efdb5a07f",28],
++["SPA","0030 BW - VER2011 Zoroark (SPA).pgf","9ee69914ddd4d81ab2d17b9b76125939baa79fb6",48,"9b349ad05c548237af86855ae86af287de63d0bf","a167626a311f1e3ae6bd73146fd5771a308ce6257faed81a2b1820f6c6782a8f",30],
++["SPA","0032 BW - PELI14 Victini (SPA).pgf","1a13bd6cf14935378756980f47510e8400adb430",48,"","7f8462985c7adf76989226cbfade07797da0a53e6d40b8072c7cc563eb614d02",32],
++["SPA","0033 B - PRI2012 Zekrom (SPA).pgf","7fb8e8d97c8a1afa0acc065f7803292b357f6d9a",32,"","bbb9f13676685b1789cd68471e22db4da38f1a7976a1996e43a5880cacbd664c",33],
++["SPA","0033 W - PRI2012 Reshiram (SPA).pgf","cf5d112df58e368b6d7d8b1cffda54a43741843a",16,"","dcda5f9f97aac98b11bd7fbed566fb0966981bcf41558d9f09a7d4d04bc82d36",33],
++["SPA","0037 BW - WORLD11 Scrafty (SPA).pgf","d690d8f76807965097f27d4e7f171a8222b5ebc5",48,"e3bc0b6fd7646f2e49ea4a27db1fc1478e90654a","41f93bf237293f99c89b5f79f843d367969b523714731d14ae6c76022e6719d7",37],
++["SPA","0048 BW - PRI2012 Mewtwo (SPA).pgf","05ec9a3ad910be6356da8a93982be6a0eaba7fd9",48,"","c19454794fec4760d1e1f13c804902ec57bffe48ab7df82fc7709af72914c21a",48],
++["SPA","0061 BW - VGC12 Larvitar (SPA).pgf","63a818df63dc2e294141d52a942a607289a386be",48,"","3d59864c5e81572ccde69e628218b244c4cb25ed3575b329d3f885ce635b6634",61],
++["SPA","0069 BW - VER2012 Keldeo (SPA).pgf","d4faf9b297ff163665267499d1770c4c383992a5",48,"25c9c319568f75ed2396791dc826f1226a30ca3a","ad1fdd40c041c3d18d1a5aa4762a726452ed96bc86e622a6c66a93820ee2f080",69],
++["SPA","0071 BW - VER2012 Pikachu (SPA).pgf","1c299b59a377a8fd9ad596cc8ee52320187652d3",48,"","c97de707a9aa9604e508ce574503b20a733e8e7769344ddf180dd5637350ec56",71],
++["SPA","0099 B2W2 - Plasma Genesect (SPA).pgf","da7315e6434757a6a90b15a9c086adb665a1cab4",192,"","5aeb0013572825f7d4ffda5db78fe0498a32c80e2d9c08088ffc4d6b82e1d619",99],
++["SPA","0100 BW - WORLD12 Pikachu (SPA) (C).pgf","11bd8ca94ecf1d7c9883e7a2ad2f00d489494489",48,"","73fbcb8a653e27a3ad75e208a8edf25b1a8cf65c93b47b50e57705a8e46c8001",100],
++["SPA","0100 BW - WORLD12 Pikachu (SPA).pgf","0d0cf30f3ab101de2862741871db20637bb45934",48,"","b71323e63f29c1688f209da9a55d0c474e752a5a13b35a8d4802a44a1e4c1f1b",100],
++["SPA","0128 B2W2 - INV2013 Keldeo (SPA).pgf","a0a6260a20068f8b098f6d3d0c772c3ed10906d7",192,"","85b21744cb2d57ac6c28ef6217a51305b37c590b9c69998a8064077222d88ed0",128],
++["SPA","0129 BWB2W2 - PRI2013 Meloetta (SPA).pgf","dbde444cbad58deaa1d7fb8f7299d23e8c26847e",240,"108ecc657fd5751e2b40b0649a2e82618531e009","84c0f4940c102b7be5bbdf77de7b7d6db62e944b1c274d35ad2ad3a45b44730a",129],
++["SPA","0132 BWB2W2 - Ray Metagross (SPA).pgf","139fa175a36c8c62ef469fd8f6eb0bc453e83a83",240,"","b9c76dae17e2cea70131bb7efd35686c32632630ce83a18be21a947b479c7def",132],
++["SPA","0133 B2W2 - Plasma Deoxys (SPA).pgf","75ced360a81796bb5bd96ebf2f4d78a98cc79018",192,"","195b70f649ce11b3d7ad2593c008d735e2e2a71d9884e543b39284ae805ff7ae",133],
++["SPA","0148 BWB2W2 - VER2013 Shiny Dialga (SPA).pgf","2d6dde9e3394d9ecf090c3015ea7042119e810d0",240,"76344af1f02e5550c259ecea960e1a7e866f316b","2cfe859fa01e774a8a9794aad70cdb953fea235bb82611fbe457d1533aa3966b",148],
++["SPA","0149 BWB2W2 - VER2013 Shiny Palkia (SPA).pgf","029470bbfcd634aaac7a80125d5da370dec8ec54",240,"4b461563d4771d0f864a0601d608fdef59fbfd13","197d95620078f31d3ee57de0dc9ca65cb7f67712642420cbce21a01b210ba0d0",149],
++["SPA","0150 BWB2W2 - VER2013 Shiny Giratina (SPA).pgf","1957e2ab63919cf1edb0059e3d5b41d28d394666",240,"61cc61493dafde429f036ad27a7809f87bb5a9bf","038b2676bb45412004703506e9387c7fef80b7822554e4a41ee5f4820953d693",150],
++["SPA","0155 BWB2W2 - WORLD13 Smeargle (SPA).pgf","15cf17965e9b9282d590ae7d2c77c9fb2e9d5c1a",240,"","ad15afa75545a4bddfa737439079afa33234651d5596165cb74525ea17e7a47c",155],
++["SPA","2046 BW - Item Liberty Pass (SPA).pgf","f2dcf9937816b8981564fb7c3f2ed0bdf834d885",48,"0d8dc4bdb3110e114cb1e2c31dc93e9cce6976d4","23df607be9a9bef8e07c457d7e862f8a34d2badfde1e0a5ce741fd7c829ff72b",2046]]
 diff --git a/json_data/island_adventure.json b/json_data/island_adventure.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..00a605185763abcfac709e071d028e0246c2635c
@@ -14029,6 +15248,40 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +  refresh.addEventListener("click", check);
 +  check();
 +})();
+diff --git a/templates/distributions.html b/templates/distributions.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..a67918d49926013619f554dead777cf9e2c5b9fd
+--- /dev/null
++++ b/templates/distributions.html
+@@ -0,0 +1,28 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head><meta charset="utf-8">
++<meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ t.title }} · Pokémon Dream World</title>
++<link rel="stylesheet" href="{{ url_for('offline_friends.static',filename='island-friends.css') }}">
++<style>
++.gift-page{max-width:58rem;margin:1.5rem auto;padding:0 1rem}.gift-page nav,.gift-pages{display:flex;flex-wrap:wrap;gap:.65rem;margin:1rem 0}
++.gift-page nav a{padding:.45rem .75rem;border:1px solid #a4b9ac;border-radius:5px}.gift-page [aria-current=page]{color:white;background:#305c4a}
++.gift-list{list-style:none;padding:0}.gift-list li{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-top:1px solid #bdcdbf;padding:.85rem 0}
++.gift-list small{display:block;margin-top:.25rem}.gift-page form{margin:0}.gift-page button{cursor:pointer}.gift-page details{margin:1rem 0}.gift-page [role=status]{padding:.75rem;background:#e0efdf}
++.gift-page h1,.gift-page p,.gift-page summary{margin:.65rem 0}.gift-list li>div{min-width:0;overflow-wrap:anywhere}.gift-list button{min-width:6rem}.gift-page input[type=file]{max-width:100%}.gift-page footer{margin:2rem 0}
++@media(max-width:35rem){.gift-list li{flex-wrap:wrap;gap:.45rem}.gift-list li>div{flex-basis:100%}}
++</style></head><body><main class="gift-page"><a href="/pdw/">← {{ t.home }}</a><h1>{{ t.title }}</h1>
++{% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
++{% else %}
++{% if rom %}<p>{{ rom }}</p>{% endif %}
++<nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for('campaigns.index',kind=k) }}">{{ t[k] }}</a>{% endfor %}</nav>
++<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.eevee }}</p>{% endif %}
++{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}
++{% macro fields() %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="filter" value="{{ mode }}">{% endmacro %}
++{% if kind=='wonder' and ident %}<details><summary>{{ t.scan }}</summary><p>{{ t.scan_help }}</p>
++<form method="post" enctype="multipart/form-data" action="{{ url_for('campaigns.inspect_album') }}">{{ fields() }}<input type="file" name="save" accept=".sav" required aria-label="{{ t.scan }}"><button>{{ t.scan }}</button></form></details>{% endif %}
++{% if notice %}<p role="status">{{ t[notice] }}</p>{% endif %}
++<nav aria-label="{{ t.title }}">{% for k in ('all','unclaimed','waiting','complete','unknown_filter') if k!='unknown_filter' or kind=='wonder' %}<a {% if mode==k %}aria-current="page"{% endif %} href="{{ url_for('campaigns.index',kind=kind,filter=k) }}">{{ t[k] }}</a>{% endfor %}</nav>
++<ul class="gift-list">{% for row in rows %}<li id="{{ row.key }}"><div><strong>{{ row.name }}</strong>
++<small>{% if row.number %}#{{ row.number }} · {% endif %}{{ t.same_number if row.same else t[row.status] }}</small></div>
++{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<button type="submit">{{ t.claim }}</button></form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
++{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for('campaigns.index',kind=kind,filter=mode,page=page-1) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for('campaigns.index',kind=kind,filter=mode,page=page+1) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
++<footer><a href="/languages/?page=/campaign/">Language · 日本語 · 简体中文</a></footer></main></body></html>
 diff --git a/templates/island_adventure.html b/templates/island_adventure.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..1c08729e52ed4880a12faf43afee72f4685559b4
@@ -14265,6 +15518,237 @@ index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f84
 +  </main>
 +</body>
 +</html>
+diff --git a/tests/test_distributions.py b/tests/test_distributions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..67a773715960ec2d93cac75962d2d2c1c53dfb6c
+--- /dev/null
++++ b/tests/test_distributions.py
+@@ -0,0 +1,225 @@
++"""Exercise the web, Game Sync and Mystery Gift entrances with disposable game data."""
++import binascii
++import hashlib
++import io
++import struct
++from types import SimpleNamespace
++
++import pytest
++
++from api.server import create_app as create_web
++from game_sync_server.entralinked.configuration import Configuration
++from game_sync_server.entralinked.context import Context
++from game_sync_server.entralinked.model.dlc.dlc import DlcList
++from game_sync_server.entralinked.model.player.player_manager import PlayerManager
++from game_sync_server.entralinked.model.save_file import _crypt_array
++from game_sync_server.entralinked.model.user.user_manager import UserManager
++from game_sync_server.entralinked.network.http.http_server import create_app as create_game
++from game_sync_server.entralinked.network.http.pgl_handler import PASSWORD, USERNAME
++from game_sync_server.entralinked.utility.db_manager import db
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from game_sync_server.entralinked.utility.url_encoded_form import decode_form, encode_form
++from utils import distributions as gifts
++from utils.account_manager import accounts
++
++
++def cartridge(gsid, rom, lang, records=None, removed=()):
++    raw = bytearray(0x80000)
++    raw[0x19404:0x1940a] = "QA".encode("utf-16-le") + b"\xff\xff"
++    struct.pack_into("<I", raw, 0x19418, gsid)
++    raw[0x1941e:0x19420] = bytes((lang, rom))
++    raw[0x1d4a6] = 0x7f
++    stored = bytearray(128)
++    struct.pack_into("<H", stored, 0, 25)
++    checksum = sum(struct.unpack("<64H", stored)) & 0xffff
++    _crypt_array(stored, checksum)
++    struct.pack_into("<H", raw, 0x1d30e, checksum)
++    raw[0x1d310:0x1d390] = stored
++    if records is not None:
++        album = bytearray(0xa90)
++        for number in (*records, *removed):
++            album[number//8] |= 1 << (number % 8)
++        for i, (number, used) in enumerate(records.items()):
++            pos = 0x100 + i*204
++            struct.pack_into("<H", album, pos+0xb0, number)
++            album[pos+0xb3:pos+0xb5] = bytes((1, 2 if used else 0))
++        _crypt_array(album, 12345)
++        block = album + struct.pack("<I", 12345)
++        raw[0x1c800:0x1d294] = block
++        struct.pack_into("<H", raw, 0x1d296, binascii.crc_hqx(block, 0xffff))
++    return bytes(raw)
++
++
++@pytest.fixture
++def clients(tmp_path, monkeypatch):
++    for store in (accounts, db):
++        store.close()
++        monkeypatch.setattr(store, "_db_path", tmp_path / "test.db")
++        monkeypatch.setattr(store, "_created", False)
++    monkeypatch.setattr("api.server.get_secret_key", lambda: "distribution-test")
++    manifest = tmp_path / "dlc.json"
++    manifest.write_text("{}")
++    context = Context(Configuration(), UserManager(), PlayerManager(), DlcList(tmp_path, manifest))
++    try:
++        yield create_web().test_client(), create_game(context).test_client()
++    finally:
++        accounts.close()
++        db.close()
++
++
++def test_album_evidence_and_checksum():
++    raw = cartridge(11, 23, 1, {12: False, 50: True}, [1990])
++    assert gifts.cartridge_album(raw) == {"12":"at_center", "50":"collected", "1990":"received"}
++    assert gifts.cartridge_album(raw[:0x1d000]) is None
++    broken = bytearray(raw)
++    broken[0x1c800] ^= 1
++    assert gifts.cartridge_album(broken) is None
++    assert gifts.cartridge_album(cartridge(11, 23, 1)) is None
++
++
++@pytest.mark.parametrize("rom", [20, 21, 22, 23])
++def test_wake_capacity_and_version(clients, rom):
++    code = gsid_to_gscd(55)
++    eligible = [g for g in gifts.catalog().values() if g.species and gifts.compatible(g, rom, 1)]
++    first = eligible[0]
++    second = next(g for g in eligible if g.group != first.group)
++    for gift in (first, second):
++        assert gifts.queue(code, gift, rom, 1) == "queued"
++    player = SimpleNamespace(gscd=code, rom_id=rom, langcode=1, encounters=[None]*9)
++    with db.transaction() as conn:
++        assert gifts.add_to_wake(conn, player, 10) == [first.key]
++        assert len(player.encounters) == 10 and player.encounters[9].species == first.species
++        gifts.confirm_wake(conn,code,[first.key])
++        player.encounters.clear()
++        assert gifts.add_to_wake(conn, player, 10) == [second.key]
++
++
++def test_shared_card_number_and_missing_archive(clients, monkeypatch):
++    code = gsid_to_gscd(89)
++    signatures = {}
++    evidence = gifts.cartridge_album(cartridge(89,21,1,{9:False}), signatures)
++    sig = next(iter(signatures))
++    one = gifts.Gift("w-one", "card-9", "First", 48, "JPN", number=9, signature=sig)
++    two = gifts.Gift("w-two", "card-9", "Second", 48, "JPN", number=9, signature="a"*64)
++    monkeypatch.setattr(gifts, "catalog", lambda:{one.key:one,two.key:two})
++    gifts.variant_signatures.cache_clear()
++    try:
++        with db.transaction() as conn:
++            gifts.schema(conn)
++            conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,1,NULL)", (code,"test"))
++        def missing(*args, **kwargs):
++            raise OSError("offline")
++        monkeypatch.setattr(gifts, "urlopen", missing)
++        with pytest.raises(OSError):
++            gifts.queue(code,one,21,1)
++        with db.transaction() as conn:
++            assert not gifts.state(conn,code)[1]
++            gifts.merge_album(conn,code,evidence,signatures)
++            album = gifts.state(conn,code)[2]
++            assert album[one.key] == "at_center" and two.key not in album and album["9"] == "at_center"
++            gifts.merge_album(conn,code,{"9":"received"},{})
++            assert gifts.state(conn,code)[2][one.key] == "received"
++    finally:
++        gifts.variant_signatures.cache_clear()
++
++
++def test_authenticated_distribution(clients, monkeypatch):
++    web, ds = clients
++    gsid, rom, lang = 34567, 21, 1
++    code = gsid_to_gscd(gsid)
++
++    def service(user, svc):
++        def nas(action, **extra):
++            response = ds.post("/ac", data=encode_form(dict(action=action, userid=user, passwd="local-test", **extra)))
++            return decode_form(response.get_data(as_text=True))
++        nas("acctcreate")
++        return nas("SVCLOC", svc=svc)["servicetoken"]
++
++    own = "8" * 13
++    game_token = service(own, "0000")
++    dl_token = service(own, "9000")
++    stranger = service("7" * 13, "9000")
++
++    def sync(action, method="GET", raw=b""):
++        response = ds.open("/dsio/gw", method=method, auth=(USERNAME, PASSWORD), data=raw,
++                           query_string=dict(p=action, gsid=gsid, rom=rom, langcode=lang, tok=game_token))
++        assert response.status_code == 200 and response.data[:128] == bytes(128)
++        return response.data[128:]
++
++    sync("account.create.upload", "POST")
++    sync("savedata.upload", "POST", cartridge(gsid, rom, lang, {}))
++    accounts.link_gscd("TestResident", code)
++    with web.session_transaction() as s:
++        s.update(username="TestResident", gscd=code)
++    assert web.get("/campaign/").status_code == 200
++    with web.session_transaction() as s:
++        fields = dict(csrf=s["gift_csrf"], card=code)
++    dream = next(g for g in gifts.catalog().values() if g.species == 134 and gifts.compatible(g, rom, lang))
++    def claim(g, data=fields):
++        return web.post("/campaign/claim/" + g.key, data=data)
++    assert claim(dream, {}).status_code == 403
++    for _ in range(2):
++        assert claim(dream).status_code == 303
++    alternative = next(g for g in gifts.catalog().values() if g.species == 135)
++    claim(alternative)
++    # Existing Friend Board reward leads the wake packet.
++    db.update(code, "game_sync", lambda s:s.update(encounters=[dict(species=173,move=0,gender=1,form=0,animation=0)]))
++    packet = sync("savedata.download")
++    assert len(packet) == 284 and struct.unpack_from("<H",packet,4)[0] == 173
++    assert struct.unpack_from("<H",packet,12)[0] == 134 and packet[20:84] == bytes(64)
++    assert sync("savedata.download") == packet
++    with db.transaction() as conn:
++        assert gifts.state(conn, code)[1][dream.group]["status"] == "queued"
++    sync("savedata.download.finish", "POST")
++    sync("savedata.download.finish", "POST")
++    with db.transaction() as conn:
++        assert gifts.state(conn, code)[1][dream.group]["status"] == "delivered"
++
++    # A tiny synthetic PGF exercises the same hash check and envelope builder as the archive.
++    raw = bytearray(204)
++    struct.pack_into("<H",raw,0xb0,41)
++    raw[0xb3:0xb5] = bytes((1, 2))
++    raw[0x60:0x66] = "QA".encode("utf-16-le") + b"\xff\xff"
++    digest = hashlib.sha1(b"blob 204\0" + raw).hexdigest()
++    wonder = gifts.Gift("w-test", "card-41","Fixture",48,"JPN","test.pgf",digest,41)
++    catalog = {**gifts.catalog(), wonder.key:wonder}
++    monkeypatch.setattr(gifts,"catalog",lambda:catalog)
++    monkeypatch.setattr(gifts,"urlopen",lambda *a,**kw:io.BytesIO(raw))
++    for _ in range(2):
++        assert claim(wonder).status_code == 303
++    def dls(action, token=dl_token, **params):
++        return ds.post("/download",data=encode_form(dict(action=action,token=token,gamecd="IRAO",**params)))
++    params = dict(attr1="MYSTERY_J",rhgamecd="IRBJ")
++    assert dls("count", **params).data == b"1"
++    assert dls("count", stranger, **params).data == b"0"
++    assert dls("count", attr1="MYSTERY_J", rhgamecd="IRAJ").data == b"0"
++    assert dls("count", "invalid", **params).status_code == 401
++    listing = dls("list", **params).data.decode()
++    name = listing.split("\t")[0]
++    assert listing.endswith("\tMYSTERY_J\t300000\t\t720\r\n")
++    payload = dls("contents",contents=name).data
++    assert len(payload) == 720 and dls("contents",contents=name).data == payload
++    assert dls("contents",stranger,contents=name).status_code == 404
++    assert payload[0xb4] == 0 and payload[-5] == 1 and payload[0xce] == 48
++    assert binascii.crc_hqx(payload[:-2],0xffff) == int.from_bytes(payload[-2:],"little")
++    with db.transaction() as conn:
++        assert gifts.state(conn, code)[1][wonder.group]["status"] == "sent"
++    assert dls("count", service(own, "9000"), **params).data == b"0"
++    sync("savedata.upload", "POST", cartridge(gsid,rom,lang,{41:False}))
++    assert dls("count", **params).data == b"0"
++    with db.transaction() as conn:
++        _, orders, album = gifts.state(conn,code)
++        assert orders[wonder.group]["status"] == "delivered" and album["41"] == "at_center"
++    # An uploaded backup cannot confirm another cartridge's gifts.
++    def scan(owner):
++        raw = cartridge(owner,rom,lang,{41:True})
++        return web.post("/campaign/album", data={**fields,"save":(io.BytesIO(raw),"test.sav")})
++    assert scan(gsid+1).status_code == 303
++    with db.transaction() as conn:
++        assert gifts.state(conn,code)[2]["41"] == "at_center"
++    assert scan(gsid).status_code == 303
++    with db.transaction() as conn:
++        assert gifts.state(conn,code)[2]["41"] == "collected"
++    with web.session_transaction() as s:
++        s["visit_guest"] = True
++    assert claim(wonder).status_code == 403
 diff --git a/tests/test_gen5_names.py b/tests/test_gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf8945de76
@@ -15536,6 +17020,334 @@ index dd7b2ce68d370a7e6c68ccc9a442549c351ea83d..e25c8d4f051e41d804f48e416998e6ae
          session["gscd"] = account["active_gscd"]
  
      if accounts.claim_daily_bonus(account["username"], save_data.today_jst_str()) and session.get("gscd"):
+diff --git a/utils/distributions.py b/utils/distributions.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b0b9ff6deeaae15aee12307ae361ca1b4c69cf81
+--- /dev/null
++++ b/utils/distributions.py
+@@ -0,0 +1,322 @@
++"""Cartridge-scoped promotions and native Generation V Wonder Card deliveries."""
++import binascii
++import hashlib
++import json
++import struct
++import time
++from collections import Counter
++from dataclasses import dataclass
++from functools import cache
++from urllib.parse import quote
++from urllib.request import urlopen
++
++from game_sync_server.entralinked.model.player.dream_data import DreamEncounter
++from game_sync_server.entralinked.model.save_file import _crypt_array
++from game_sync_server.entralinked.utility.db_manager import db
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from utils.data import load_json_data
++
++ARCHIVE = "https://raw.githubusercontent.com/projectpokemon/EventsGallery/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/Wondercards/"
++LANGUAGES = {1: ("JPN", "J"), 2: ("ENG", "E"), 3: ("FRE", "F"), 4: ("ITA", "I"),
++             5: ("GER", "G"), 7: ("SPA", "S"), 8: ("KOR", "K")}
++VERSIONS = {20: 16, 21: 32, 22: 64, 23: 128}
++ROM_CODES = {"IRA": 20, "IRB": 21, "IRD": 22, "IRE": 23}
++
++# The original B/W Eeveelution promotion offered one of seven partners.
++EEVEES = (134, 135, 136, 196, 197, 470, 471)
++
++
++@dataclass(frozen=True)
++class Gift:
++    key: str
++    group: str
++    name: str
++    mask: int
++    language: str = ""
++    filename: str = ""
++    digest: str = ""
++    number: int = 0
++    species: int = 0
++    move: int = 0
++    gender: int = 0
++    regions: tuple = ()
++    full_digest: str = ""
++    signature: str = ""
++
++
++@cache
++def catalog():
++    gifts = {}
++    for mask, species, move, gender, regions in load_json_data("dream_promotions"):
++        key = f"d-{mask}-{species}-{move}"
++        group = "eevee" if species in EEVEES else f"d-{species}-{move}"
++        gifts[key] = Gift(key, group, "", mask, species=species, move=move, gender=gender,
++                          regions=tuple(regions))
++    for language, filename, digest, mask, full, signature, number in load_json_data("gift_cards"):
++        key = f"w-{language}-{digest}"
++        gifts[key] = Gift(key, f"card-{number}", filename.split(" - ", 1)[1][:-4],
++                          mask, language, filename, digest, number, full_digest=full, signature=signature)
++    return gifts
++
++
++def compatible(gift, rom, lang):
++    return bool(gift.mask & VERSIONS.get(rom, 0) and lang in LANGUAGES
++                and (not gift.language or gift.language == LANGUAGES[lang][0])
++                and (not gift.regions or LANGUAGES[lang][0] in gift.regions))
++
++
++@cache
++def variant_counts(rom, lang):
++    return Counter(gift.group for gift in catalog().values() if compatible(gift, rom, lang))
++
++
++@cache
++def variant_signatures(rom, lang):
++    result = {}
++    for gift in catalog().values():
++        if gift.signature and compatible(gift, rom, lang):
++            result.setdefault(gift.signature, []).append(gift)
++    return result
++
++
++def schema(conn):
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_cartridges (
++        card TEXT PRIMARY KEY, wfc TEXT NOT NULL, rom INTEGER NOT NULL, lang INTEGER NOT NULL,
++        album TEXT)""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_orders (
++        card TEXT NOT NULL, family TEXT NOT NULL, gift TEXT NOT NULL, status TEXT NOT NULL,
++        payload BLOB, PRIMARY KEY(card,family))""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_lists (
++        token BLOB PRIMARY KEY, card TEXT NOT NULL, gift TEXT NOT NULL, expires INTEGER NOT NULL)""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_next (
++        card TEXT PRIMARY KEY, gift TEXT NOT NULL)""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS distribution_variants (
++        card TEXT NOT NULL, gift TEXT NOT NULL, status TEXT NOT NULL, PRIMARY KEY(card,gift))""")
++
++
++def _card_signature(pgf):
++    # The receiver stamps the date and toggles the collected bit after delivery.
++    return hashlib.sha256(pgf[:0xac] + pgf[0xb0:0xb4] + bytes([pgf[0xb4] & ~2]) + pgf[0xb5:204]).hexdigest()
++
++
++def cartridge_album(raw, signatures=None):
++    start, size = 0x1C800, 0xA94
++    block = raw[start:start + size]
++    if (len(raw) < start + size + 4 or not any(block)
++            or binascii.crc_hqx(block, 0xffff) != int.from_bytes(raw[start + size + 2:start + size + 4], "little")):
++        return None
++    data = bytearray(block[:-4])
++    _crypt_array(data, int.from_bytes(block[-4:], "little"))
++    records = {str(i): "received" for i in range(2048) if data[i//8] & (1 << (i%8))}
++    for offset in range(0x100, len(data), 204):
++        number = struct.unpack_from("<H", data, offset + 0xb0)[0]
++        kind = data[offset + 0xb3]
++        if kind in (1, 2, 3) and 0 < number < 2048:
++            records[str(number)] = "collected" if data[offset + 0xb4] & 2 else "at_center"
++            if signatures is not None:
++                signature = _card_signature(bytes(data[offset:offset+204]))
++                signatures[signature] = records[str(number)]
++    return records
++
++
++def merge_album(conn, card, evidence, signatures=None):
++    if evidence is None:
++        return
++    old = conn.execute("SELECT album,rom,lang FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
++    history = json.loads(old["album"]) if old and old["album"] else {}
++    for number, state in evidence.items():
++        # A previously seen, now discarded card still counts as received.
++        if history.get(number) != "collected":
++            history[number] = state
++    for number in history.keys() - evidence.keys():
++        if history[number] == "at_center":
++            history[number] = "received"
++    conn.execute("UPDATE distribution_cartridges SET album=? WHERE card=?", (json.dumps(history), card))
++    if old and signatures is not None:
++        known = variant_signatures(old["rom"], old["lang"])
++        conn.execute("UPDATE distribution_variants SET status='received' WHERE card=? AND status='at_center'", (card,))
++        for signature, phase in signatures.items():
++            matches = known.get(signature, ())
++            if len(matches) == 1:
++                conn.execute("""INSERT INTO distribution_variants VALUES(?,?,?) ON CONFLICT(card,gift) DO UPDATE
++                             SET status=excluded.status WHERE distribution_variants.status<>'collected'""",
++                             (card, matches[0].key, phase))
++    conn.executemany("""UPDATE distribution_orders SET status='delivered',payload=NULL
++                         WHERE card=? AND family=?""", ((card, "card-" + n) for n in history))
++
++
++def observe_upload(conn, card, wfc, trainer, raw):
++    if (not trainer.game_sync_id or gsid_to_gscd(trainer.game_sync_id) != card
++            or trainer.game not in VERSIONS or trainer.language not in LANGUAGES):
++        return
++    schema(conn)
++    conn.execute("""INSERT INTO distribution_cartridges(card,wfc,rom,lang) VALUES(?,?,?,?)
++                 ON CONFLICT(card) DO UPDATE SET wfc=excluded.wfc,rom=excluded.rom,lang=excluded.lang""",
++                 (card, wfc, trainer.game, trainer.language))
++    signatures = {}
++    merge_album(conn, card, cartridge_album(raw, signatures), signatures)
++
++
++def state(conn, card):
++    schema(conn)
++    identity = conn.execute("SELECT * FROM distribution_cartridges WHERE card=?", (card,)).fetchone()
++    orders = {row["family"]: row for row in conn.execute(
++        "SELECT family,gift,status FROM distribution_orders WHERE card=?", (card,))}
++    album = json.loads(identity["album"]) if identity and identity["album"] is not None else None
++    if album is not None:
++        album.update(conn.execute("SELECT gift,status FROM distribution_variants WHERE card=?", (card,)))
++    return identity, orders, album
++
++
++def status(gift, orders, album):
++    order = orders.get(gift.group)
++    if gift.number and album is not None and (receipt := album.get(str(gift.number))):
++        return album.get(gift.key, receipt)
++    if order:
++        return order["status"] if order["gift"] == gift.key else "alternative"
++    if gift.number and album is None:
++        return "unknown"
++    return "available"
++
++
++def card_binary(gift, lang):
++    if gift.full_digest:
++        filename = quote(gift.filename[:-4] + ".wc5full", safe="")
++        url = ARCHIVE.replace("/Wondercards/", "/Wondercard%20Fulls/") + filename
++        with urlopen(url, timeout=8) as response:
++            full = response.read(721)
++        if (len(full) != 720 or hashlib.sha1(b"blob 720\0" + full).hexdigest() != gift.full_digest
++                or int.from_bytes(full[0xb0:0xb2], "little") != gift.number):
++            raise ValueError("Invalid archived distribution")
++        if (full[-5] == lang and full[0xce] == gift.mask and not full[0xb4] & 2
++                and binascii.crc_hqx(full[:-2], 0xffff) == int.from_bytes(full[-2:], "little")):
++            return full
++    url = ARCHIVE + gift.language + "/" + quote(gift.filename, safe="")
++    with urlopen(url, timeout=8) as response:
++        raw = response.read(205)
++    if (len(raw) != 204 or hashlib.sha1(b"blob 204\0" + raw).hexdigest() != gift.digest
++            or int.from_bytes(raw[0xb0:0xb2], "little") != gift.number or raw[0xb3] not in (1, 2, 3)):
++        raise ValueError("Invalid archived gift")
++    data = bytearray(720)
++    data[:204] = raw
++    data[0xac:0xb0] = bytes(4)
++    data[0xb4] &= ~2
++    data[0xce] = gift.mask
++    data[0xd0:-6] = b"\xff" * (len(data) - 6 - 0xd0)
++    data[0xd0:0xd0+72] = raw[0x60:0x60+72]
++    data[0xd0+72:0xd0+74] = b"\xff\xff"
++    data[-5] = lang
++    struct.pack_into("<H", data, 718, binascii.crc_hqx(data[:-2], 0xffff))
++    return bytes(data)
++
++
++def queue(card, gift, rom, lang):
++    def allowed(conn):
++        identity, orders, album = state(conn, card)
++        if not compatible(gift, rom, lang):
++            return "incompatible"
++        if gift.number:
++            if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
++                return "sync"
++            if conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
++                            (identity["wfc"], rom, lang)).fetchone()[0] != 1:
++                return "ambiguous"
++        current = status(gift, orders, album)
++        if current != "available" and not (gift.number and current == "unknown"):
++            return current
++        return None
++    with db.transaction() as conn:
++        if reason := allowed(conn):
++            return reason
++    # Do not hold a database write lock during a possible network fetch.
++    payload = card_binary(gift, lang) if gift.number else None
++    with db.transaction() as conn:
++        if reason := allowed(conn):
++            return reason
++        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)",
++                     (card, gift.group, gift.key, payload))
++        if gift.number:
++            conn.execute("INSERT OR REPLACE INTO distribution_next VALUES(?,?)", (card, gift.key))
++    return "queued"
++
++
++def prioritize(card, gift):
++    with db.transaction() as conn:
++        schema(conn)
++        row = conn.execute("""SELECT 1 FROM distribution_orders WHERE card=? AND gift=?
++                           AND status IN ('queued','sent') AND payload IS NOT NULL""", (card, gift.key)).fetchone()
++        if row:
++            conn.execute("UPDATE distribution_orders SET status='queued' WHERE card=? AND gift=?", (card, gift.key))
++            conn.execute("INSERT OR REPLACE INTO distribution_next VALUES(?,?)", (card, gift.key))
++    return "queued" if row else "incompatible"
++
++
++def add_to_wake(conn, player, capacity):
++    schema(conn)
++    selected = []
++    for row in conn.execute("""SELECT gift FROM distribution_orders WHERE card=? AND status='queued'
++                              AND payload IS NULL ORDER BY rowid""", (player.gscd,)):
++        if len(player.encounters) >= capacity:
++            break
++        gift = catalog().get(row["gift"])
++        if gift and gift.species and compatible(gift, player.rom_id, player.langcode):
++            player.encounters.append(DreamEncounter(gift.species, gift.move, 0, gift.gender, 0))
++            selected.append(gift.key)
++    return selected
++
++
++def confirm_wake(conn, card, selected):
++    schema(conn)
++    conn.executemany("UPDATE distribution_orders SET status='delivered' WHERE card=? AND gift=? AND status='queued'",
++                     ((card, gift) for gift in selected))
++
++
++def download(wfc, form):
++    """The game requests a single gift at a time. An interrupted contents request is replayable."""
++    game = form.get("rhgamecd", "")
++    rom = ROM_CODES.get(game[:3])
++    language = form.get("attr1", "").removeprefix("MYSTERY_") or game[3:4]
++    lang = next((k for k, (_, suffix) in LANGUAGES.items() if suffix == language), None)
++    action = form.get("action")
++    file = form.get("contents", "")
++    token = hashlib.sha256(form["token"].encode("latin-1")).digest()
++    with db.transaction() as conn:
++        schema(conn)
++        if action == "contents":
++            selected = conn.execute("""SELECT o.card,o.gift,o.payload,c.rom,c.lang FROM distribution_lists l
++                JOIN distribution_orders o ON o.card=l.card AND o.gift=l.gift
++                JOIN distribution_cartridges c ON c.card=o.card
++                WHERE l.token=? AND l.expires>=? AND c.wfc=? AND o.status IN ('queued','sent')
++                AND NOT EXISTS (SELECT 1 FROM distribution_cartridges b WHERE b.wfc=c.wfc AND b.rom=c.rom
++                                AND b.lang=c.lang AND b.card<>c.card)""",
++                (token, int(time.time()), wfc)).fetchone()
++            if (selected and (not game or rom == selected["rom"]) and
++                    (not form.get("attr1") or lang == selected["lang"]) and
++                    file == "DW" + catalog()[selected["gift"]].digest[:12] + ".bin"):
++                conn.execute("UPDATE distribution_orders SET status='sent' WHERE card=? AND gift=?",
++                             (selected["card"], selected["gift"]))
++                return selected["payload"], 200
++            return b"", 404
++        identities = conn.execute("SELECT card FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
++                                  (wfc, rom, lang)).fetchall()
++        row = None
++        if len(identities) == 1:
++            row = conn.execute("""SELECT o.gift,o.payload FROM distribution_orders o LEFT JOIN distribution_next n
++                               ON n.card=o.card AND n.gift=o.gift WHERE o.card=?
++                               AND (o.status='queued' OR (o.status='sent' AND EXISTS
++                                   (SELECT 1 FROM distribution_lists l WHERE l.card=o.card AND l.gift=o.gift
++                                    AND l.token=? AND l.expires>=?)))
++                               AND o.payload IS NOT NULL ORDER BY (n.gift IS NOT NULL) DESC,o.rowid LIMIT 1""",
++                               (identities[0]["card"], token, int(time.time()))).fetchone()
++        if action == "count":
++            return str(int(row is not None)), 200
++        if action == "list":
++            if not row or form.get("offset", "0") not in ("", "0") or form.get("num") == "0":
++                return "\r\n", 200
++            gift = catalog()[row["gift"]]
++            now = int(time.time())
++            conn.execute("DELETE FROM distribution_lists WHERE expires<?", (now,))
++            conn.execute("INSERT OR REPLACE INTO distribution_lists VALUES(?,?,?,?)",
++                         (token, identities[0]["card"], gift.key, now + 3600))
++            return f"DW{gift.digest[:12]}.bin\t\tMYSTERY_{language}\t{gift.mask << 16:x}\t\t720\r\n", 200
++    return b"", 400
 diff --git a/utils/gen5_names.py b/utils/gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..92d876090bddb74dccc19e874a127529bef25601
