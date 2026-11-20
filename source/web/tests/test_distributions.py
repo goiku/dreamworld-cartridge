@@ -87,7 +87,9 @@ def test_bulk_wonder_cards_append_across_pages_and_retry(clients, monkeypatch):
     cards = [gifts.Gift(f"w-{i}", f"card-{i}", f"Gift {i}", 32, "JPN", number=i) for i in range(1, 31)]
     extra = [gifts.Gift("alt", "card-3", "Third alternative", 32, "JPN", number=3),
              gifts.Gift("unknown", "unknown", "Same-number receipt", 32, "JPN", number=1, independent=True),
-             gifts.Gift("other", "card-31", "Wrong edition", 128, "JPN", number=31)]
+             gifts.Gift("other", "card-30", "Wrong edition", 128, "JPN", number=30),
+             gifts.Gift("repeat-a", "repeat-a", "Independent A", 32, "JPN", number=40, independent=True),
+             gifts.Gift("repeat-b", "repeat-b", "Independent B", 32, "JPN", number=40, independent=True)]
     monkeypatch.setattr(gifts, "catalog", lambda: {g.key:g for g in cards + extra})
     monkeypatch.setattr(gifts, "variant_counts", gifts.variant_counts.__wrapped__)
     monkeypatch.setattr(gifts.japanese_card_archive, "ensure_installed", lambda: None)
@@ -112,7 +114,7 @@ def test_bulk_wonder_cards_append_across_pages_and_retry(clients, monkeypatch):
         form = dict(csrf=session["gift_csrf"], card=code)
     assert web.post(path, data={**form, "card":"another-card"}).status_code == 403
     assert web.post(path, data={**form, "csrf":""}).status_code == 403
-    for added, failed in [(27, 1), (1, 0), (0, 0)]:
+    for added, failed in [(28, 1), (1, 0), (0, 0)]:
         out = web.post(path, data={**form, "q":"Gift 30", "page":2})
         assert out.status_code == 303 and "filter=waiting" in out.location
         with web.session_transaction() as session:
@@ -120,18 +122,27 @@ def test_bulk_wonder_cards_append_across_pages_and_retry(clients, monkeypatch):
         assert web.get(out.location).status_code == 200
     with db.transaction() as conn:
         ident, orders, album = gifts.state(conn, code)
-        assert {o["gift"] for o in orders.values()} == {g.key for g in cards[1:]}
+        expected_new = {g.key for g in cards[3:]} | {"repeat-a", "repeat-b"}
+        assert {o["gift"] for o in orders.values()} == expected_new | {"w-2"}
         assert {o["status"] for o in orders.values()} == {"queued"}
         assert album == {"1":"collected"}
         assert conn.execute("SELECT gift FROM distribution_next WHERE card=?", (code,)).fetchone()[0] == "w-2"
         assert conn.execute("SELECT payload FROM distribution_orders WHERE card=? AND gift='w-2'", (code,)).fetchone()[0] == b"existing"
-    assert set(calls) == {g.key for g in cards[2:]} and len(calls) == 29
+    assert set(calls) == expected_new and len(calls) == len(expected_new) + 1
+    # Both alternatives still have their individual forms even after bulk claims and retries.
+    remaining = web.get("/campaign/?kind=wonder&filter=unclaimed&q=3").text
+    assert 'action="/campaign/claim/w-3"' in remaining and 'action="/campaign/claim/alt"' in remaining
+    assert web.post("/campaign/claim/alt", data=form).status_code == 303
+    assert web.post(path, data=form).status_code == 303
+    with db.transaction() as conn:
+        assert gifts.state(conn, code)[1]["card-3"]["gift"] == "alt"
 
 
 def test_bulk_respects_identity_and_new_receipts_while_preparing(clients, monkeypatch):
     code = gsid_to_gscd(79)
     gift = gifts.Gift("qa-card", "card-20", "Test card", 32, "ENG", number=20)
     monkeypatch.setattr(gifts, "catalog", lambda: {gift.key:gift})
+    monkeypatch.setattr(gifts, "variant_counts", gifts.variant_counts.__wrapped__)
     with db.transaction() as conn:
         gifts.schema(conn)
         conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,2,NULL)", (code,"shared-wfc"))

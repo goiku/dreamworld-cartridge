@@ -119,8 +119,8 @@ def _listing(japanese):
                     if needle not in _fold(" ".join([name or "", gift.name, gift.japanese_title, *details, *aliases])):
                         continue
             status = gifts.status(gift, orders, album) if eligible else "incompatible"
-            same = bool(eligible and gift.number and gifts.variant_counts(rom, lang)[gift.group] > 1
-                        and status in ("received", "at_center", "collected") and gift.key not in (album or {}))
+            exclusive = bool(eligible and gift.number and gifts.variant_counts(rom, lang)[gift.group] > 1)
+            same = exclusive and status in ("received", "at_center", "collected") and gift.key not in (album or {})
             if status == "alternative":
                 bucket = None
             elif status == "unknown" or same:
@@ -133,7 +133,7 @@ def _listing(japanese):
                 continue
             rows.append(dict(key=gift.key, name=name, details=details, event=gift.event,
                              versions=[versions[r] for r in targets] if japanese else [],
-                             number=gift.number, status=status, same=same,
+                             number=gift.number, status=status, same=same, exclusive=exclusive,
                              claim=eligible and status in ("available", "unknown") and (not gift.number or ident is not None)))
     pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(1, min(pages, request.args.get("page", 1, type=int)))

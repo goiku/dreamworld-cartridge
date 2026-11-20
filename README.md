@@ -32,7 +32,7 @@ In **Promotions → Japanese catalog → Pokémon World Tournament**, download a
 
 ## Receive an event distribution
 
-Under **Mystery Gift**, choose **Queue all unclaimed cards** to append every confirmed unclaimed card for this cartridge across all pages. The button shows how many cards can be added. The first catalogue entry is selected for mutually exclusive versions. Queue a particular version first if you have a preference. Each new DS connection offers the next card in the queue.
+Under **Mystery Gift**, choose **Queue all unclaimed cards** to append confirmed unclaimed cards from all pages. The button counts only cards it can add. If a gift allows only one of several versions, select your preferred version individually in the list. Each new DS connection offers the next queued card.
 
 Open **Event distributions** from Dream World and select your linked cartridge. After updating, use Game Sync once with that game. The page lists events for its version and language. [Open the English event page on the server PC](http://127.0.0.1:8080/campaign/)
 

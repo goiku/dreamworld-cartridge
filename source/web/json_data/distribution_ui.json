@@ -1,7 +1,8 @@
 {
   "zh": {
     "bulk_claim": "一键领取全部未领（{count} 张）",
-    "bulk_help": "将这张卡带所有页面上已确认未领的礼物加入等待队列。互斥版本按图鉴顺序选第一张。掌机每次连线接收一张。",
+    "bulk_help": "一键领取会把各页已确认未领、无需选版本的礼物加入等待队列。如果同一组只能领一个版本，请在列表里单独选择。",
+    "choose_version": "请选择一个版本单独领取",
     "bulk_result": "已新加入 {added} 张礼物卡，掌机可按队列顺序接收。",
     "bulk_retry": "有 {failed} 张暂时无法读取，再点一次可重试。",
     "title": "活动配信",
@@ -58,7 +59,8 @@
   },
   "en": {
     "bulk_claim": "Queue all unclaimed cards ({count})",
-    "bulk_help": "Add every confirmed unclaimed card for this cartridge across all pages. For mutually exclusive versions, the first in catalogue order is selected. Receive one card per connection on the DS.",
+    "bulk_help": "Queue confirmed unclaimed cards from all pages. If only one version of a gift can be received, choose it individually in the list.",
+    "choose_version": "Choose one version individually",
     "bulk_result": "Added {added} new cards to the DS delivery queue.",
     "bulk_retry": "Could not load {failed} cards. Press the button again to retry.",
     "title": "Event distributions",
@@ -115,7 +117,8 @@
   },
   "ja": {
     "bulk_claim": "未受取のカードをすべて予約（{count}枚）",
-    "bulk_help": "このゲームカードで未受取と確認できた全ページのカードを予約します。同時に受け取れない種類は一覧の先頭を選びます。DSでは1回の接続につき1枚受け取れます。",
+    "bulk_help": "全ページから未受取と確認できたカードをまとめて予約します。どれか1種類だけ受け取れるプレゼントは、一覧から個別に選んでください。",
+    "choose_version": "いずれか1種類を個別に選択",
     "bulk_result": "新たに{added}枚を予約しました。DSで順番に受け取れます。",
     "bulk_retry": "{failed}枚を読み込めませんでした。もう一度押すと再試行できます。",
     "title": "イベント配信",
@@ -172,7 +175,8 @@
   },
   "fr": {
     "bulk_claim": "Réserver toutes les cartes non reçues ({count})",
-    "bulk_help": "Ajoute les cartes confirmées comme non reçues pour cette cartouche, toutes pages confondues. Si plusieurs variantes s’excluent, la première du catalogue est retenue. La DS reçoit une carte par connexion.",
+    "bulk_help": "Réservez sur toutes les pages les cartes confirmées comme non reçues. Si une seule variante peut être reçue, choisissez-la individuellement dans la liste.",
+    "choose_version": "Choisissez une seule variante dans la liste",
     "bulk_result": "{added} nouvelles cartes ajoutées à la file de réception de la DS.",
     "bulk_retry": "{failed} cartes n’ont pas pu être chargées. Appuyez à nouveau pour réessayer.",
     "title": "Distributions",
@@ -229,7 +233,8 @@
   },
   "it": {
     "bulk_claim": "Prenota tutte le schede non ricevute ({count})",
-    "bulk_help": "Aggiunge tutte le schede confermate come non ricevute per questa cartuccia, su tutte le pagine. Tra varianti incompatibili viene scelta la prima del catalogo. Il DS riceve una scheda per connessione.",
+    "bulk_help": "Prenota le schede confermate come non ricevute da tutte le pagine. Se puoi ricevere una sola versione di un dono, sceglila singolarmente nell’elenco.",
+    "choose_version": "Scegli una versione singolarmente",
     "bulk_result": "Sono state aggiunte {added} nuove schede alla coda del DS.",
     "bulk_retry": "Impossibile caricare {failed} schede. Premi di nuovo per riprovare.",
     "title": "Distribuzioni evento",
@@ -286,7 +291,8 @@
   },
   "de": {
     "bulk_claim": "Alle ausstehenden Karten vormerken ({count})",
-    "bulk_help": "Merkt auf allen Seiten die Karten vor, die dieses Spiel nachweislich noch nicht erhalten hat. Bei einander ausschließenden Varianten wird die erste im Katalog gewählt. Der DS empfängt pro Verbindung eine Karte.",
+    "bulk_help": "Merke aus allen Seiten die Karten vor, die du noch nicht erhalten hast. Kannst du nur eine Variante eines Geschenks empfangen, wähle sie einzeln in der Liste aus.",
+    "choose_version": "Eine Variante einzeln auswählen",
     "bulk_result": "{added} neue Karten wurden für den DS vorgemerkt.",
     "bulk_retry": "{failed} Karten konnten nicht geladen werden. Drücke die Schaltfläche erneut.",
     "title": "Event-Verteilungen",
@@ -343,7 +349,8 @@
   },
   "es": {
     "bulk_claim": "Poner en cola todas las tarjetas sin recibir ({count})",
-    "bulk_help": "Añade las tarjetas de todas las páginas que consten como pendientes para este cartucho. Entre variantes excluyentes se elige la primera del catálogo. La DS recibe una tarjeta por conexión.",
+    "bulk_help": "Pon en cola las tarjetas pendientes de todas las páginas. Si solo puedes recibir una versión de un regalo, elígela por separado en la lista.",
+    "choose_version": "Elige una versión por separado",
     "bulk_result": "Se han añadido {added} tarjetas nuevas a la cola de la DS.",
     "bulk_retry": "No se han podido cargar {failed} tarjetas. Pulsa de nuevo para reintentar.",
     "title": "Distribuciones de eventos",
@@ -400,7 +407,8 @@
   },
   "ko": {
     "bulk_claim": "미수령 카드 모두 예약 ({count}장)",
-    "bulk_help": "이 게임 카드에서 아직 받지 않은 것으로 확인된 모든 페이지의 카드를 예약해요. 함께 받을 수 없는 종류는 목록의 첫 번째를 선택해요. DS에서는 접속할 때마다 한 장씩 받아요.",
+    "bulk_help": "모든 페이지에서 아직 받지 않은 것으로 확인된 카드를 한꺼번에 예약해요. 한 종류만 받을 수 있는 선물은 목록에서 직접 골라 주세요.",
+    "choose_version": "한 종류를 골라 개별 예약",
     "bulk_result": "카드 {added}장을 새로 예약했어요. DS에서 차례로 받을 수 있어요.",
     "bulk_retry": "카드 {failed}장을 불러오지 못했어요. 버튼을 다시 눌러 주세요.",
     "title": "이벤트 배포",

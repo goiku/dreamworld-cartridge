@@ -272,13 +272,14 @@ def _delivery_target_error(conn, identity, rom, lang):
 
 
 def unclaimed_cards(rom, lang, orders, album):
-    choices = {}
-    if album is not None:
-        for gift in catalog().values():
-            if gift.number and compatible(gift, rom, lang) and status(gift, orders, album) == "available":
-                # The first catalogue entry is the default for a one-per-save family.
-                choices.setdefault(gift.group, gift)
-    return choices
+    if album is None:
+        return {}
+    counts = variant_counts(rom, lang)
+    return {
+        gift.group: gift for gift in catalog().values()
+        if gift.number and compatible(gift, rom, lang) and counts[gift.group] == 1
+        and status(gift, orders, album) == "available"
+    }
 
 
 def queue_unclaimed_cards(card, rom, lang):
