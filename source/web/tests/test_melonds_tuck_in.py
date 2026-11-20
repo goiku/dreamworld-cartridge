@@ -1,6 +1,7 @@
 """Exercise the local launcher on synthetic Gen V saves, without starting melonDS."""
 from binascii import crc_hqx
 from contextlib import nullcontext
+from datetime import date, datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -15,7 +16,7 @@ helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 
 
-def save_fixture(game, waits):
+def save_fixture(game, waits, dates=None, asleep=()):
     sequel = game in (22, 23)
     table, stride, table_crc = (0x25F00, 0x26000, 0x25FA2) if sequel else (0x23F00, 0x24000, 0x23F9A)
     table_length = 148 if sequel else 140
@@ -25,8 +26,12 @@ def save_fixture(game, waits):
         base = index * stride
         raw[base + 0x1941F] = game
         raw[base + 0x18E00] = 4 + index
+        raw[base+0x1D300:base+0x1D304] = dates[index] if dates else bytes.fromhex("00 01 01 DA")
+        raw[base+0x1D304:base+0x1D308] = b"last"
+        raw[base+0x1D4A3] = int(index in asleep)
+        raw[base+0x1D4A6] = 0xFE
         struct.pack_into("<I", raw, base + 0x1D944, minutes)
-        for pos, size, mirror in ((0x19400, trainer_length, 54), (0x1D900, 92, 74)):
+        for pos, size, mirror in ((0x19400, trainer_length, 54), (0x1D300, 0x1AC, 70), (0x1D900, 92, 74)):
             check = crc_hqx(raw[base+pos:base+pos+size], 0xffff)
             for offset in (pos + size + 2, table + mirror):
                 struct.pack_into("<H", raw, base + offset, check)
@@ -46,7 +51,7 @@ def test_all_titles_keep_every_other_byte(game, waits):
     assert helper.checked_save(prepared) == (prepared, [0] * len(waits))
 
 
-@pytest.mark.parametrize("offset", [0x19400, 0x1D944, 0x23F00, 0x24000+0x1D95E])
+@pytest.mark.parametrize("offset", [0x19400, 0x1D944, 0x23F00, 0x24000+0x1D95E, 0x1D303, 0x24000+0x1D4AE])
 def test_corruption_is_rejected(offset, tmp_path):
     bad = bytearray(save_fixture(20, [73, 11]))
     bad[offset] ^= 64
@@ -57,7 +62,27 @@ def test_corruption_is_rejected(offset, tmp_path):
     assert slot.read_bytes() == bad and not undo.exists()
 
 
+@pytest.mark.parametrize("game", [20, 21, 22, 23])
+@pytest.mark.parametrize("today,previous,expected", [
+    (date(2026, 11, 21), bytes([6, 21, 11, 26]), bytes([5, 20, 11, 26])),
+    (date(2024, 3, 1), bytes([6, 2, 3, 19]), bytes([4, 29, 2, 24])),
+    (date(2000, 1, 1), bytes.fromhex("00 01 01 DA"), bytes([4, 31, 12, 99])),
+    (date(2026, 11, 21), bytes([5, 20, 11, 26]), bytes([5, 20, 11, 26])),
+])
+def test_day_check_and_sleeping_rollback_slot(game, today, previous, expected, tmp_path):
+    original = save_fixture(game, [0, 73], [previous, previous], asleep=[1])
+    prepared = save_fixture(game, [0, 73], [expected, previous], asleep=[1])
+    assert helper.checked_save(original, today)[0] == prepared
+    slot, backup = tmp_path / "game.sav", tmp_path / "backup.sav"
+    slot.write_bytes(original)
+    helper.clear_for_tuck(slot, backup, today)
+    helper.clear_for_tuck(slot, backup, today)
+    assert slot.read_bytes() == prepared
+    assert backup.read_bytes() == original if prepared != original else not backup.exists()
+
+
 def test_two_players_each_keep_one_save_across_languages(tmp_path, monkeypatch):
+    monkeypatch.setattr(helper.time, "time", lambda: datetime(2026, 6, 12, 12).timestamp())
     emulator = tmp_path / "melonDS.exe"
     emulator.touch()
     (tmp_path / "melonDS.toml").write_text('[Instance0]\nSaveFilePath = "saves"\n')
@@ -92,6 +117,24 @@ def test_two_players_each_keep_one_save_across_languages(tmp_path, monkeypatch):
     helper.launch(profile, "sleep")
     assert before.read_bytes() == advanced
     assert other_slot.read_bytes() == raw == original.read_bytes()
+
+
+def test_sleep_uses_emulated_date_on_other_side_of_midnight(tmp_path, monkeypatch):
+    emulator = tmp_path / "melonDS.exe"
+    emulator.touch()
+    (tmp_path / "melonDS.toml").write_text('[Instance0.RTC]\nOffset = 7200\n')
+    rom, save = tmp_path / "White.nds", tmp_path / "White.sav"
+    rom.write_bytes(bytes(12) + b"IRAJ")
+    original = save_fixture(20, [0], [bytes([6, 21, 11, 26])])
+    save.write_bytes(original)
+    profile = helper.prepare(tmp_path, emulator, rom, rom, save)
+    slot = Path(json.loads((profile / helper.CONFIG).read_text("utf8"))["save"])
+    monkeypatch.setattr(helper, "first_emulator", nullcontext)
+    monkeypatch.setattr(helper.time, "time", lambda: datetime(2026, 11, 20, 23).timestamp())
+    monkeypatch.setattr(helper.subprocess, "run", lambda *args, **kwargs: None)
+    helper.launch(profile, "sleep")
+    assert slot.read_bytes() == save_fixture(20, [0], [bytes([5, 20, 11, 26])])
+    assert save.read_bytes() == original
 
 
 def test_wrong_size_wait_or_rom_is_rejected(tmp_path):

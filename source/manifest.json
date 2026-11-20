@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "efa6c5c12d94de2fd7fbe6ce4edf56d7736933e43fe8dfe507cb67c4e45bb89b",
+    "patch_sha256": "19ed8fcae42aa78e600c0c53ace87c8f45678cf42b12824c38c01f6b6704143f",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -253,10 +253,11 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "a1f98776dc06a7a067d4b738a881371c3a4d82da2877fa3f1f150cf590b5e8bd",
+        "after": "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
         "previous": [
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
+          "a1f98776dc06a7a067d4b738a881371c3a4d82da2877fa3f1f150cf590b5e8bd",
           "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898",
           "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1"
         ]
@@ -459,7 +460,10 @@
       },
       "static/melonds-tuck-in.py": {
         "before": null,
-        "after": "a354e22992f74f9a4d01b51c4b7326befc68d459bf1624131457699327fbff06"
+        "after": "01d7d6130fd2256705ba074b2d2af95ee23b44e8ab33c1866c5a9c857ce66c78",
+        "previous": [
+          "a354e22992f74f9a4d01b51c4b7326befc68d459bf1624131457699327fbff06"
+        ]
       },
       "static/player-guide.css": {
         "before": null,
@@ -610,7 +614,10 @@
       },
       "tests/test_melonds_tuck_in.py": {
         "before": null,
-        "after": "6b1e4672095e1de7f829ce225f5b95a599ede0d924b8b67a3ba884456d5f7db6"
+        "after": "c51ac1e0cb0eeaa20020091d784bdd8bdc5047f2163a9494012b9c5483489d8c",
+        "previous": [
+          "6b1e4672095e1de7f829ce225f5b95a599ede0d924b8b67a3ba884456d5f7db6"
+        ]
       },
       "tests/test_native_shared_areas.py": {
         "before": null,

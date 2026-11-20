@@ -1,6 +1,7 @@
 """Local Windows melonDS launcher for Gen V saves. Only the player chooses files."""
 import binascii
 import csv
+from datetime import date, datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 from threading import Thread
 import tomllib
 import uuid
@@ -20,8 +22,25 @@ GAME = {b"IRA": 20, b"IRB": 21, b"IRD": 22, b"IRE": 23}
 CONFIG = "游玩配置.json"
 
 
-def checked_save(raw):
-    """Validate every populated trainer, clock block and checksum table before editing."""
+def available_sync_date(packed, today):
+    """Game Sync compares day-of-year, including for its initial 0xDA010100 date."""
+    weekday, day, month, year = packed
+    if packed == b"\x00\x01\x01\xda":
+        previous = date(2001, 1, 1)
+    else:
+        if year > 99 or weekday > 6:
+            raise ValueError("存档中的游戏同步日期无法识别。")
+        previous = date(2000 + year, month, day)
+    if previous.timetuple().tm_yday != today.timetuple().tm_yday:
+        return packed
+    yesterday = today - timedelta(days=1) if today != date(2000, 1, 1) else date(2099, 12, 31)
+    return bytes((yesterday.isoweekday() % 7, yesterday.day, yesterday.month, yesterday.year - 2000))
+
+
+def checked_save(raw, today=None):
+    """Validate each populated slot before preparing any bytes for writing."""
+    if today is not None and not 2000 <= today.year <= 2099:
+        raise ValueError("请使用掌机支持的日期（2000 至 2099 年）。")
     if len(raw) != 0x80000:
         raise ValueError("请选择游戏内保存的 512 KiB 原始 .sav 文件。")
     game = raw[0x1941F]
@@ -46,17 +65,29 @@ def checked_save(raw):
         if (updated[base+0x1941F] != game
                 or crc(table, table_len) != word(table_sum)
                 or not crc(0x19400, trainer_len) == word(0x19400+trainer_len+2) == word(table+54)
+                or not crc(0x1D300, 0x1AC) == word(0x1D4AE) == word(table+70)
                 or not crc(0x1D900, 0x5C) == word(0x1D95E) == word(table+74)):
             raise ValueError("存档数据校验失败，请重新导出完整的游戏内存档。")
         penalty = struct.unpack_from("<I", updated, base+0x1D944)[0]
         if penalty > 1440:
             raise ValueError("存档中的等待值超出已知范围。")
         waits.append(penalty)
+        # Never change a slot's in-progress tuck-in, including its clock data.
+        if updated[base+0x1D4A3]:
+            continue
+        sync_date = raw[base+0x1D300:base+0x1D304]
+        next_date = available_sync_date(sync_date, today) if today is not None else sync_date
+        if next_date != sync_date:
+            updated[base+0x1D300:base+0x1D304] = next_date
+            checksum = crc(0x1D300, 0x1AC)
+            set_word(0x1D4AE, checksum)
+            set_word(table+70, checksum)
         if penalty:
             struct.pack_into("<I", updated, base+0x1D944, 0)
             checksum = crc(0x1D900, 0x5C)
             set_word(0x1D95E, checksum)
             set_word(table+74, checksum)
+        if penalty or next_date != sync_date:
             set_word(table_sum, crc(table, table_len))
     return bytes(updated), waits
 
@@ -84,7 +115,7 @@ def game_code(path):
         return f.read(4)
 
 
-def save_path(emulator, rom):
+def instance_settings(emulator):
     portable = emulator.parent / "portable"
     config = (portable if portable.is_dir() else emulator.parent) / "melonDS.toml"
     if not portable.is_dir() and not config.is_file() and os.environ.get("LOCALAPPDATA"):
@@ -93,7 +124,11 @@ def save_path(emulator, rom):
     if not config.is_file():
         raise ValueError("请先打开 melonDS 1.1，配置网络，正常退出后再选择该程序。")
     with config.open("rb") as f:
-        folder = tomllib.load(f).get("Instance0", {}).get("SaveFilePath", "")
+        return tomllib.load(f).get("Instance0", {})
+
+
+def save_path(emulator, rom):
+    folder = instance_settings(emulator).get("SaveFilePath", "")
     dest = (emulator.parent / folder).resolve() if folder else rom.parent
     return dest / rom.with_suffix(".sav").name
 
@@ -158,10 +193,10 @@ def first_emulator():
             msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
 
 
-def clear_for_tuck(slot, backup):
+def clear_for_tuck(slot, backup, today=None):
     raw = slot.read_bytes()
-    cleared, waits = checked_save(raw)
-    if any(waits):
+    cleared, waits = checked_save(raw, today or date.today())
+    if raw != cleared:
         atomic_write(backup, raw)
         atomic_write(slot, cleared)
     return waits
@@ -186,18 +221,25 @@ def launch(work, mode):
                 shutil.copyfile(source, link)
             os.replace(link, rom)
         if mode == "sleep":
-            clear_for_tuck(slot, work / "上次清除等待前.sav")
+            offset = instance_settings(emu).get("RTC", {}).get("Offset", 0)
+            game_date = datetime.fromtimestamp(time.time() + offset).date()
+            clear_for_tuck(slot, work / "上次清除等待前.sav", game_date)
         subprocess.run([str(emu), str(rom)], cwd=emu.parent, check=True)
 
 
 def save_copy(root):
-    from tkinter import filedialog, messagebox
+    from tkinter import filedialog, messagebox, simpledialog
     src = filedialog.askopenfilename(parent=root, title="选择自己的掌机存档备份", filetypes=[("原始存档", "*.sav")])
     if not src:
         return
-    data, waits = checked_save(Path(src).read_bytes())
-    if not any(waits):
-        messagebox.showinfo("存档检查", "这份存档的换机／改时钟等待已经是零。", parent=root)
+    target = simpledialog.askstring("掌机日期", "请输入准备让宝可梦入睡当天的掌机日期（年-月-日）",
+                                    initialvalue=date.today().isoformat(), parent=root)
+    if target is None:
+        return
+    original = Path(src).read_bytes()
+    data, _ = checked_save(original, date.fromisoformat(target.strip()))
+    if data == original:
+        messagebox.showinfo("存档检查", "所选日期没有需要解除的入睡等待。已入睡的宝可梦可照常唤醒。", parent=root)
         return
     folder = filedialog.askdirectory(parent=root, title="选择新副本的保存目录")
     if folder:
@@ -269,6 +311,20 @@ def main():
             messagebox.showinfo("共用进度已建立", "以后请从这个文件夹双击 DreamWorld.cmd\n"+str(work), parent=root)
             draw()
 
+    def use_existing():
+        nonlocal work
+        selected = filedialog.askdirectory(parent=root, title="选择已有 DreamWorld.cmd 的游玩文件夹")
+        if not selected:
+            return
+        path = Path(selected)
+        cfg = json.loads((path / CONFIG).read_text(encoding="utf-8"))
+        launcher = path / "中文游玩助手.pyw"
+        if not launcher.is_file() or not (path / "DreamWorld.cmd").is_file() or not Path(cfg["save"]).is_file():
+            raise ValueError("请选择之前设置过的游玩文件夹。")
+        atomic_write(launcher, Path(__file__).read_bytes())
+        work = path
+        draw()
+
     def draw():
         for widget in box.winfo_children():
             widget.destroy()
@@ -284,9 +340,10 @@ def main():
         else:
             note("每位玩家选择自己的游戏和存档。首次设置会创建一份独立的游玩进度。")
             button("设置我的 melonDS 和存档", setup)
+            button("更新已有游玩助手", use_existing)
         note("下屏 Wi-Fi → ゲームシンク（游戏同步）。はい＝是，いいえ＝否。\n"
              "レポート＝保存。ねかしつける／ねむらせる＝让宝可梦入睡。おこす＝唤醒。")
-        note("每次点「申请入睡」都会清除这份进度里的换机／改时钟等待，其他受同一计时器限制的活动也会解锁。"
+        note("「申请入睡」会按游戏日期解除当天再次入睡的限制，也会清除换机／改时钟等待。其他受同一计时器限制的活动也会解锁。"
              "实体卡带可导出备份，清除后恢复副本。")
         button("为掌机存档生成清除等待的副本", lambda: save_copy(root))
     draw()

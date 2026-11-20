@@ -6998,7 +6998,7 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00d8f67e22
+index 0000000000000000000000000000000000000000..85456e616a103474c478aa82b4bffb21343b11d1
 --- /dev/null
 +++ b/json_data/player_guide.json
 @@ -0,0 +1,402 @@
@@ -7047,11 +7047,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "melonDS on this PC",
 +    "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
 +    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again.",
-+    "tuck_title": "Clear the clock-change wait before tuck-in",
++    "tuck_title": "Tuck in again today",
 +    "tuck_download": "Download the Chinese Windows helper",
 +    "tuck_setup": "Save in-game and close melonDS. Open the helper with Python 3.11 or later. Select melonDS 1.1, your everyday game, an unmodified copy of the same edition and region, and your latest .sav. Open the helper in the new profile folder for future sessions.",
-+    "tuck_steps": "Choose 平时游玩 for everyday play, 申请入睡 to clear the console or clock-change timer and start the original game, or 唤醒并领取 to wake up. All three share one save. On a Japanese C-Gear, tap Wi-Fi → ゲームシンク, then はい to confirm.",
-+    "tuck_card": "For a cartridge, export the 512 KiB save, use the helper to create a copy and restore that copy to the cartridge. The game checks its timer before uploading. Other events that share this timer are also released."
++    "tuck_steps": "Choose 平时游玩 for everyday play, 申请入睡 to clear the console or clock-change timer and start the original game, or 唤醒并领取 to wake up. All three share one save. On a Japanese C-Gear, tap Wi-Fi → ゲームシンク, then はい to confirm. With 申请入睡, the helper also checks the date set in melonDS and releases a second tuck-in for that day.",
++    "tuck_card": "For a cartridge, export the 512 KiB save, use the helper to create a copy and restore that copy to the cartridge. The game checks its timer before uploading. Other events that share this timer are also released. For a cartridge, enter the date displayed on the DS."
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -7097,11 +7097,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "このPCのmelonDS",
 +    "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
 +    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。",
-+    "tuck_title": "寝かしつける前に時計変更の待ち時間を解除する",
++    "tuck_title": "同じ日にもう一度寝かしつける",
 +    "tuck_download": "中国語の Windows 用ツールをダウンロード",
 +    "tuck_setup": "ゲーム内でレポートを書き、melonDS を終了します。Python 3.11 以降でツールを起動し、melonDS 1.1、普段遊ぶソフト、同じ地域・バージョンの未改変ソフト、最新の .sav を選びます。次回からは新しくできたフォルダーのツールを使います。",
-+    "tuck_steps": "普段は「平时游玩」、寝かしつけるときは「申请入睡」、起こすときは「唤醒并领取」を選びます。「申请入睡」で本体・時計変更による待ち時間を解除します。セーブデータは共通です。下画面の Wi-Fi → ゲームシンクから進めます。",
-+    "tuck_card": "実機は 512 KiB のセーブデータを取り出し、ツールで作ったコピーを書き戻してください。ソフトはアップロード前に待ち時間を確認します。同じタイマーを使うほかのイベントにも反映されます。"
++    "tuck_steps": "普段は「平时游玩」、寝かしつけるときは「申请入睡」、起こすときは「唤醒并领取」を選びます。「申请入睡」で本体・時計変更による待ち時間を解除します。セーブデータは共通です。下画面の Wi-Fi → ゲームシンクから進めます。「申请入睡」は melonDS の日付も確認し、同じ日にもう一度寝かしつけられるようにします。",
++    "tuck_card": "実機は 512 KiB のセーブデータを取り出し、ツールで作ったコピーを書き戻してください。ソフトはアップロード前に待ち時間を確認します。同じタイマーを使うほかのイベントにも反映されます。カートリッジを使う場合は、DS 本体に表示される日付を入力してください。"
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7147,11 +7147,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "本机 melonDS 模拟器",
 +    "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
 +    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。",
-+    "tuck_title": "入睡前清除换机等待",
++    "tuck_title": "今天再次入睡",
 +    "tuck_download": "下载中文游玩助手（Windows）",
 +    "tuck_setup": "先在游戏内保存，关闭 melonDS。用 Python 3.11 或更新版本打开助手，选择自己的 melonDS 1.1、平时玩的游戏、同地区同版本的未修改游戏，以及最新的 .sav。第一次设置会复制一份游玩进度，以后从新文件夹打开助手。",
-+    "tuck_steps": "平时点「平时游玩（汉化版）」。要入睡，点「申请入睡（原版）」，助手会先清除换机或改时钟的计时，再启动游戏。下屏点 Wi-Fi → ゲームシンク（游戏同步），はい是“是”，いいえ是“否”。网页准备好唤醒后，点助手的「唤醒并领取（原版）」。三个入口共用同一份进度。",
-+    "tuck_card": "实体卡带可用助手处理自己导出的 512 KiB 存档，再把副本恢复到卡带。原版卡带会在上传前检查本地等待。清零也会影响使用同一计时器的其他活动。"
++    "tuck_steps": "平时点「平时游玩（汉化版）」。要入睡，点「申请入睡（原版）」，助手会先清除换机或改时钟的计时，再启动游戏。下屏点 Wi-Fi → ゲームシンク（游戏同步），はい是“是”，いいえ是“否”。网页准备好唤醒后，点助手的「唤醒并领取（原版）」。三个入口共用同一份进度。助手会读取 melonDS 的日期；如果当天已经入睡过，也会解除这次限制。",
++    "tuck_card": "实体卡带可用助手处理自己导出的 512 KiB 存档，再把副本恢复到卡带。原版卡带会在上传前检查本地等待。清零也会影响使用同一计时器的其他活动。处理实体卡带副本时，填写掌机上显示的日期。"
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7197,11 +7197,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "melonDS sur ce PC",
 +    "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
 +    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez.",
-+    "tuck_title": "Lever le délai après un changement d’heure",
++    "tuck_title": "Rendormir un Pokémon le même jour",
 +    "tuck_download": "Télécharger l’assistant Windows en chinois",
 +    "tuck_setup": "Sauvegardez en jeu et fermez melonDS. Avec Python 3.11 ou ultérieur, ouvrez l’assistant et choisissez melonDS 1.1, votre jeu habituel, un exemplaire non modifié de la même édition et région et votre dernier fichier .sav. Utilisez ensuite le nouveau dossier.",
-+    "tuck_steps": "平时游玩 lance le jeu habituel. 申请入睡 efface le délai lié au changement de console ou d’heure avant de lancer le jeu original. 唤醒并领取 sert au réveil. Les trois utilisent la même sauvegarde.",
-+    "tuck_card": "Sur cartouche, exportez la sauvegarde de 512 Kio et restaurez la copie créée. Le jeu vérifie le délai avant l’envoi. Les autres activités liées au même compteur sont aussi débloquées."
++    "tuck_steps": "平时游玩 lance le jeu habituel. 申请入睡 efface le délai lié au changement de console ou d’heure avant de lancer le jeu original. 唤醒并领取 sert au réveil. Les trois utilisent la même sauvegarde. L’assistant vérifie aussi la date de melonDS pour permettre un deuxième endormissement le même jour.",
++    "tuck_card": "Sur cartouche, exportez la sauvegarde de 512 Kio et restaurez la copie créée. Le jeu vérifie le délai avant l’envoi. Les autres activités liées au même compteur sont aussi débloquées. Pour une cartouche, saisissez la date affichée sur la DS."
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7247,11 +7247,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "melonDS su questo PC",
 +    "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
 +    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova.",
-+    "tuck_title": "Azzerare l’attesa dopo il cambio dell’orologio",
++    "tuck_title": "Far addormentare di nuovo un Pokémon oggi",
 +    "tuck_download": "Scarica l’assistente Windows in cinese",
 +    "tuck_setup": "Salva nel gioco e chiudi melonDS. Apri l’assistente con Python 3.11 o successivo. Seleziona melonDS 1.1, il gioco abituale, una copia originale della stessa edizione e regione e il file .sav più recente. In seguito usa la nuova cartella.",
-+    "tuck_steps": "平时游玩 avvia il gioco abituale. 申请入睡 azzera l’attesa dovuta al cambio di console o di orario e avvia il gioco originale. 唤醒并领取 serve a svegliare il Pokémon. Le tre opzioni condividono il salvataggio.",
-+    "tuck_card": "Per una cartuccia esporta il salvataggio da 512 KiB e ripristina la copia creata. Il gioco controlla il timer prima di inviare i dati. Si sbloccano anche le altre attività che usano lo stesso timer."
++    "tuck_steps": "平时游玩 avvia il gioco abituale. 申请入睡 azzera l’attesa dovuta al cambio di console o di orario e avvia il gioco originale. 唤醒并领取 serve a svegliare il Pokémon. Le tre opzioni condividono il salvataggio. L’assistente controlla anche la data di melonDS per consentire un secondo accesso nello stesso giorno.",
++    "tuck_card": "Per una cartuccia esporta il salvataggio da 512 KiB e ripristina la copia creata. Il gioco controlla il timer prima di inviare i dati. Si sbloccano anche le altre attività che usano lo stesso timer. Per una cartuccia, inserisci la data visualizzata sulla console."
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7297,11 +7297,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "melonDS auf diesem PC",
 +    "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
 +    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut.",
-+    "tuck_title": "Wartezeit nach einem Uhrenwechsel aufheben",
++    "tuck_title": "Heute erneut schlafen legen",
 +    "tuck_download": "Chinesischen Windows-Helfer herunterladen",
 +    "tuck_setup": "Speichere im Spiel und schließe melonDS. Öffne den Helfer mit Python ab 3.11. Wähle melonDS 1.1, dein übliches Spiel, eine unveränderte Kopie derselben Edition und Region und deine aktuelle .sav-Datei. Nutze künftig den neuen Ordner.",
-+    "tuck_steps": "平时游玩 startet dein übliches Spiel. 申请入睡 setzt die Wartezeit nach einem Konsolen- oder Uhrenwechsel zurück und startet das Original. 唤醒并领取 ist zum Aufwecken. Alle drei verwenden denselben Spielstand.",
-+    "tuck_card": "Exportiere bei einem Spielmodul den 512 KiB großen Spielstand und spiele die erstellte Kopie zurück. Das Spiel prüft den Timer vor dem Hochladen. Auch andere Ereignisse mit diesem Timer werden freigegeben."
++    "tuck_steps": "平时游玩 startet dein übliches Spiel. 申请入睡 setzt die Wartezeit nach einem Konsolen- oder Uhrenwechsel zurück und startet das Original. 唤醒并领取 ist zum Aufwecken. Alle drei verwenden denselben Spielstand. Der Helfer prüft auch das Datum in melonDS, damit du am selben Tag erneut ein Pokémon schlafen legen kannst.",
++    "tuck_card": "Exportiere bei einem Spielmodul den 512 KiB großen Spielstand und spiele die erstellte Kopie zurück. Das Spiel prüft den Timer vor dem Hochladen. Auch andere Ereignisse mit diesem Timer werden freigegeben. Gib bei einem Spielmodul das Datum ein, das auf dem DS angezeigt wird."
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7347,11 +7347,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "melonDS en este PC",
 +    "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
 +    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo.",
-+    "tuck_title": "Quitar la espera tras cambiar el reloj",
++    "tuck_title": "Dormir a otro Pokémon el mismo día",
 +    "tuck_download": "Descargar el asistente de Windows en chino",
 +    "tuck_setup": "Guarda en el juego y cierra melonDS. Abre el asistente con Python 3.11 o posterior. Elige melonDS 1.1, tu juego habitual, una copia sin modificar de la misma edición y región y tu último archivo .sav. Para las próximas sesiones, usa la carpeta nueva.",
-+    "tuck_steps": "平时游玩 abre el juego habitual. 申请入睡 pone a cero la espera por cambio de consola o de reloj y abre el juego original. 唤醒并领取 sirve para despertar al Pokémon. Las tres opciones comparten la partida.",
-+    "tuck_card": "Para un cartucho, exporta la partida de 512 KiB y restaura la copia creada. El juego comprueba el contador antes de enviar los datos. También se liberan las actividades que usan ese contador."
++    "tuck_steps": "平时游玩 abre el juego habitual. 申请入睡 pone a cero la espera por cambio de consola o de reloj y abre el juego original. 唤醒并领取 sirve para despertar al Pokémon. Las tres opciones comparten la partida. El asistente también comprueba la fecha de melonDS para que puedas dormir a otro Pokémon ese mismo día.",
++    "tuck_card": "Para un cartucho, exporta la partida de 512 KiB y restaura la copia creada. El juego comprueba el contador antes de enviar los datos. También se liberan las actividades que usan ese contador. Si usas un cartucho, introduce la fecha que muestra tu DS."
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7397,11 +7397,11 @@ index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00
 +    "emulator": "이 PC의 melonDS",
 +    "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
 +    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요.",
-+    "tuck_title": "시계 변경 후 생긴 대기 시간 해제",
++    "tuck_title": "같은 날 다시 재우기",
 +    "tuck_download": "중국어 Windows 도우미 다운로드",
 +    "tuck_setup": "게임에서 저장하고 melonDS를 종료하세요. Python 3.11 이상으로 도우미를 열고 melonDS 1.1, 평소 사용하는 게임, 같은 지역과 버전의 원본 게임, 최신 .sav 파일을 선택하세요. 다음부터는 새 폴더의 도우미를 여세요.",
-+    "tuck_steps": "평소에는 平时游玩을 선택하세요. 申请入睡는 본체나 시계 변경으로 인한 대기 시간을 해제하고 원본 게임을 실행합니다. 깨울 때는 唤醒并领取를 선택하세요. 세 메뉴는 저장 파일 하나를 공유합니다.",
-+    "tuck_card": "실물 카트리지는 512 KiB 저장 파일을 추출하고 도우미로 만든 복사본을 복원하세요. 게임은 업로드 전에 대기 시간을 확인합니다. 같은 타이머를 쓰는 다른 활동도 함께 해제됩니다."
++    "tuck_steps": "평소에는 平时游玩을 선택하세요. 申请入睡는 본체나 시계 변경으로 인한 대기 시간을 해제하고 원본 게임을 실행합니다. 깨울 때는 唤醒并领取를 선택하세요. 세 메뉴는 저장 파일 하나를 공유합니다. 도우미는 melonDS의 날짜도 확인해 같은 날 포켓몬을 다시 재울 수 있게 합니다.",
++    "tuck_card": "실물 카트리지는 512 KiB 저장 파일을 추출하고 도우미로 만든 복사본을 복원하세요. 게임은 업로드 전에 대기 시간을 확인합니다. 같은 타이머를 쓰는 다른 활동도 함께 해제됩니다. 실물 카트리지는 DS에 표시되는 날짜를 입력하세요."
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -16887,13 +16887,14 @@ index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7
 +}
 diff --git a/static/melonds-tuck-in.py b/static/melonds-tuck-in.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a47db3769
+index 0000000000000000000000000000000000000000..136564cba3f4979aefdfa86b3ec75ea26e1bf8cf
 --- /dev/null
 +++ b/static/melonds-tuck-in.py
-@@ -0,0 +1,297 @@
+@@ -0,0 +1,354 @@
 +"""Local Windows melonDS launcher for Gen V saves. Only the player chooses files."""
 +import binascii
 +import csv
++from datetime import date, datetime, timedelta
 +import json
 +import os
 +from pathlib import Path
@@ -16903,6 +16904,7 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +import subprocess
 +import sys
 +import tempfile
++import time
 +from threading import Thread
 +import tomllib
 +import uuid
@@ -16913,8 +16915,25 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +CONFIG = "游玩配置.json"
 +
 +
-+def checked_save(raw):
-+    """Validate every populated trainer, clock block and checksum table before editing."""
++def available_sync_date(packed, today):
++    """Game Sync compares day-of-year, including for its initial 0xDA010100 date."""
++    weekday, day, month, year = packed
++    if packed == b"\x00\x01\x01\xda":
++        previous = date(2001, 1, 1)
++    else:
++        if year > 99 or weekday > 6:
++            raise ValueError("存档中的游戏同步日期无法识别。")
++        previous = date(2000 + year, month, day)
++    if previous.timetuple().tm_yday != today.timetuple().tm_yday:
++        return packed
++    yesterday = today - timedelta(days=1) if today != date(2000, 1, 1) else date(2099, 12, 31)
++    return bytes((yesterday.isoweekday() % 7, yesterday.day, yesterday.month, yesterday.year - 2000))
++
++
++def checked_save(raw, today=None):
++    """Validate each populated slot before preparing any bytes for writing."""
++    if today is not None and not 2000 <= today.year <= 2099:
++        raise ValueError("请使用掌机支持的日期（2000 至 2099 年）。")
 +    if len(raw) != 0x80000:
 +        raise ValueError("请选择游戏内保存的 512 KiB 原始 .sav 文件。")
 +    game = raw[0x1941F]
@@ -16939,17 +16958,29 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +        if (updated[base+0x1941F] != game
 +                or crc(table, table_len) != word(table_sum)
 +                or not crc(0x19400, trainer_len) == word(0x19400+trainer_len+2) == word(table+54)
++                or not crc(0x1D300, 0x1AC) == word(0x1D4AE) == word(table+70)
 +                or not crc(0x1D900, 0x5C) == word(0x1D95E) == word(table+74)):
 +            raise ValueError("存档数据校验失败，请重新导出完整的游戏内存档。")
 +        penalty = struct.unpack_from("<I", updated, base+0x1D944)[0]
 +        if penalty > 1440:
 +            raise ValueError("存档中的等待值超出已知范围。")
 +        waits.append(penalty)
++        # Never change a slot's in-progress tuck-in, including its clock data.
++        if updated[base+0x1D4A3]:
++            continue
++        sync_date = raw[base+0x1D300:base+0x1D304]
++        next_date = available_sync_date(sync_date, today) if today is not None else sync_date
++        if next_date != sync_date:
++            updated[base+0x1D300:base+0x1D304] = next_date
++            checksum = crc(0x1D300, 0x1AC)
++            set_word(0x1D4AE, checksum)
++            set_word(table+70, checksum)
 +        if penalty:
 +            struct.pack_into("<I", updated, base+0x1D944, 0)
 +            checksum = crc(0x1D900, 0x5C)
 +            set_word(0x1D95E, checksum)
 +            set_word(table+74, checksum)
++        if penalty or next_date != sync_date:
 +            set_word(table_sum, crc(table, table_len))
 +    return bytes(updated), waits
 +
@@ -16977,7 +17008,7 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +        return f.read(4)
 +
 +
-+def save_path(emulator, rom):
++def instance_settings(emulator):
 +    portable = emulator.parent / "portable"
 +    config = (portable if portable.is_dir() else emulator.parent) / "melonDS.toml"
 +    if not portable.is_dir() and not config.is_file() and os.environ.get("LOCALAPPDATA"):
@@ -16986,7 +17017,11 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +    if not config.is_file():
 +        raise ValueError("请先打开 melonDS 1.1，配置网络，正常退出后再选择该程序。")
 +    with config.open("rb") as f:
-+        folder = tomllib.load(f).get("Instance0", {}).get("SaveFilePath", "")
++        return tomllib.load(f).get("Instance0", {})
++
++
++def save_path(emulator, rom):
++    folder = instance_settings(emulator).get("SaveFilePath", "")
 +    dest = (emulator.parent / folder).resolve() if folder else rom.parent
 +    return dest / rom.with_suffix(".sav").name
 +
@@ -17051,10 +17086,10 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
 +
 +
-+def clear_for_tuck(slot, backup):
++def clear_for_tuck(slot, backup, today=None):
 +    raw = slot.read_bytes()
-+    cleared, waits = checked_save(raw)
-+    if any(waits):
++    cleared, waits = checked_save(raw, today or date.today())
++    if raw != cleared:
 +        atomic_write(backup, raw)
 +        atomic_write(slot, cleared)
 +    return waits
@@ -17079,18 +17114,25 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +                shutil.copyfile(source, link)
 +            os.replace(link, rom)
 +        if mode == "sleep":
-+            clear_for_tuck(slot, work / "上次清除等待前.sav")
++            offset = instance_settings(emu).get("RTC", {}).get("Offset", 0)
++            game_date = datetime.fromtimestamp(time.time() + offset).date()
++            clear_for_tuck(slot, work / "上次清除等待前.sav", game_date)
 +        subprocess.run([str(emu), str(rom)], cwd=emu.parent, check=True)
 +
 +
 +def save_copy(root):
-+    from tkinter import filedialog, messagebox
++    from tkinter import filedialog, messagebox, simpledialog
 +    src = filedialog.askopenfilename(parent=root, title="选择自己的掌机存档备份", filetypes=[("原始存档", "*.sav")])
 +    if not src:
 +        return
-+    data, waits = checked_save(Path(src).read_bytes())
-+    if not any(waits):
-+        messagebox.showinfo("存档检查", "这份存档的换机／改时钟等待已经是零。", parent=root)
++    target = simpledialog.askstring("掌机日期", "请输入准备让宝可梦入睡当天的掌机日期（年-月-日）",
++                                    initialvalue=date.today().isoformat(), parent=root)
++    if target is None:
++        return
++    original = Path(src).read_bytes()
++    data, _ = checked_save(original, date.fromisoformat(target.strip()))
++    if data == original:
++        messagebox.showinfo("存档检查", "所选日期没有需要解除的入睡等待。已入睡的宝可梦可照常唤醒。", parent=root)
 +        return
 +    folder = filedialog.askdirectory(parent=root, title="选择新副本的保存目录")
 +    if folder:
@@ -17162,6 +17204,20 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +            messagebox.showinfo("共用进度已建立", "以后请从这个文件夹双击 DreamWorld.cmd\n"+str(work), parent=root)
 +            draw()
 +
++    def use_existing():
++        nonlocal work
++        selected = filedialog.askdirectory(parent=root, title="选择已有 DreamWorld.cmd 的游玩文件夹")
++        if not selected:
++            return
++        path = Path(selected)
++        cfg = json.loads((path / CONFIG).read_text(encoding="utf-8"))
++        launcher = path / "中文游玩助手.pyw"
++        if not launcher.is_file() or not (path / "DreamWorld.cmd").is_file() or not Path(cfg["save"]).is_file():
++            raise ValueError("请选择之前设置过的游玩文件夹。")
++        atomic_write(launcher, Path(__file__).read_bytes())
++        work = path
++        draw()
++
 +    def draw():
 +        for widget in box.winfo_children():
 +            widget.destroy()
@@ -17177,9 +17233,10 @@ index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a
 +        else:
 +            note("每位玩家选择自己的游戏和存档。首次设置会创建一份独立的游玩进度。")
 +            button("设置我的 melonDS 和存档", setup)
++            button("更新已有游玩助手", use_existing)
 +        note("下屏 Wi-Fi → ゲームシンク（游戏同步）。はい＝是，いいえ＝否。\n"
 +             "レポート＝保存。ねかしつける／ねむらせる＝让宝可梦入睡。おこす＝唤醒。")
-+        note("每次点「申请入睡」都会清除这份进度里的换机／改时钟等待，其他受同一计时器限制的活动也会解锁。"
++        note("「申请入睡」会按游戏日期解除当天再次入睡的限制，也会清除换机／改时钟等待。其他受同一计时器限制的活动也会解锁。"
 +             "实体卡带可导出备份，清除后恢复副本。")
 +        button("为掌机存档生成清除等待的副本", lambda: save_copy(root))
 +    draw()
@@ -19200,13 +19257,14 @@ index 0000000000000000000000000000000000000000..631eded028853bcb5744e5ae51944c00
 +    assert rows[labels["chest"]] == [("#9000", "×2")]
 diff --git a/tests/test_melonds_tuck_in.py b/tests/test_melonds_tuck_in.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d113524849119
+index 0000000000000000000000000000000000000000..88387e29d96375e51e21a6ce9d4e108ac1d0ede4
 --- /dev/null
 +++ b/tests/test_melonds_tuck_in.py
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,158 @@
 +"""Exercise the local launcher on synthetic Gen V saves, without starting melonDS."""
 +from binascii import crc_hqx
 +from contextlib import nullcontext
++from datetime import date, datetime
 +import importlib.util
 +import json
 +from pathlib import Path
@@ -19221,7 +19279,7 @@ index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d1135
 +spec.loader.exec_module(helper)
 +
 +
-+def save_fixture(game, waits):
++def save_fixture(game, waits, dates=None, asleep=()):
 +    sequel = game in (22, 23)
 +    table, stride, table_crc = (0x25F00, 0x26000, 0x25FA2) if sequel else (0x23F00, 0x24000, 0x23F9A)
 +    table_length = 148 if sequel else 140
@@ -19231,8 +19289,12 @@ index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d1135
 +        base = index * stride
 +        raw[base + 0x1941F] = game
 +        raw[base + 0x18E00] = 4 + index
++        raw[base+0x1D300:base+0x1D304] = dates[index] if dates else bytes.fromhex("00 01 01 DA")
++        raw[base+0x1D304:base+0x1D308] = b"last"
++        raw[base+0x1D4A3] = int(index in asleep)
++        raw[base+0x1D4A6] = 0xFE
 +        struct.pack_into("<I", raw, base + 0x1D944, minutes)
-+        for pos, size, mirror in ((0x19400, trainer_length, 54), (0x1D900, 92, 74)):
++        for pos, size, mirror in ((0x19400, trainer_length, 54), (0x1D300, 0x1AC, 70), (0x1D900, 92, 74)):
 +            check = crc_hqx(raw[base+pos:base+pos+size], 0xffff)
 +            for offset in (pos + size + 2, table + mirror):
 +                struct.pack_into("<H", raw, base + offset, check)
@@ -19252,7 +19314,7 @@ index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d1135
 +    assert helper.checked_save(prepared) == (prepared, [0] * len(waits))
 +
 +
-+@pytest.mark.parametrize("offset", [0x19400, 0x1D944, 0x23F00, 0x24000+0x1D95E])
++@pytest.mark.parametrize("offset", [0x19400, 0x1D944, 0x23F00, 0x24000+0x1D95E, 0x1D303, 0x24000+0x1D4AE])
 +def test_corruption_is_rejected(offset, tmp_path):
 +    bad = bytearray(save_fixture(20, [73, 11]))
 +    bad[offset] ^= 64
@@ -19263,7 +19325,27 @@ index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d1135
 +    assert slot.read_bytes() == bad and not undo.exists()
 +
 +
++@pytest.mark.parametrize("game", [20, 21, 22, 23])
++@pytest.mark.parametrize("today,previous,expected", [
++    (date(2026, 11, 21), bytes([6, 21, 11, 26]), bytes([5, 20, 11, 26])),
++    (date(2024, 3, 1), bytes([6, 2, 3, 19]), bytes([4, 29, 2, 24])),
++    (date(2000, 1, 1), bytes.fromhex("00 01 01 DA"), bytes([4, 31, 12, 99])),
++    (date(2026, 11, 21), bytes([5, 20, 11, 26]), bytes([5, 20, 11, 26])),
++])
++def test_day_check_and_sleeping_rollback_slot(game, today, previous, expected, tmp_path):
++    original = save_fixture(game, [0, 73], [previous, previous], asleep=[1])
++    prepared = save_fixture(game, [0, 73], [expected, previous], asleep=[1])
++    assert helper.checked_save(original, today)[0] == prepared
++    slot, backup = tmp_path / "game.sav", tmp_path / "backup.sav"
++    slot.write_bytes(original)
++    helper.clear_for_tuck(slot, backup, today)
++    helper.clear_for_tuck(slot, backup, today)
++    assert slot.read_bytes() == prepared
++    assert backup.read_bytes() == original if prepared != original else not backup.exists()
++
++
 +def test_two_players_each_keep_one_save_across_languages(tmp_path, monkeypatch):
++    monkeypatch.setattr(helper.time, "time", lambda: datetime(2026, 6, 12, 12).timestamp())
 +    emulator = tmp_path / "melonDS.exe"
 +    emulator.touch()
 +    (tmp_path / "melonDS.toml").write_text('[Instance0]\nSaveFilePath = "saves"\n')
@@ -19298,6 +19380,24 @@ index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d1135
 +    helper.launch(profile, "sleep")
 +    assert before.read_bytes() == advanced
 +    assert other_slot.read_bytes() == raw == original.read_bytes()
++
++
++def test_sleep_uses_emulated_date_on_other_side_of_midnight(tmp_path, monkeypatch):
++    emulator = tmp_path / "melonDS.exe"
++    emulator.touch()
++    (tmp_path / "melonDS.toml").write_text('[Instance0.RTC]\nOffset = 7200\n')
++    rom, save = tmp_path / "White.nds", tmp_path / "White.sav"
++    rom.write_bytes(bytes(12) + b"IRAJ")
++    original = save_fixture(20, [0], [bytes([6, 21, 11, 26])])
++    save.write_bytes(original)
++    profile = helper.prepare(tmp_path, emulator, rom, rom, save)
++    slot = Path(json.loads((profile / helper.CONFIG).read_text("utf8"))["save"])
++    monkeypatch.setattr(helper, "first_emulator", nullcontext)
++    monkeypatch.setattr(helper.time, "time", lambda: datetime(2026, 11, 20, 23).timestamp())
++    monkeypatch.setattr(helper.subprocess, "run", lambda *args, **kwargs: None)
++    helper.launch(profile, "sleep")
++    assert slot.read_bytes() == save_fixture(20, [0], [bytes([5, 20, 11, 26])])
++    assert save.read_bytes() == original
 +
 +
 +def test_wrong_size_wait_or_rom_is_rejected(tmp_path):
