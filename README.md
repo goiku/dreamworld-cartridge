@@ -32,6 +32,8 @@ In **Promotions → Japanese catalog → Pokémon World Tournament**, download a
 
 ## Receive an event distribution
 
+Under **Mystery Gift**, choose **Queue all unclaimed cards** to append every confirmed unclaimed card for this cartridge across all pages. The button shows how many cards can be added. The first catalogue entry is selected for mutually exclusive versions. Queue a particular version first if you have a preference. Each new DS connection offers the next card in the queue.
+
 Open **Event distributions** from Dream World and select your linked cartridge. After updating, use Game Sync once with that game. The page lists events for its version and language. [Open the English event page on the server PC](http://127.0.0.1:8080/campaign/)
 
 - **Dream World promotions.** Select **Send to my save**, finish your visit and prepare to wake up. Wake your Pokémon with Game Sync, then catch your partner in Entree Forest. The page records delivery when the game acknowledges the download. Its history covers this server’s promotions.

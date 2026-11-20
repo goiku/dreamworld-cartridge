@@ -77,6 +77,83 @@ def test_album_evidence_and_checksum():
     assert gifts.cartridge_album(cartridge(11, 23, 1)) is None
 
 
+def test_bulk_wonder_cards_append_across_pages_and_retry(clients, monkeypatch):
+    web, _ = clients
+    code = gsid_to_gscd(78)
+    PlayerManager().register_player(code, 21, 1)
+    accounts.link_gscd("BulkTrainer", code)
+    with web.session_transaction() as session:
+        session.update(username="BulkTrainer", gscd=code)
+    cards = [gifts.Gift(f"w-{i}", f"card-{i}", f"Gift {i}", 32, "JPN", number=i) for i in range(1, 31)]
+    extra = [gifts.Gift("alt", "card-3", "Third alternative", 32, "JPN", number=3),
+             gifts.Gift("unknown", "unknown", "Same-number receipt", 32, "JPN", number=1, independent=True),
+             gifts.Gift("other", "card-31", "Wrong edition", 128, "JPN", number=31)]
+    monkeypatch.setattr(gifts, "catalog", lambda: {g.key:g for g in cards + extra})
+    monkeypatch.setattr(gifts, "variant_counts", gifts.variant_counts.__wrapped__)
+    monkeypatch.setattr(gifts.japanese_card_archive, "ensure_installed", lambda: None)
+    calls = []
+
+    def payload(gift, lang):
+        calls.append(gift.key)
+        if gift.key == "w-4" and calls.count("w-4") == 1:
+            raise OSError("temporarily unavailable")
+        return gift.key.encode()
+
+    monkeypatch.setattr(gifts, "card_binary", payload)
+    with db.transaction() as conn:
+        gifts.schema(conn)
+        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,1,?)", (code, "bulk-wfc", '{"1":"collected"}'))
+        conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)", (code,"card-2","w-2",b"existing"))
+        conn.execute("INSERT INTO distribution_next VALUES(?,?)", (code, "w-2"))
+    path = "/campaign/claim-unclaimed"
+    page = web.get("/campaign/?kind=wonder&q=Gift+30").text
+    assert path in page and path not in web.get("/campaign/?kind=dream").text
+    with web.session_transaction() as session:
+        form = dict(csrf=session["gift_csrf"], card=code)
+    assert web.post(path, data={**form, "card":"another-card"}).status_code == 403
+    assert web.post(path, data={**form, "csrf":""}).status_code == 403
+    for added, failed in [(27, 1), (1, 0), (0, 0)]:
+        out = web.post(path, data={**form, "q":"Gift 30", "page":2})
+        assert out.status_code == 303 and "filter=waiting" in out.location
+        with web.session_transaction() as session:
+            assert session["gift_bulk_totals"] == dict(added=added, failed=failed)
+        assert web.get(out.location).status_code == 200
+    with db.transaction() as conn:
+        ident, orders, album = gifts.state(conn, code)
+        assert {o["gift"] for o in orders.values()} == {g.key for g in cards[1:]}
+        assert {o["status"] for o in orders.values()} == {"queued"}
+        assert album == {"1":"collected"}
+        assert conn.execute("SELECT gift FROM distribution_next WHERE card=?", (code,)).fetchone()[0] == "w-2"
+        assert conn.execute("SELECT payload FROM distribution_orders WHERE card=? AND gift='w-2'", (code,)).fetchone()[0] == b"existing"
+    assert set(calls) == {g.key for g in cards[2:]} and len(calls) == 29
+
+
+def test_bulk_respects_identity_and_new_receipts_while_preparing(clients, monkeypatch):
+    code = gsid_to_gscd(79)
+    gift = gifts.Gift("qa-card", "card-20", "Test card", 32, "ENG", number=20)
+    monkeypatch.setattr(gifts, "catalog", lambda: {gift.key:gift})
+    with db.transaction() as conn:
+        gifts.schema(conn)
+        conn.execute("INSERT INTO distribution_cartridges VALUES(?,?,21,2,NULL)", (code,"shared-wfc"))
+    assert gifts.queue_unclaimed_cards(code, 21, 2) == ("unknown_help", 0, 0)
+    with db.transaction() as conn:
+        conn.execute("UPDATE distribution_cartridges SET album='{}' WHERE card=?", (code,))
+        conn.execute("INSERT INTO distribution_cartridges VALUES('other','shared-wfc',21,2,'{}')")
+    assert gifts.queue_unclaimed_cards(code, 21, 2) == ("ambiguous", 0, 0)
+    with db.transaction() as conn:
+        conn.execute("DELETE FROM distribution_cartridges WHERE card='other'")
+
+    def receive_during_fetch(gift, lang):
+        with db.transaction() as conn:
+            gifts.merge_album(conn, code, {"20":"at_center"})
+        return b"test"
+
+    monkeypatch.setattr(gifts, "card_binary", receive_during_fetch)
+    assert gifts.queue_unclaimed_cards(code, 21, 2) == ("bulk_result", 0, 0)
+    with db.transaction() as conn:
+        assert gifts.state(conn, code)[1:] == ({}, {"20":"at_center"})
+
+
 @pytest.mark.parametrize("rom", [20, 21, 22, 23])
 def test_wake_capacity_and_version(clients, rom):
     code = gsid_to_gscd(55)

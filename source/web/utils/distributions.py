@@ -5,8 +5,10 @@ import json
 import struct
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cache
+from http.client import HTTPException
 from urllib.parse import quote
 from urllib.request import urlopen
 
@@ -258,6 +260,74 @@ def pack_card(raw, gift, lang):
     return bytes(data)
 
 
+def _delivery_target_error(conn, identity, rom, lang):
+    if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
+        return "sync"
+    if identity["wfc"] is not None and conn.execute(
+        "SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
+        (identity["wfc"], rom, lang),
+    ).fetchone()[0] != 1:
+        return "ambiguous"
+    return None
+
+
+def unclaimed_cards(rom, lang, orders, album):
+    choices = {}
+    if album is not None:
+        for gift in catalog().values():
+            if gift.number and compatible(gift, rom, lang) and status(gift, orders, album) == "available":
+                # The first catalogue entry is the default for a one-per-save family.
+                choices.setdefault(gift.group, gift)
+    return choices
+
+
+def queue_unclaimed_cards(card, rom, lang):
+    """Append verified cards behind the existing queue. A retry only fills remaining gaps."""
+    with db.transaction() as conn:
+        identity, orders, album = state(conn, card)
+        if error := _delivery_target_error(conn, identity, rom, lang):
+            return error, 0, 0
+        if album is None:
+            return "unknown_help", 0, 0
+        candidates = unclaimed_cards(rom, lang, orders, album)
+    if not candidates:
+        return "bulk_result", 0, 0
+
+    # Prepare bytes without holding the save lock, including on first-time installations.
+    if lang == 1:
+        try:
+            japanese_card_archive.ensure_installed()
+        except (OSError, ValueError, HTTPException):
+            return "bulk_result", 0, len(candidates)
+
+    def prepare(gift):
+        try:
+            return card_binary(gift, lang)
+        except (OSError, ValueError, HTTPException):
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        payloads = dict(zip(candidates, pool.map(prepare, candidates.values())))
+
+    with db.transaction() as conn:
+        identity, orders, album = state(conn, card)
+        if error := _delivery_target_error(conn, identity, rom, lang):
+            return error, 0, 0
+        if album is None:
+            return "unknown_help", 0, 0
+        added = failed = 0
+        for family, gift in candidates.items():
+            if status(gift, orders, album) != "available":
+                continue
+            if payloads[family] is None:
+                failed += 1
+                continue
+            conn.execute("INSERT INTO distribution_orders VALUES(?,?,?,'queued',?)",
+                         (card, family, gift.key, payloads[family]))
+            added += 1
+    return "bulk_result", added, failed
+
+
 def queue(card, gift, rom, lang, gender=None, *, chest=False):
     if gender is not None and (gift.event != "cafe" or gender not in (0, 1)):
         return "incompatible"
@@ -268,11 +338,8 @@ def queue(card, gift, rom, lang, gender=None, *, chest=False):
         if not compatible(gift, rom, lang):
             return "incompatible"
         if gift.number:
-            if not identity or (identity["rom"], identity["lang"]) != (rom, lang):
-                return "sync"
-            if identity["wfc"] is not None and conn.execute("SELECT count(*) FROM distribution_cartridges WHERE wfc=? AND rom=? AND lang=?",
-                            (identity["wfc"], rom, lang)).fetchone()[0] != 1:
-                return "ambiguous"
+            if error := _delivery_target_error(conn, identity, rom, lang):
+                return error
         current = status(gift, orders, album)
         if current != "available" and not (gift.number and current == "unknown"):
             return current

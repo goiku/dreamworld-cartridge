@@ -3,6 +3,7 @@ import hashlib
 import os
 import tempfile
 from functools import lru_cache
+from urllib.request import urlopen
 
 from config import SAVE_DIR
 from utils.data import load_json_data
@@ -65,4 +66,13 @@ def lookup(digest):
         return _read(CACHE, CACHE.stat().st_mtime_ns).get(digest)
     except FileNotFoundError:
         return None
+
+
+def ensure_installed():
+    """For a bulk claim, obtain the small verified pack once on a fresh server."""
+    try:
+        _read(CACHE, CACHE.stat().st_mtime_ns)
+    except (FileNotFoundError, ValueError):
+        with urlopen(PACK_URL, timeout=8) as source:
+            install(source.read(PACK_SIZE + 1))
 

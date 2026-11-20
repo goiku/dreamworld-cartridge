@@ -25,8 +25,13 @@
 <button type="submit">{{ t.search }}</button></form>
 {% if kind=='wonder' and ident and home_card %}<details><summary>{{ t.scan }}</summary><p>{{ t.scan_help }}</p>
 <form method="post" enctype="multipart/form-data" action="{{ url_for('campaigns.inspect_album') }}">{{ fields() }}<input type="file" name="save" accept=".sav" required aria-label="{{ t.scan }}"><button>{{ t.scan }}</button></form></details>{% endif %}
-{% if notice %}<p role="status">{{ t[notice] }}</p>{% endif %}
+{% if notice == 'bulk_result' and bulk_totals %}<p role="status">{{ t.bulk_result.format(added=bulk_totals.added) }}
+{% if bulk_totals.failed %}{{ t.bulk_retry.format(failed=bulk_totals.failed) }}{% endif %}</p>
+{% elif notice %}<p role="status">{{ t[notice] }}</p>{% endif %}
 {% if card %}<nav aria-label="{{ t.title }}">{% for k in ('all','unclaimed','waiting','complete','unknown_filter') if k!='unknown_filter' or kind=='wonder' %}<a {% if mode==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=kind,filter=k,q=search,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>{% endif %}
+{% if bulk_count is not none %}<form method="post" action="{{ url_for('campaigns.claim_unclaimed') }}">{{ fields() }}
+<button type="submit" aria-describedby="bulk-help" {% if bulk_count == 0 %}disabled{% endif %}>{{ t.bulk_claim.format(count=bulk_count) }}</button>
+<p id="bulk-help">{{ t.bulk_help }}</p></form>{% endif %}
 <p>{{ t.results.format(count=count) }}</p>
 <ul class="gift-list">{% for row in rows %}<li id="{{ row.key }}"><div><strong>{{ row.name }}</strong>
 {% if row.details %}<small>{{ row.details|join(' · ') }}</small>{% endif %}

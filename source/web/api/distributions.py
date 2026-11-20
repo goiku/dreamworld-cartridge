@@ -137,13 +137,17 @@ def _listing(japanese):
                              claim=eligible and status in ("available", "unknown") and (not gift.number or ident is not None)))
     pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(1, min(pages, request.args.get("page", 1, type=int)))
+    bulk_count = None
+    if kind == "wonder" and ident and (not japanese or lang == 1 and version in (None, rom)):
+        bulk_count = len(gifts.unclaimed_cards(rom, lang, orders, album))
     response = render_template("distributions.html", t=labels(), lang=LANG, kind=kind, mode=mode, card=card,
                                japanese=japanese, endpoint=request.endpoint, search=search, version=version,
                                versions=versions, count=len(rows),
                                ident=ident, home_card=not session.get("visit_guest"), album_known=album is not None, rom=text.lookup_str("game", rom),
                                rows=rows[(page-1)*PAGE_SIZE:page*PAGE_SIZE], page=page, pages=pages,
                                csrf=session.setdefault("gift_csrf", secrets.token_hex(24)),
-                               notice=session.pop("gift_notice", None))
+                               notice=session.pop("gift_notice", None), bulk_count=bulk_count,
+                               bulk_totals=session.pop("gift_bulk_totals", None))
     return response, 200, {"Cache-Control": "private, no-store"}
 
 
@@ -162,6 +166,18 @@ def claim(key):
     except (OSError, ValueError):
         result = "unavailable"
     return _return("wonder" if gift.number else "dream", result, gift.key)
+
+
+@campaigns.post("/campaign/claim-unclaimed")
+def claim_unclaimed():
+    card = _campaign_card()
+    _post(card)
+    member = save_data.read_member(card)
+    result, added, failed = gifts.queue_unclaimed_cards(card, member.get("rom_id"), member.get("langcode"))
+    session["gift_notice"] = result
+    if result == "bulk_result":
+        session["gift_bulk_totals"] = {"added": added, "failed": failed}
+    return redirect(url_for("campaigns.index", kind="wonder", filter="waiting"), code=303)
 
 
 @campaigns.post("/campaign/album")
