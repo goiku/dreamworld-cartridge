@@ -213,7 +213,8 @@ def _advance_item_counters(conn: sqlite3.Connection, save: dict) -> None:
         raise VisitInvalid("Invalid game objects.") from exc
 
 
-def _new_member_id(conn: sqlite3.Connection) -> int:
+def reserve_member_id(conn: sqlite3.Connection) -> int:
+    """Advance the database-wide member_id sequence beyond any player in an older import."""
     highest = conn.execute("""SELECT max(max(coalesce(json_extract(player_data,'$.member.member_savedata_id'),0),
         coalesce(json_extract(player_data,'$.member.member_id'),0))) FROM player_saves""").fetchone()[0] or 0
     return conn.execute("""INSERT INTO id_counters(name,last_id) VALUES ('member_id',?)
@@ -227,7 +228,7 @@ def _write(conn: sqlite3.Connection, snapshot: dict, current: dict | None) -> No
     profile = save["player_data"]
     member = profile["member"]
     if current is None:
-        member["member_id"] = member["member_savedata_id"] = _new_member_id(conn)
+        member["member_id"] = member["member_savedata_id"] = reserve_member_id(conn)
         profile["token"] = None
     else:
         local = current["player_data"]

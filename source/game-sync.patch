@@ -388,7 +388,7 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +        self._remember(conn, pid, action)
 +        return OK
 diff --git a/entralinked/model/pkmn/pkmn_info.py b/entralinked/model/pkmn/pkmn_info.py
-index ccae651e66ab3727a7d5669c2c51e40f68170b28..3e53ed2cc3d2849eb9082e234f2711da9aeaedf4 100644
+index ccae651e66ab3727a7d5669c2c51e40f68170b28..557d4240acdc4a72598f09ecd070b1f980bffe26 100644
 --- a/entralinked/model/pkmn/pkmn_info.py
 +++ b/entralinked/model/pkmn/pkmn_info.py
 @@ -3,6 +3,16 @@ from dataclasses import dataclass
@@ -408,11 +408,12 @@ index ccae651e66ab3727a7d5669c2c51e40f68170b28..3e53ed2cc3d2849eb9082e234f2711da
  
  def calculate_is_shiny(trainer_id: int, trainer_secret_id: int, personality_value: int) -> bool:
      """Return whether a Pokémon is shiny.
-@@ -30,3 +40,4 @@ class PkmnInfo:
+@@ -30,3 +40,5 @@ class PkmnInfo:
      personality: int  # nature, 0-24 - NOT the personality value\
      ball_name: int  # the Poké Ball's item id
      is_shiny: bool = False
 +    movie_dragon: bool | None = None
++    nickname_verified: bool = False  # new uploads read the raw nickname before invalid glyphs are replaced
 diff --git a/entralinked/model/player/player_manager.py b/entralinked/model/player/player_manager.py
 index 87f3597401ad9a71105edd5494572fb3c7e10528..93a26aa9fd92beba8699d8464f064e7f8cab44cb 100644
 --- a/entralinked/model/player/player_manager.py
@@ -460,10 +461,61 @@ index 9a025e7cd2d52fa7760062bdbc88440a42d01a16..0e8ec874894ecbe845e8bd8b75360a44
  
  def starting_shelf() -> dict:
 diff --git a/entralinked/model/save_file.py b/entralinked/model/save_file.py
-index bf9c1febc4fbc334396f7dbd170122cebb778ecc..cd0f88982e59fbb9c7c2bc55aea0ac2b778f6028 100644
+index bf9c1febc4fbc334396f7dbd170122cebb778ecc..ed0269cee2764b8e77d8b33f9bc6fdba8c322d0c 100644
 --- a/entralinked/model/save_file.py
 +++ b/entralinked/model/save_file.py
-@@ -228,6 +228,9 @@ class Trainer(DataReader):
+@@ -11,6 +11,7 @@ from enum import IntEnum
+ from typing import Any
+ 
+ from utils.constants import Rom
++from utils.gen5_names import GENDER_SIGNS, display_nickname
+ 
+ from ..paths import DATA_DIR
+ 
+@@ -66,7 +67,6 @@ def _load_table(name: str) -> Any:
+     return json.loads((DATA_DIR / name).read_text(encoding="UTF-8"))
+ 
+ 
+-# Codepoints the Gen5 fonts can render.
+ VALID_CHARS = frozenset(
+     code for first, last in _load_table("valid_char_ranges.json") for code in range(first, last + 1)
+ )
+@@ -77,8 +77,6 @@ PERSONAL_DATA: dict[int, dict[int, tuple[int, int | None, int]]] = {
+ }
+ 
+ STRING_TERMINATOR = 0xFFFF
+-# Gen5 stores the gender signs as private characters
+-_GENDER_SIGNS = {0x246D: "♂", 0x246E: "♀"}
+ 
+ MAX_LEVEL = 100
+ 
+@@ -168,17 +166,20 @@ class DataReader:
+     def __init__(self, data: bytes) -> None:
+         self._data = data
+ 
+-    def read_str(self, offset: int, length: int) -> str:
++    def read_str(self, offset: int, length: int, *, nickname: bool = False) -> str:
+         """Read a UTF-16 string of at most `length` bytes, up to its terminator.
+ 
+-        Characters the DS can't show come back as "?".
++        Trainer fields substitute '?' for unknown characters. Nicknames fall back as a whole.
+         """
+         codes = struct.unpack_from(f"<{length // 2}H", self._data, offset)
+         if STRING_TERMINATOR in codes:
+             codes = codes[:codes.index(STRING_TERMINATOR)]
+-
+-        text = "".join(_GENDER_SIGNS.get(code) or chr(code) for code in codes)
+-        return "".join(char if ord(char) in VALID_CHARS else "?" for char in text)
++        if nickname and 0 in codes:
++            codes = codes[:codes.index(0)]
++        value = "".join(chr(code) for code in codes)
++        if nickname:
++            return display_nickname(value, verified=True) or ""
++        return "".join(char if ord(char) in VALID_CHARS else "?" for char in value.translate(GENDER_SIGNS))
+ 
+     def read_int(self, offset: int, length: int) -> int:
+         """Read an unsigned integer of `length` bytes."""
+@@ -228,6 +229,9 @@ class Trainer(DataReader):
      def __init__(self, data: bytes) -> None:
          super().__init__(data)
  
@@ -473,7 +525,7 @@ index bf9c1febc4fbc334396f7dbd170122cebb778ecc..cd0f88982e59fbb9c7c2bc55aea0ac2b
          self.name = self.read_str(0x4, 0x10)
          self.country = self.read_int(0x1C, 1)
          self.region = self.read_int(0x1D, 1)
-@@ -248,6 +251,11 @@ class GlobalLink(DataReader):
+@@ -248,6 +252,11 @@ class GlobalLink(DataReader):
      LOBLOLLY_EMPTY = 0x7E  # the id of a slot that was never filled
      SELECTED_LOBLOLLY_OFFSET = 0x1A6  # low 7 bits indicate the chosen slot (0x7F for none)
  
@@ -485,6 +537,15 @@ index bf9c1febc4fbc334396f7dbd170122cebb778ecc..cd0f88982e59fbb9c7c2bc55aea0ac2b
      @property
      def loblolly_decor(self) -> int | None:
          """The id of the Loblolly item the player picked for their room, if they picked one."""
+@@ -282,7 +291,7 @@ class Pokemon(DataReader):
+         self.gender = 1 if self.read_bits(0x40, 1) else 2 if self.read_bits(0x40, 2) else 0
+         self.form = self.read_bits(0x40, 3, 5)
+         self.nature = self.read_int(0x41, 1)
+-        self.nickname = self.read_str(0x48, 20)
++        self.nickname = self.read_str(0x48, 20, nickname=True)
+         self.trainer_name = self.read_str(0x68, 18)
+         self.ball = self.read_int(0x83, 1)
+ 
 diff --git a/entralinked/model/user/user_manager.py b/entralinked/model/user/user_manager.py
 index 17bb301f5c1b6e2b1b1bf796846c18b02e6d368a..7cb0dc7f83bc30128ca335b6056d0390bbdfca38 100644
 --- a/entralinked/model/user/user_manager.py
@@ -1719,7 +1780,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
          self.server_thread.start()
 diff --git a/entralinked/network/http/pgl_handler.py b/entralinked/network/http/pgl_handler.py
-index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6cfae1addc 100644
+index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..8e14c94725e412ed4690c4a72c32b3201f6a0ead 100644
 --- a/entralinked/network/http/pgl_handler.py
 +++ b/entralinked/network/http/pgl_handler.py
 @@ -1,4 +1,5 @@
@@ -1759,7 +1820,14 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
  
  
  def _text_lines(language: str, name: str) -> list[str]:
-@@ -124,12 +128,15 @@ def _pkmn_info(pokemon: Pokemon) -> PkmnInfo:
+@@ -118,18 +122,22 @@ def _pkmn_info(pokemon: Pokemon) -> PkmnInfo:
+         type1=type1,
+         type2=type2,
+         pokemon_nickname=pokemon.nickname,
++        nickname_verified=True,
+         oyaname=pokemon.trainer_name,
+         level=pokemon.level,
+         sex=pokemon.gender,
          personality=pokemon.nature,
          ball_name=pokemon.ball,
          is_shiny=calculate_is_shiny(pokemon.trainer_id, pokemon.trainer_id_secret, pokemon.personality_value),
@@ -1776,7 +1844,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
      data = b"".join(struct.pack("<HHBBBB", encounter.species, encounter.move, encounter.form, encounter.gender,
                                  encounter.animation, 0)
                      for encounter in encounters)
-@@ -138,7 +145,8 @@ def _encounters(encounters: list[DreamEncounter]) -> bytes:
+@@ -138,7 +146,8 @@ def _encounters(encounters: list[DreamEncounter]) -> bytes:
  
  def _items(items: list[DreamItem]) -> bytes:
      """MAX_ITEMS item ids, then MAX_ITEMS quantities."""
@@ -1786,7 +1854,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
      padding = MAX_ITEMS - len(items)
      return (struct.pack(f"<{len(items)}H", *(item.pokeitem_id for item in items)) + bytes(padding * 2)
              + bytes(item.item_cnt for item in items) + bytes(padding))
-@@ -235,7 +243,7 @@ class PglHandler:
+@@ -235,7 +244,7 @@ class PglHandler:
              logger.exception("Malformed PGL request")
              return "", HTTPStatus.BAD_REQUEST
  
@@ -1795,7 +1863,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          session = self.user_manager.get_service_session(pgl_request.token, SERVICE)
  
          if session is None:
-@@ -243,6 +251,7 @@ class PglHandler:
+@@ -243,6 +252,7 @@ class PglHandler:
              return "", HTTPStatus.UNAUTHORIZED
  
          g.pgl_request = pgl_request
@@ -1803,7 +1871,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          return None
  
      def handle_pgl_request(self) -> ResponseReturnValue:
-@@ -257,6 +266,8 @@ class PglHandler:
+@@ -257,6 +267,8 @@ class PglHandler:
  
          status, payload = handler(pgl_request)
          header = struct.pack("<i", status) + bytes(HEADER_SIZE - 4)
@@ -1812,7 +1880,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          return header + payload, HTTPStatus.OK, {"Content-Type": "application/octet-stream"}
  
      # -------------------
-@@ -279,22 +290,40 @@ class PglHandler:
+@@ -279,22 +291,40 @@ class PglHandler:
  
      def handle_download_save_data(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """`savedata.download`: send everything the Pokémon brings back when it wakes up."""
@@ -1868,7 +1936,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          data += struct.pack(
              "<hBBBBBB",
              player.levels_gained,
-@@ -311,7 +340,7 @@ class PglHandler:
+@@ -311,7 +341,7 @@ class PglHandler:
          if b2w2:
              data += _avenue_visitors(player.avenue_visitors)
  
@@ -1877,7 +1945,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
  
      def handle_memory_link(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """Handle `savedata.getbw`.
-@@ -332,21 +361,41 @@ class PglHandler:
+@@ -332,21 +362,41 @@ class PglHandler:
  
      def handle_download_save_data_finish(self, req: PglRequest) -> tuple[PglStatus, bytes]:
          """`savedata.download.finish`: the DS has saved what it downloaded."""
@@ -1931,7 +1999,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          player = self.player_manager.load_player(req.gscd)
  
          if player is None:
-@@ -354,11 +403,16 @@ class PglHandler:
+@@ -354,11 +404,16 @@ class PglHandler:
  
          logger.info("Player %s is uploading save data", player.gscd)
  
@@ -1951,7 +2019,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
              trainer = save.trainer
              pokemon = save.global_link.pokemon
  
-@@ -395,7 +449,11 @@ class PglHandler:
+@@ -395,7 +450,11 @@ class PglHandler:
          player.favorite_medal = favorite_medal
  
          self.player_manager.save_player(player)
@@ -1963,7 +2031,7 @@ index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..9eae45397bf4c9d66ebae0900093ff6c
          return PglStatus.OK, b""
  
      def handle_create_account(self, req: PglRequest) -> tuple[PglStatus, bytes]:
-@@ -431,9 +489,10 @@ class PglHandler:
+@@ -431,9 +490,10 @@ class PglHandler:
          now = save_data.now_jst_str()
          timestamp = int(datetime.now().timestamp())
  

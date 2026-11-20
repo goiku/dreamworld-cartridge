@@ -1,5 +1,5 @@
 diff --git a/api/pgl_top.py b/api/pgl_top.py
-index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..39f2699f371e0c00a00366970c1db4d54751d404 100644
+index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16cc1f7c58 100644
 --- a/api/pgl_top.py
 +++ b/api/pgl_top.py
 @@ -11,6 +11,7 @@ from utils.auth import log_in
@@ -10,17 +10,40 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..39f2699f371e0c00a00366970c1db4d5
  
  DAYS_UNTIL_ITEM_DELETION = 100
  BERRY_DREAM_POINTS       = 20
-@@ -68,7 +69,8 @@ def init(_query: Query) -> dict:
+@@ -51,7 +52,7 @@ def _check_item_deletion(member: Member) -> None:
+ 
+ 
+ @endpoint("pgl.top.init")
+-def init(_query: Query) -> dict:
++def init(_query: Query, *, settle_items: bool = True) -> dict:
+     """Return the logged-in player's data.
+ 
+     The client reads the login state from the following:
+@@ -68,10 +69,11 @@ def init(_query: Query) -> dict:
          session.clear()  # the account is gone, so the session is logged out
          return {}
  
 -    return {**_member_data(account), "username": account["username"]}
 +    display_name = session.get("visit_display_name") if session.get("visit_guest") else None
-+    return {**_member_data(account), "username": display_name or account["username"]}
++    return {**_member_data(account, settle_items=settle_items), "username": display_name or account["username"]}
  
  
- def _member_data(account: Account) -> dict:
-@@ -110,7 +112,10 @@ def login(query: Query) -> dict:
+-def _member_data(account: Account) -> dict:
++def _member_data(account: Account, *, settle_items: bool) -> dict:
+     """The "member" part of pgl.top.init for a logged-in account."""
+     if "gscd" not in session:
+         if not account["registered"]:
+@@ -84,7 +86,8 @@ def _member_data(account: Account) -> dict:
+     if not member:
+         return {"member": {}}
+ 
+-    _check_item_deletion(member)
++    if settle_items:
++        _check_item_deletion(member)
+ 
+     if member.get("pokemon_no") is not None:
+         member["pokemon_name"] = text.lookup_str("pokemon", member["pokemon_no"])
+@@ -110,7 +113,10 @@ def login(query: Query) -> dict:
      """Check a username and password and log the browser session in."""
      username = query.get("username", "")
      password = query.get("password", "")
@@ -33,10 +56,10 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..39f2699f371e0c00a00366970c1db4d5
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be50270d5a9 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..5541b0643f4cdb88993a2e6df89ddd9b2a15d031 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -9,16 +9,19 @@ import logging
+@@ -9,16 +9,22 @@ import logging
  from pathlib import Path
  from urllib.parse import parse_qs, urlsplit
  
@@ -44,6 +67,9 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be5
 +from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
  from werkzeug.wrappers import Response as WerkzeugResponse
  
++from api.island_adventure import island_adventure
++from api.island_peers import island_peers
++from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
@@ -57,7 +83,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be5
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -53,6 +56,12 @@ def _params(data: str) -> Query:
+@@ -53,6 +59,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -70,18 +96,18 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be5
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -80,8 +89,8 @@ def api_post() -> Response:
+@@ -80,8 +92,8 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
 -_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html",
 -                   "/report/", "/customize/", "/campaign/", "/help/"}
 +_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/"}
++                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/", "/islands/"}
  
  
  def _language_page() -> str:
-@@ -107,7 +116,11 @@ def change_language(code: str) -> Response:
+@@ -107,7 +119,11 @@ def change_language(code: str) -> Response:
      language = normalize_language(code)
      if language not in WEB_PORTS:
          return not_found(request.path)
@@ -94,7 +120,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be5
      target = _language_page()
      return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
  
-@@ -126,6 +139,12 @@ def login_available() -> Response:
+@@ -126,6 +142,12 @@ def login_available() -> Response:
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
      """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
@@ -107,12 +133,15 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..e05b19444ca7f12fbc63690d11f74be5
      path = path.split("&")[0]
      full_path = f"/{path}"
  
-@@ -164,6 +183,8 @@ def create_app() -> Flask:
+@@ -164,6 +186,11 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(visit_sync)
++    app.register_blueprint(offline_friends)
++    app.register_blueprint(island_peers)
++    app.register_blueprint(island_adventure)
      app.register_blueprint(site)
  
      @app.teardown_appcontext

@@ -1,0 +1,43 @@
+{% extends "island_base.html" %}
+{% block main %}
+<section class="hero">
+  <div><h1>{{ t.islands }}</h1>{% if card %}<p>{{ t.automatic }}</p>{% else %}<p>{{ t.login }}</p><a class="button" href="/login/pgl.html">{{ t.signin }}</a>{% endif %}</div>
+  <img src="{{ url_for('.picture',item_id=201) }}" alt="" width="180" height="180">
+</section>
+{% if card %}
+{% if notice in ('imported','kept','error','unreachable','paired') %}<p role="status" class="notice">{{ t[notice] }}</p>{% endif %}
+<p id="island-feedback" role="status" class="notice" data-error="{{ t.error }}" hidden></p>
+<section class="island-list" data-revision="{{ revision }}" aria-label="{{ t.friends }}">
+{% for f in friends %}
+  <article class="pal" data-island="{{ f.island_id }}">
+    <img class="mini" src="{{ url_for('.picture',item_id=f.house) }}" loading="lazy" alt="">
+    <div class="pal-body"><h2>{{ f.name }}</h2>
+    <p class="dates">{{ t.updated }} <time data-time="{{ f.updated_at }}">{{ date(f.updated_at) }}</time></p>
+    <form method="post" action="{{ url_for('.enter',island_id=f.island_id) }}" class="actions">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="event_id" value="{{ f.event_id }}">
+      <button type="submit" class="primary">{{ t.visit }}</button>
+      <a href="{{ url_for('.profile',island_id=f.island_id) }}">{{ t.profile }}</a>
+    </form>
+    {% if f.paired %}<details><summary>{{ t.pair }}</summary>
+        <button type="button" data-forget="{{ f.island_id }}">{{ t.unpair }}</button></details>{% endif %}
+    </div>
+  </article>
+{% else %}<p class="empty">{{ t.empty }}</p>{% endfor %}
+</section>
+<section class="tools" id="sharing">
+  <h2>{{ t.pair }}</h2><p>{{ t.disclosure }}</p>
+  <div class="pair-actions"><button type="button" id="invite">{{ t.make }}</button>
+  <form id="join"><label for="pair-code">{{ t.code }}</label><div class="input-action"><input id="pair-code" type="text" required maxlength="240" autocapitalize="off" spellcheck="false" autocomplete="off"><button class="primary">{{ t.join }}</button></div></form></div>
+  <div id="invitations" hidden><p>{{ t.invitehelp }}</p><div id="codes"></div></div>
+  <div class="share"><a class="button" href="{{ url_for('.download') }}" download>{{ t.export }}</a>
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('.upload') }}" id="upload">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="file-button button">{{ t.import }}<input type="file" name="snapshot" required accept=".json,application/json" aria-label="{{ t.import }}"></label>
+        <noscript><button>{{ t.import }}</button></noscript>
+      </form></div>
+</section>
+<section class="tools" id="footprints"><h2>{{ t.feet }}</h2>
+{% if feet %}<ul class="foot-log">{% for foot in feet %}<li><strong>{{ foot.name }}</strong> <time data-time="{{ foot.visited_at }}">{{ date(foot.visited_at) }}</time></li>{% endfor %}</ul>{% else %}<p>{{ t.nofeet }}</p>{% endif %}</section>
+{% if original %}<section class="tools"><h2>{{ t.original }}</h2><ul>{% for f in original %}<li>{{ f.pgl_name }}</li>{% endfor %}</ul><a href="/pdw/">{{ t.home }}</a></section>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,10 @@
+<link rel="stylesheet" href="{{ url_for('island_adventure.static', filename='island-adventure.css') }}">
+<nav id="dw-friend-tools" aria-label="{{ s.friends }}" hidden>
+  <strong data-owner hidden></strong>
+  <a data-roster href="/islands/">{{ s.friends }}</a>
+  <span data-updated hidden>{{ s.updated }} <time></time></span>
+  <a data-adventure hidden>{{ s.adventure }}</a>
+  <a data-profile hidden>{{ s.profile }}</a>
+</nav>
+<script type="application/json" id="dw-friend-data">{{ target | tojson }}</script>
+<script src="{{ url_for('island_adventure.static', filename='island-bridge.js') }}"></script>

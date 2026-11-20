@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.title }} · {{ owner }}</title>
+<link rel="stylesheet" href="{{ url_for('island_adventure.static', filename='island-adventure.css') }}">
+</head>
+<body class="dw-trail">
+<header><a href="/islands/{{ island_id }}/">← {{ owner }} · {{ t.house }}</a></header>
+<main>
+  <img class="trail-island" src="/src/swf/theme/assets/global/parts/dreamland/dreamland1.png" width="90" height="83" alt="">
+  <h1>{{ t.title }}</h1><p class="landscape">{{ theme }}</p>
+  {% macro fields(action) %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tuck" value="{{ tuck }}"><input type="hidden" name="action" value="{{ action }}">{% endmacro %}
+  {% if stage == 'new' %}
+    <p>{{ t.intro }}</p><form method="post">{{ fields('start') }}<button>{{ t.begin }}</button></form>
+  {% elif stage == 'track' %}
+    <p>{{ t.tracks }}</p>
+    <img class="trail-sample" src="/report/assets/images/footprint/{{ '%03d'|format(trail.target) }}.png" alt="{{ t.sample }}">
+    {% if notice %}<p role="status">{{ notice }}</p>{% endif %}
+    <form class="trail-choices" method="post">{{ fields('track') }}
+    {% for print_no in trail.choices %}<button name="track" value="{{ print_no }}" aria-label="{{ t.path }} {{ loop.index }}">
+      <img src="/report/assets/images/footprint/{{ '%03d'|format(print_no) }}.png" alt=""><span>{{ t.path }} {{ loop.index }}</span>
+    </button>{% endfor %}</form>
+  {% elif stage == 'met' %}
+    <h2>{{ species }}</h2><p>{{ t.met }}</p>
+    {% if berries %}<form method="post">{{ fields('wish') }}
+    <label>{{ t.berry }} <select name="berry">{% for berry in berries %}
+    <option value="{{ berry.pokeitem_id }}">{{ berry.pokeitem }} × {{ berry.item_cnt }}</option>{% endfor %}</select></label>
+    <button>{{ t.wish }}</button></form>
+    {% else %}<p>{{ t.no_berry }}</p><a href="/pdw/">{{ t.game }}</a>{% endif %}
+  {% elif stage == 'wished' %}
+    <h2>{{ species }}</h2><p>{{ t.queued }}</p>
+    <form method="post">{{ fields('finish') }}<button>{{ t.finish }}</button></form>
+  {% else %}<p role="status">{{ t[stage] }}</p>{% endif %}
+  <footer><a href="/islands/{{ island_id }}/">{{ t.house }}</a> · <a href="/pdw/">{{ t.game }}</a></footer>
+</main></body></html>

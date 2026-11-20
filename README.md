@@ -14,11 +14,34 @@ A community restoration of the Generation V Dream World. Play on a computer, bef
 
 **To play on a phone or tablet**, start the LAN server and connect the phone to the PC's Wi-Fi. On the PC, click **Phone web address** on the homepage or above the game. Enter the address shown, including the port, in the phone's browser. Sign in with the account linked to your cartridge. The DS can be offline once its tuck-in sync finishes. Reconnect it when you are ready to wake the Pokémon. When the PC changes Wi-Fi in automatic LAN mode, refresh this page after the new connection is ready. It will show the new address. The mobile layout was tested in an emulated mobile browser. [Find the phone address on this PC](http://127.0.0.1:8080/player-guide/phone/)
 
+## Visit a friend's island while they are offline
+
+Each player signs in on their own server using the account linked to their cartridge. Choose **View friends** in Dream World to save a copy of a friend's island.
+
+- **Pair once for automatic updates.** Start the same server release on both PCs. Connect them to the same LAN or private Tailscale network. One player generates an invitation on the friends page and privately sends the entire code to the other player. The code is valid for 30 minutes. Choose the LAN code on the same Wi-Fi or the Tailscale code between homes. The recipient pastes it into their own friends page and pairs. While both servers are online, they check for new snapshots about every 30 seconds and deliver queued footprints. The consoles and battle relay can stay off. If Windows Firewall blocks the connection, allow TCP 8094 from your local network or your friend's Tailscale address.
+- **Share a file.** The owner selects **Export my island snapshot** and sends the file. The visitor selects **Import a friend’s snapshot** on their own site and can visit immediately. Pair the servers when you want automatic updates and footprint delivery. Importing an older file preserves the newer cached version.
+
+**Visit from home.** Choose your friend on the Dream Pal Map, or open **View friends** and select **Visit home**. This takes you to their island in the original Dream World. Choose **Enter room** to see where they put their furniture. The last update time tells you how recent the island is. Pairing keeps that same island up to date while both servers are running. You can keep visiting it after your friend switches off their PC and console. You can inspect the garden and Share Shelf as the owner left them. The shared garden and shelf are read-only. Your footprint stays on your PC until it can be delivered, and a repeated delivery counts once. [Original Dream World help for visiting friends](https://github.com/minibug1021/dreamworld-assets/blob/6e0550dab8552cd54bd976d4023f9ec0c43f6d7c/en.pokemon-gl.com/support/help/world/820/index.html#L161)
+
+**Find your own encounter.** Tuck in a Pokémon on your home server. Start a visitor adventure from the friend's house and choose the trail that matches the footprint sample. Befriend the Pokémon, offer one Berry from your own chest at the Tree of Dreams, then choose to prepare to wake up and finish. Wake your Pokémon on your home server and catch your new partner in the Entree Forest. The adventure and delivery belong to the visitor's save. The host keeps their Pokémon and inventory.
+
+The snapshot includes display information known to Game Sync, such as game version, trainer name, badges, play time, tucked-in Pokémon, Dream Points, inventory, furniture, medals and Friend Board. It omits the full cartridge save, box and party lists, Game Sync ID, passwords and sign-in credentials. Anyone receiving the file can read its display information.
+
 ## Cartridge test
+
+The cartridge photo below documents the original solo Tree of Dreams route. Catching a partner from an offline friend's island on a physical Japanese Black cartridge still needs a separate playthrough. The [offline visit check](tools/check-offline-island.py) exercises a Japanese Black wake download and its encounter fields with temporary saves.
 
 On November 20, 2026, I woke up Axew on my Japanese *Pokémon Black* cartridge. The server recorded the cartridge completing its download of Cleffa. I then caught Cleffa in the Entree Forest. Its summary on my console lists the encounter location as ハイリンクの森 (Entree Forest) and the level at encounter as 10. The Simplified Chinese website was tested separately in a browser. [Cartridge photo](docs/images/cleffa-cartridge.jpg)
 
 The upstream revision used here listed wishing at the tree and sending a new friend back as unfinished. Earlier Game Sync experiments had already enabled forest captures from downloaded encounter data. We found no earlier public demonstration of this particular restored website-to-cartridge sequence in the sources reviewed as of November 20, 2026. Its worldwide priority remains unknown. [Upstream status at the revision used here](https://github.com/minibug1021/dreamworld-reawakened/blob/77174d2f3084b83b80544161dca8ad2d325654b8/readme.md#things-that-are-not-working) · [2023 Game Sync developer report](https://github.com/mm201/pkmn-classic-framework/issues/8#issuecomment-1552963901)
+
+### Moving a caught Pokémon to Pokémon HOME
+
+Visitor adventures look for a species and form displayed on your friend's island among the encounters you have unlocked in your own game. After you make a wish, your cartridge generates a new partner. If the original game font cannot display a nickname, the website shows the species name in your selected language, such as Cleffa in English or ピィ in Japanese. On a Japanese cartridge, skip the nickname prompt after catching it to keep ピィ.
+
+The official path is **Pokémon Black → Poké Transporter → Pokémon Bank → Pokémon HOME**. It requires a Nintendo 3DS-family system with the two 3DS apps previously downloaded and a paid Pokémon HOME Premium Plan. This is a one-way move. Bank service and transfers to HOME are scheduled to end on **February 26, 2027 at 03:00 UTC**. [Poké Transporter instructions](https://csassets.nintendo.com/noaext/image/private/t_KA_PDF/manual-3DS-poke-transporter-en) · [Pokémon HOME transfer guide](https://home.pokemon.com/en-us/move/) · [Service closure announcement](https://www.pokemon.co.jp/info/2022/02/220216_gm01.html)
+
+This project tests the Forest encounter data sent to a Black cartridge. Pokémon HOME acceptance for a partner obtained through this restoration is unverified. This is a community project without official certification. The website's nickname display update does not edit Pokémon already caught on your cartridge.
 
 ## Start the server on Windows
 

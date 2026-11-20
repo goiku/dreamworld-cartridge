@@ -1,0 +1,10 @@
+{% extends "island_base.html" %}
+{% block title %}{{ owner }} · {{ t.profile }}{% endblock %}
+{% block main %}
+<div class="room-head"><div><h1>{{ owner }} <span class="room-type">· {{ t.profile }}</span></h1>
+<p class="dates">{{ t.updated }} <time data-time="{{ doc.updated_at }}">{{ date(doc.updated_at) }}</time></p></div>
+<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a></div>
+<div class="records">{% for title,rows in groups %}<section><h2>{{ title }}</h2>
+{% if rows %}<dl>{% for key,value in rows %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
+{% else %}<p>{{ t.none }}</p>{% endif %}</section>{% endfor %}</div>
+{% endblock %}

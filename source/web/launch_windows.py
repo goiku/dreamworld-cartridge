@@ -74,7 +74,8 @@ def main() -> int:
         game_command = ["game_sync_server/server.py", "--http-port", "80", "--host", address]
         if args.watch_wifi:
             game_command.extend(("--watch-wifi", args.watch_wifi))
-        commands: list[tuple[str | None, list[str]]] = [(None, game_command)]
+        commands: list[tuple[str | None, list[str]]] = [(None, game_command),
+                                                         ("friends", ["-m", "scripts.island_friends"])]
         for language, port in WEB_PORTS.items():
             base = "ja" if language == "zh" else language
             page = directory / "dreamworld_assets" / f"{base}.pokemon-gl.com" / "pdw" / "index.html"

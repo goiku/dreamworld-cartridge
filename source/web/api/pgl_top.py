@@ -52,7 +52,7 @@ def _check_item_deletion(member: Member) -> None:
 
 
 @endpoint("pgl.top.init")
-def init(_query: Query) -> dict:
+def init(_query: Query, *, settle_items: bool = True) -> dict:
     """Return the logged-in player's data.
 
     The client reads the login state from the following:
@@ -70,10 +70,10 @@ def init(_query: Query) -> dict:
         return {}
 
     display_name = session.get("visit_display_name") if session.get("visit_guest") else None
-    return {**_member_data(account), "username": display_name or account["username"]}
+    return {**_member_data(account, settle_items=settle_items), "username": display_name or account["username"]}
 
 
-def _member_data(account: Account) -> dict:
+def _member_data(account: Account, *, settle_items: bool) -> dict:
     """The "member" part of pgl.top.init for a logged-in account."""
     if "gscd" not in session:
         if not account["registered"]:
@@ -86,7 +86,8 @@ def _member_data(account: Account) -> dict:
     if not member:
         return {"member": {}}
 
-    _check_item_deletion(member)
+    if settle_items:
+        _check_item_deletion(member)
 
     if member.get("pokemon_no") is not None:
         member["pokemon_name"] = text.lookup_str("pokemon", member["pokemon_no"])

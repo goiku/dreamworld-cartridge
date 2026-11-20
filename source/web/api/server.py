@@ -12,6 +12,9 @@ from urllib.parse import parse_qs, urlsplit
 from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
 from werkzeug.wrappers import Response as WerkzeugResponse
 
+from api.island_adventure import island_adventure
+from api.island_peers import island_peers
+from api.offline_friends import offline_friends
 from api.player_guide import player_guide
 from api.routes import HANDLERS, Query, load_handlers
 from api.signup import signup
@@ -90,7 +93,7 @@ def api_post() -> Response:
 # ---------------
 
 _LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/"}
+                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/", "/islands/"}
 
 
 def _language_page() -> str:
@@ -185,6 +188,9 @@ def create_app() -> Flask:
     app.register_blueprint(signup)
     app.register_blueprint(player_guide)
     app.register_blueprint(visit_sync)
+    app.register_blueprint(offline_friends)
+    app.register_blueprint(island_peers)
+    app.register_blueprint(island_adventure)
     app.register_blueprint(site)
 
     @app.teardown_appcontext

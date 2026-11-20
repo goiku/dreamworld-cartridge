@@ -125,10 +125,11 @@ def test_atomic_collisions_and_wake(servers):
         original = visits.export_local("Trainer", code)
         other = visits.export_local("Trainer", home.resident(6))
     with host.active():
+        before_collision = visits.export_local("Trainer", duplicate)
         invite, token = visits.create_invite(), secrets.token_urlsafe(32)
         with pytest.raises(visits.VisitConflict):
             visits.redeem(invite, original["snapshot"], token)
-        assert visits.export_local("Trainer", code) == original
+        assert visits.export_local("Trainer", code) == before_collision
         invalid = copy.deepcopy(other["snapshot"])
         invalid["save"]["share_data"]["share_list"] = [{"material_id": -1}]
         with pytest.raises(visits.VisitInvalid):

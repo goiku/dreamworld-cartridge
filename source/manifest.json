@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "194229182982204308bef91e0d35c4c3c425d8580feaa8f8785e1ef74a7a9e60",
+    "patch_sha256": "308d7b7540acb077265aff22bc94d797dee84eaafab1e8461d54bf9d4793017d",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -23,17 +23,42 @@
         "before": "a4a3d2028f49250a44a374b53143817a53781e5e0e3097b65ad2489c68ed2bdc",
         "after": "b1b1d844edd836475293114de852f79c77b49920052313fa8955d1c9cabf86d5"
       },
+      "api/island_adventure.py": {
+        "before": null,
+        "after": "3e5a57e4b8cbcd507fbe4cfd0a03c5a0563006293903847de4d431c9639d5982"
+      },
+      "api/island_peers.py": {
+        "before": null,
+        "after": "f037b654bd0e08e7d9aec409279fed8faac4ce2f462e5a066410ed83edf17e28"
+      },
+      "api/native_islands.py": {
+        "before": null,
+        "after": "abad14a805c399938a9d41784b739681b0279a730ac4dc6f75dc62f3a284649f"
+      },
+      "api/offline_friends.py": {
+        "before": null,
+        "after": "ccfa450590e55f11eea2bf97c133c58fbab9e7a7aee94c3ccf7bf5b282da7fe0"
+      },
       "api/pdw_croft.py": {
         "before": "40cec9eb9a4a67a6391bdc5686ce461022aa5e19f33c1c1b4b65066384390221",
-        "after": "f8178c150011ead409b206fd18f53ce9a4d7c29629efe966fe0840cc81866e94"
+        "after": "c9f23d137086b7058278de013e0dd99830756ef4587dabc4764ff3197c070a70",
+        "previous": [
+          "f8178c150011ead409b206fd18f53ce9a4d7c29629efe966fe0840cc81866e94"
+        ]
       },
       "api/pdw_dreamland.py": {
         "before": "899a5cc1a21ac89ed4c4df64c12334cee61a5d6dada1c8103835cafe8a0239b9",
-        "after": "bad20f4b32555de672bc2163d37e9fe10e1b0cbdd08b381b5417dc7683532d28"
+        "after": "511ceb8291f8cf2386deb47e990402fa0f4e4b9c6f4a7d19f4961f17463e17af",
+        "previous": [
+          "bad20f4b32555de672bc2163d37e9fe10e1b0cbdd08b381b5417dc7683532d28"
+        ]
       },
       "api/pdw_home.py": {
         "before": "366a817f440037078c8ac21212730e88c02f0e09b7086833414fd01a3fbff3e6",
-        "after": "7e58d41b47b1586537b4e05573a02a33e7521b50747e18251ddf64a245e38bdb"
+        "after": "63385349c6636491d8f5d9c9b1a5373273250c1fa7764678a6b4e9c61108f157",
+        "previous": [
+          "7e58d41b47b1586537b4e05573a02a33e7521b50747e18251ddf64a245e38bdb"
+        ]
       },
       "api/pdw_interior.py": {
         "before": "4c2705b78fbde14721d748e067979ef1ade766e087e77f489eecf060b3c2bdbb",
@@ -41,7 +66,10 @@
       },
       "api/pdw_item.py": {
         "before": "e580ec2f57c3386bc77d05287f0635585b3b943ca94ac0840970926c15a44ca0",
-        "after": "9ce4d59017495de4db9e4deb5e7e5374f9c3ceff1c79b8c925eb47ca636ce400"
+        "after": "ffdd1488d9f0c84659d41673aa932bc818ae3717845d3c57e6476848c1f817ed",
+        "previous": [
+          "9ce4d59017495de4db9e4deb5e7e5374f9c3ceff1c79b8c925eb47ca636ce400"
+        ]
       },
       "api/pdw_movie.py": {
         "before": null,
@@ -49,7 +77,10 @@
       },
       "api/pdw_visits.py": {
         "before": null,
-        "after": "597ae3af746ce584681bf5cad5b2bca13a772ab78716ae7db3781ff7af9aded0"
+        "after": "da66abf898ed889a2d00962ba7dcb1265000b4b0f2a4c988c0f6a700d7396cc2",
+        "previous": [
+          "597ae3af746ce584681bf5cad5b2bca13a772ab78716ae7db3781ff7af9aded0"
+        ]
       },
       "api/pgl_battle_videos.py": {
         "before": null,
@@ -69,22 +100,25 @@
       },
       "api/pgl_top.py": {
         "before": "4b94b2f8e3fcd81c91bbde5b153782d475d84b9c8edd5574cb99275c08ad796f",
-        "after": "b0a8b59851c051bf6484dc49d0f290facb16d1e1d86b611c849072f78cb4258b",
+        "after": "dda0938ccede8eb86aa6949a48b8f23a80bd3dcfe73f88b52b43f0e63f130bcc",
         "previous": [
-          "647d9fe60dbdef161b46955e0b19c29c8e399b5dd0ffe995b96066695952b70c"
+          "647d9fe60dbdef161b46955e0b19c29c8e399b5dd0ffe995b96066695952b70c",
+          "b0a8b59851c051bf6484dc49d0f290facb16d1e1d86b611c849072f78cb4258b"
         ]
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
+        "after": "59fff65f72d36f027cd8a2d3838cce0fd730f36075da3df1bec6c195b07f8b50",
         "previous": [
-          "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91"
+          "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
+          "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c"
         ]
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
+        "after": "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
         "previous": [
+          "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544"
         ]
       },
@@ -108,6 +142,22 @@
         "before": null,
         "after": "3a84d3bd64a0022dc59d05459ec0f54034acb4dd563fc8e261542cc8eb92cbaa"
       },
+      "json_data/gen5_nickname_glyphs.json": {
+        "before": null,
+        "after": "65b513d14f048bc799e0df810c6ec1a4ff8c95eea614138df560c5fbeb1cb9d7"
+      },
+      "json_data/island_adventure.json": {
+        "before": null,
+        "after": "063c5c744798e4000595560c2f84cca1dd420b8104ca5cfccffe7f5d1b705db6"
+      },
+      "json_data/island_movie_patch.json": {
+        "before": null,
+        "after": "df00a58bc52b1bf26e2599ad37f4b8bfe03557249a1ec37a9c61f04d63f4570a"
+      },
+      "json_data/offline_islands_ui.json": {
+        "before": null,
+        "after": "debaffb24dbd2ef689e635a91f41556d9c3d5047f396c57c64433c81da3273d0"
+      },
       "json_data/player_guide.json": {
         "before": null,
         "after": "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
@@ -129,8 +179,9 @@
       },
       "launch_windows.py": {
         "before": null,
-        "after": "82fb4c3df975ab6b1f10cb2c2303cbf0edb6eb512a411d1c332535c421472302",
+        "after": "fb4f6b87d6e7ef268874c8ffb2377d70414ab6fafd9e75c7c8694d02dcbd2a25",
         "previous": [
+          "82fb4c3df975ab6b1f10cb2c2303cbf0edb6eb512a411d1c332535c421472302",
           "97e2969f5be91df9218101c0659791dbc24bcc7a510dd7e7d82bb7f7acaf85bd"
         ]
       },
@@ -140,6 +191,10 @@
         "previous": [
           "b0562cc5bb013b0fbc0e314f0edd324a2c30050b504a5f4aeeb892ddbeeca7e4"
         ]
+      },
+      "pyproject.toml": {
+        "before": "2ae00cd6a6b589117869a90e7e9bfe2b133865059837e801dce221848c5f3beb",
+        "after": "10360fb7fbb6b069c58803b518af486b2a685c4c3cdbbf4456b3cf61a6f1f756"
       },
       "raw_text/de/country.txt": {
         "before": "be009db182983133b659094bcb5d14d97124e14d4e07978cb004fee7ebff03ce",
@@ -237,6 +292,10 @@
         "before": null,
         "after": "453a905d8542dc23d35f798143aa6f87052541544e5d0bbfd4b8b9e398e036be"
       },
+      "scripts/island_friends.py": {
+        "before": null,
+        "after": "1dea1520d7f9aa24decd07a3bef6741054fe22febb8a813507118cb438c5aeaa"
+      },
       "scripts/select_game_network.ps1": {
         "before": null,
         "after": "3146eab4d44513154f43009396f6b49bca6e768b0002afdbae0e21e3af473396"
@@ -249,6 +308,22 @@
         "before": null,
         "after": "1c3e06889228d38315494913022dec9ac7891afffba51654d3a5c4c50435d063"
       },
+      "static/island-adventure.css": {
+        "before": null,
+        "after": "dcf94be88e55a39cb6be30d4edc8a8df4df2410a61e0bea237289b1204ac441d"
+      },
+      "static/island-bridge.js": {
+        "before": null,
+        "after": "d1a9c68c7c3e654efe865eca21d6bb570a3fd6bc218cd8cd8376912d0082e67f"
+      },
+      "static/island-friends.css": {
+        "before": null,
+        "after": "121b5e0d830b57c8e90aab51d24a7acb7d0f826f6012fd13aadd2e26a3398bd9"
+      },
+      "static/island-friends.js": {
+        "before": null,
+        "after": "deb226aa69cacd0da6bbfed5f4db9ca78d0dd80067d6c1f6c7b1a471647d6cde"
+      },
       "static/player-guide.css": {
         "before": null,
         "after": "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f",
@@ -259,6 +334,26 @@
       "static/player-guide.js": {
         "before": null,
         "after": "486393a829d73834397513ce8d1520c0cdf2904b724ec3abb6d4e5867842d479"
+      },
+      "templates/island_adventure.html": {
+        "before": null,
+        "after": "7b674d6bab274ab840c8e03a4e007fd607f8cf94177b55b6e982a283a35ff541"
+      },
+      "templates/island_base.html": {
+        "before": null,
+        "after": "7cc36302843f750e66278722aaa4f83ae333edc1c7daa8c0f7720ed5f62c5ed0"
+      },
+      "templates/island_bridge_menu.html": {
+        "before": null,
+        "after": "9818f2740e4485f8c1f09f41c9f38eff773b3312f9707dcebddb10d49025f3d8"
+      },
+      "templates/island_friends.html": {
+        "before": null,
+        "after": "f54808cc1b59c7dee9b4f20eaaeac92ac2ed786559664880b07c66adfabfa70b"
+      },
+      "templates/island_profile.html": {
+        "before": null,
+        "after": "47f49138f5445fab55adb04c161de2b105e63db7def66b89f35dadd0d271e461"
       },
       "templates/phone_access.html": {
         "before": null,
@@ -271,9 +366,36 @@
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f"
         ]
       },
+      "tests/test_gen5_names.py": {
+        "before": null,
+        "after": "c9ef2608f98a50d3b9ff6a0ed2022781763d74dddeda8965603d990d9e12a702"
+      },
+      "tests/test_island_encounters.py": {
+        "before": null,
+        "after": "02fd2a2bb77ebe47124c28f17e0afdd9bf13c2971f4e4fa0f2dd39940962d827"
+      },
+      "tests/test_island_peers.py": {
+        "before": null,
+        "after": "f221f810d241cd79b041e66625e6b29ad447b94e12e8dfb16117060f88a7ce1f"
+      },
+      "tests/test_island_profile.py": {
+        "before": null,
+        "after": "df7c1f8f206439e039b4a1b0180f5c4157a613876e57e0dd5ba4ff588c616202"
+      },
+      "tests/test_native_shared_areas.py": {
+        "before": null,
+        "after": "033b1c96b5e00d55899b9cd35f83bc1ae7508a134aa88bac7489faa6568a726e"
+      },
+      "tests/test_offline_islands.py": {
+        "before": null,
+        "after": "6fd4e9e35f1ab313cdb696df9cd8249ba87f06c52cf5d1dc7f9dbf1dff9aed54"
+      },
       "tests/test_visit_storage.py": {
         "before": null,
-        "after": "32a06ef99e25d5f76a6f104e7fa5e81bd0d7fb3c5d16f27b5fbcfe3ebf82603e"
+        "after": "7dfa0cfff24bae9ad07cbeb68cbe3c8b0e6677603970c63d2aae66edaf020f70",
+        "previous": [
+          "32a06ef99e25d5f76a6f104e7fa5e81bd0d7fb3c5d16f27b5fbcfe3ebf82603e"
+        ]
       },
       "tests/test_web_network.py": {
         "before": null,
@@ -291,21 +413,54 @@
         "before": "e9c8b2da1d5db1db74c93f7643cb6984c1e5407ba342b0dc937eb049eac496a2",
         "after": "598c1ae99a62225be782eb9d5069485b012b94742a6653a0bf458e55cb0c24c2"
       },
+      "utils/gen5_names.py": {
+        "before": null,
+        "after": "3a565f56da285946121ea2de27f77e26bc8d1b3cd543adbe049bd5e68f102075"
+      },
+      "utils/island_art.py": {
+        "before": null,
+        "after": "96b1e66236ff0d289c14f2fee7cec934ffec99357574043f0ec5d7f00f6a5cb8"
+      },
+      "utils/island_peers.py": {
+        "before": null,
+        "after": "d8c0ffa7e4a98f6453f33323aa49805ade22b7fb34884a652c79a600eacb4593"
+      },
+      "utils/island_profile.py": {
+        "before": null,
+        "after": "b38e0e1c7d1588d1d47e673156649380ee66b76332490c3d76fe8d0d039d77f3"
+      },
       "utils/language.py": {
         "before": "9f89829f02044dcadc3f340c782697ef7fe066080c0bd2146df29e3badfe52e0",
         "after": "8219db6017456e1c0686888ad838850fabb16531b92ae6367e11250d79cec512"
       },
       "utils/managers.py": {
         "before": "7617a784b8d089253ec8b76694830c1d7ff2093273f71d9985a4125c03ed86ea",
-        "after": "a99afc5468b7f80ba443b7d6e87d9b80cdd159bad29d17e51d6a9780b2405892"
+        "after": "78671448401bc754bbea694bbf92a214d2ad380a2db94ac3656a42b0e07ed189",
+        "previous": [
+          "a99afc5468b7f80ba443b7d6e87d9b80cdd159bad29d17e51d6a9780b2405892"
+        ]
       },
       "utils/messages.py": {
         "before": "96fadb64497694f0ba47cf0ccd6865772eb5bc0ef4165c0a886771a3f600b116",
-        "after": "6d5ac4ce1fd54a8e06dfdde074c6b4826d580eaccfa2886c7462bc09abad8f7f"
+        "after": "cb89bfea3dcf4b6fb26a49683dd53876419215ea48266ec3db4072e938c97c3f",
+        "previous": [
+          "6d5ac4ce1fd54a8e06dfdde074c6b4826d580eaccfa2886c7462bc09abad8f7f"
+        ]
       },
       "utils/models.py": {
         "before": "d682781f2edffdb1dce8515e19243c7929dc556cbdc4d233615f1233e118eca2",
-        "after": "190023d25d65c09a9f44bb4016e8b092ad21a1959b887f01786f397d58abda49"
+        "after": "75e12be54ddd033404dc1ca05ccb7cf589d7899f725c008bf22bacb646606c4c",
+        "previous": [
+          "190023d25d65c09a9f44bb4016e8b092ad21a1959b887f01786f397d58abda49"
+        ]
+      },
+      "utils/native_movies.py": {
+        "before": null,
+        "after": "7344ecbb579fe89bfd6ab576f1e962abdf3894ddbf9d9cacc887f8744764002c"
+      },
+      "utils/offline_islands.py": {
+        "before": null,
+        "after": "e7cb647d3f62e717527b0db9c003d56c6cb12418615d91943e1950c1c5c27ea9"
       },
       "utils/patching/substitutions.py": {
         "before": "7222896eb22c14bd5acb91061d67f9254fbabbc6573a7c28ac459c67fa4f0168",
@@ -325,6 +480,10 @@
           "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
         ]
       },
+      "utils/pokemon.py": {
+        "before": "d74dae98c93bd20b8412095c19198c60a15030f048569c82680fdf7bbfafbad1",
+        "after": "4db8803524e08d013b3b0e3d89e8e9a040f8b3b37609276e0927d9b24c307020"
+      },
       "utils/profile_avatars.py": {
         "before": null,
         "after": "4d164e13b63b27dcff46f027ce9ff0f0985c4fa4bb173c19f69f447c1ff800e9"
@@ -339,7 +498,10 @@
       },
       "utils/visit_storage.py": {
         "before": null,
-        "after": "fd774c655a0555cf4823bb0f773bd22e93aa375d0952152a7c812682b50f862d"
+        "after": "a0c6948ce16a0a7e7643c18488db4d13d2ced0e2a69476dbec51d91bccd1df0c",
+        "previous": [
+          "fd774c655a0555cf4823bb0f773bd22e93aa375d0952152a7c812682b50f862d"
+        ]
       },
       "utils/visits.py": {
         "before": "f3bf287615cfc55a0ced72199d953bf28c9036dc15f5273e6ab3dc986e4a3199",
@@ -356,11 +518,15 @@
       "utils/zh_web_data.py": {
         "before": null,
         "after": "639b8b7688b7c0b71cf318675817c5cbfc8a1ce2739712bad1d013aee7511781"
+      },
+      "uv.lock": {
+        "before": "129b2308cb8fcfad8dcd50678bca1492fa466ed87a0cddf356bfbb9361407465",
+        "after": "f73469d8b7a7bbf50aeee0465e8e8130901439f4801fb5657e0c1d0cd6ad12c1"
       }
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "9eaac18c6852340d4d5d7b6053544f3b7709b7eb31de0ef99875c2a7bad5d3e0",
+      "sha256": "02e7b2ad65d9e20e5da8c324035139baac5906a9b18bd10eac6dc19934732ef4",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -370,7 +536,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "e7b4867714227130ce371ac8006316fdc23fba9ba54d8cb824b3b64c15d5df78",
+    "patch_sha256": "338143975ad4f474aa004abe11157ac7759f7afb3c6c3396722165cbd8449e22",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -390,7 +556,10 @@
       },
       "entralinked/model/pkmn/pkmn_info.py": {
         "before": "be525a430c396aa3861cf81e1d7b793bc6d7e02af924521dbc473575867d812f",
-        "after": "539a8b70bdd376c474beef230af592b32149dafc5f20d5d9344d9f27e1c9bc5c"
+        "after": "d41cb0b6fe02ea0f7a820b9789c058a7bb846f15af9f9606f5d87752a934aa46",
+        "previous": [
+          "539a8b70bdd376c474beef230af592b32149dafc5f20d5d9344d9f27e1c9bc5c"
+        ]
       },
       "entralinked/model/player/player_manager.py": {
         "before": "2b372b26bc5fa411eb75273f12a71419fd265a655bb2b99ca96378ce48c7c55a",
@@ -402,7 +571,10 @@
       },
       "entralinked/model/save_file.py": {
         "before": "10ed95e44269877e36d7f22c286a7dcd039fe8660b119d3d3bf22f3fe9d82df9",
-        "after": "e08709c9e1546f8534b70ffa9260fe175461b44f38c50d8382220304a33bb28f"
+        "after": "f49233068979e4c5018aa806aedb00355d97c7c83d1f5385360c1960a086fafb",
+        "previous": [
+          "e08709c9e1546f8534b70ffa9260fe175461b44f38c50d8382220304a33bb28f"
+        ]
       },
       "entralinked/model/user/user_manager.py": {
         "before": "5929070f341fbfcdb61aea2039d0e5e7262073ceaba7428eafaedecf8e9eb1c8",
@@ -458,7 +630,10 @@
       },
       "entralinked/network/http/pgl_handler.py": {
         "before": "5ddc52ce816112c081362a965d2f496522a09a1b81ef70cb0b16751bcb3c0837",
-        "after": "ca35ea8236a54770019627a27c14ffdd1a70a2dab460d4af0951647802388981"
+        "after": "1f776935d1b13e188392ff50b0a748419afe667bb62c2b6b8b73489316763287",
+        "previous": [
+          "ca35ea8236a54770019627a27c14ffdd1a70a2dab460d4af0951647802388981"
+        ]
       },
       "entralinked/network/matchmaking/COPYING-AltWFC.txt": {
         "before": null,

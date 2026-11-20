@@ -1,12 +1,14 @@
 """Player instructions embedded in the archived site, with live DNS for the local console."""
 import json
 import re
+from functools import cache
 from html import escape
 from urllib.parse import urlsplit
 
 from flask import Blueprint, Response, jsonify, render_template, request, url_for
 
 from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
+from utils.data import load_json_data
 from utils.player_dns import get_player_dns
 from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
 
@@ -21,6 +23,11 @@ _contexts = {
     "/profile/": ("register_tip", "register"),
     "/pdw/": ("dream_tip", "dream"),
 }
+
+
+@cache
+def _friends_label() -> str:
+    return load_json_data("offline_islands_ui")[LANG]["friends"]
 
 
 @player_guide.get("/")
@@ -64,7 +71,12 @@ def insert_player_help(response: Response) -> Response:
     guide_url = url_for("player_guide.guide")
     css = url_for("player_guide.static", filename="player-guide.css")
     guide_section = "console" if section == "dns" else section
-    banner = (f'<aside class="dw-player-help" lang="{LANG}"><span>{escape(t[tip])}</span><nav>'
+    friends_link = ""
+    if path in ("/", "/pdw/", "/profile/"):
+        friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
+    tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
+    banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
+              f'{friends_link}'
               f'<a target="_blank" rel="noopener" href="{guide_url}#dns">{escape(t["dns_title"])}</a>'
               f'<a target="_blank" rel="noopener" href="{url_for("player_guide.phone")}">{escape(t["phone_title"])}</a>'
               f'<a target="_blank" rel="noopener" href="{guide_url}#{guide_section}">{escape(t["details"])}</a>'

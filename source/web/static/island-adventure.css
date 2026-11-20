@@ -1,0 +1,24 @@
+.dw-trail { margin:0; color:#36372b; background:#f7f5e9; font: 17px/1.6 system-ui,sans-serif; }
+.dw-trail header { padding:12px max(18px,calc((100vw - 660px)/2)); background:#344d3f; }
+.dw-trail header a { color:white; text-decoration:none; }
+.dw-trail main { max-width:620px; margin:clamp(18px,5vw,54px) auto; padding:22px clamp(18px,5vw,40px);
+  border:1px solid #c7bfa6; border-radius:8px; background:#fffef6; }
+.dw-trail h1 { line-height:1.2; margin:8px 0; }
+.dw-trail h2 { color:#426248; }
+.dw-trail .landscape { color:#73532d; margin:0 0 28px; font-weight:650; }
+.trail-island { float:right; margin-left:8px; }
+.dw-trail p { clear:both; }
+.dw-trail button,.dw-trail select { font:inherit; padding:8px 14px; border:1px solid #74896c; border-radius:5px; }
+.dw-trail button { background:#346048; color:#fff; cursor:pointer; }
+.dw-trail select { background:#fff; }
+.trail-sample { width:62px; height:62px; padding:12px; background:#e3eadb; border-radius:50%; }
+.trail-choices { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+.trail-choices button { display:grid; justify-items:center; gap:8px; background:#fff9e2; color:#3e4a32; }
+.trail-choices img { width:48px; height:48px; }
+.dw-trail footer { margin-top:32px; padding-top:14px; border-top:1px solid #d5ceba; }
+.dw-trail main a { color:#245840; }
+
+#dw-friend-tools { box-sizing:border-box; width:100%; padding:6px 12px; display:flex; flex-wrap:wrap;
+  gap:8px 18px; align-items:center; background:#f6f3df; color:#3e3a29; font:15px/1.5 system-ui,sans-serif; }
+#dw-friend-tools[hidden],#dw-friend-tools [hidden] { display:none; }
+#dw-friend-tools a { color:#31553e; text-decoration:underline; cursor:pointer; }
