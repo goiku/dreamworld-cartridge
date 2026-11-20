@@ -14,12 +14,13 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import struct
 import sys
 import tempfile
 import time
 
-from dnslib import A, DNSError, DNSRecord, QTYPE, RCODE, RR
+from dnslib import A, DNSError, DNSRecord, QTYPE, RCODE, RR, TXT
 
 
 LOG = logging.getLogger("dreamworld-vpn")
@@ -50,6 +51,8 @@ GAME_SUFFIXES = (AVAILABILITY_SUFFIX, ".ms0.gs.nintendowifi.net.", ".master.gs.n
                  ".gamestats.gs.nintendowifi.net.", ".gamestats2.gs.nintendowifi.net.",
                  ".natneg1.gs.nintendowifi.net.", ".natneg2.gs.nintendowifi.net.", ".natneg3.gs.nintendowifi.net.")
 MATCH_SERVER = re.compile(r"[a-z0-9-]+\.ms[0-9]+\.gs\.nintendowifi\.net\.")
+GUIDE_DNS_NAME = "guide-status.dreamworld.invalid."
+GUIDE_DNS_PATH = b"/player-guide/dns.json"
 
 
 class GameDNS(asyncio.DatagramProtocol):
@@ -61,7 +64,7 @@ class GameDNS(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data: bytes, peer: tuple[str, int]) -> None:
-        if peer[0] not in self.peers or len(data) > 512:
+        if (peer[0] not in self.peers and peer[0] != self.address) or len(data) > 512:
             return
         try:
             query = DNSRecord.parse(data)
@@ -71,7 +74,11 @@ class GameDNS(asyncio.DatagramProtocol):
             return
         name = str(query.q.qname).lower()
         result = query.reply(ra=0)
-        if name not in DNS_NAMES and not name.endswith(GAME_SUFFIXES) and not MATCH_SERVER.fullmatch(name):
+        if name == GUIDE_DNS_NAME and query.q.qtype == QTYPE.TXT and peer[0] == self.address:
+            result.add_answer(RR(query.q.qname, QTYPE.TXT, ttl=0, rdata=TXT(f"dreamworld-dns-v1 {self.address}")))
+        elif peer[0] not in self.peers:
+            return
+        elif name not in DNS_NAMES and not name.endswith(GAME_SUFFIXES) and not MATCH_SERVER.fullmatch(name):
             result.header.rcode = RCODE.NXDOMAIN
         elif query.q.qtype == QTYPE.A:
             result.add_answer(RR(query.q.qname, QTYPE.A, ttl=0, rdata=A(self.address)))
@@ -98,20 +105,61 @@ def peer_alias(peer: str) -> str:
     return str(IPv4Address(int(IPv4Address("127.64.0.0")) + (int(IPv4Address(peer)) & 0x3fffff)))
 
 
-def tcp_bridge(destination: str, port: int, peers: frozenset[str], *, identity=False, source=None):
+async def gateway_web_request(reader, writer, address):
+    # The DS and the browser are on this gateway. Its DNS answer must stay here
+    # even though all ordinary web pages are served by the remote hub.
+    header = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=30)
+    request, *fields = header[:-4].split(b"\r\n")
+    parts = request.split()
+    if len(parts) == 3 and parts[0] in (b"GET", b"HEAD") and parts[1].split(b"?", 1)[0] == GUIDE_DNS_PATH:
+        hosts = [line.partition(b":")[2].strip().lower() for line in fields if line.partition(b":")[0].lower() == b"host"]
+        status = "ambiguous"
+        if len(hosts) == 1 and re.fullmatch(rb"(127\.0\.0\.1|localhost)(:\d+)?", hosts[0]):
+            # UDP is already listening. Check that a detached hotspot hasn't removed
+            # the configured address since that socket was opened.
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as check:
+                    check.bind((address, 0))
+                status = "ready"
+            except OSError:
+                status = "offline"
+        body = json.dumps({"status": status, "address": address if status == "ready" else None}).encode("ascii")
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n"
+                     b"Connection: close\r\nContent-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n")
+        if parts[0] == b"GET":
+            writer.write(body)
+        await writer.drain()
+        return None
+    # A persistent tunnel could send a later DNS request straight to the hub.
+    # Ask the upstream HTTP server to close after this response.
+    fields = [line for line in fields if line.partition(b":")[0].lower() not in (b"connection", b"proxy-connection")]
+    return b"\r\n".join([request, *fields, b"Connection: close", b"", b""])
+
+
+def tcp_bridge(destination: str, port: int, peers: frozenset[str], *, identity=False, source=None, guide_dns=None):
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
         upstream = None
         try:
             if not peer or peer[0] not in peers:
                 return
+            header = None
+            if guide_dns is not None:
+                header = await gateway_web_request(reader, writer, guide_dns)
+                if header is None:
+                    return
             outbound = peer_alias(peer[0]) if identity else source
             options = {"local_addr": (outbound, 0)} if outbound else {}
             remote, upstream = await asyncio.wait_for(asyncio.open_connection(destination, port, **options), timeout=6)
+            if header:
+                upstream.write(header)
+                await upstream.drain()
             async with asyncio.TaskGroup() as group:
                 group.create_task(copy_stream(reader, upstream))
                 group.create_task(copy_stream(remote, writer))
-        except (OSError, TimeoutError, ExceptionGroup) as exc:
+        except asyncio.IncompleteReadError:
+            pass
+        except (OSError, TimeoutError, asyncio.LimitOverrunError, ExceptionGroup) as exc:
             LOG.warning("TCP %s to %s:%d closed: %s", peer, destination, port, exc)
         finally:
             if upstream is not None:
@@ -310,12 +358,6 @@ async def serve(bind: str, peers: frozenset[str], game: str, web: str, gateway: 
             server = await asyncio.start_server(tcp_bridge(game, port, peers, identity=not gateway, source=tail_ip), bind, port)
             await stack.enter_async_context(server)
 
-        web_bind = "127.0.0.1" if gateway else bind
-        web_peers = frozenset({"127.0.0.1"}) if gateway else peers
-        for port in (() if no_web else WEB_PORTS):
-            server = await asyncio.start_server(tcp_bridge(web, port, web_peers, source=tail_ip if gateway else None), web_bind, port)
-            await stack.enter_async_context(server)
-
         if gateway:
             loop = asyncio.get_running_loop()
             dns, _ = await loop.create_datagram_endpoint(lambda: GameDNS(bind, peers), local_addr=(bind, 53))
@@ -325,6 +367,15 @@ async def serve(bind: str, peers: frozenset[str], game: str, web: str, gateway: 
                 LOG.info("Browser starts at http://127.0.0.1:8088/pdw/")
         else:
             LOG.info("Private VPN relay listening at %s", bind)
+
+        web_bind = "127.0.0.1" if gateway else bind
+        web_peers = frozenset({"127.0.0.1"}) if gateway else peers
+        for port in (() if no_web else WEB_PORTS):
+            handle_web = tcp_bridge(web, port, web_peers, identity=not gateway,
+                                    source=tail_ip if gateway else None, guide_dns=bind if gateway else None)
+            server = await asyncio.start_server(handle_web, web_bind, port)
+            await stack.enter_async_context(server)
+
         if relay_ip and gateway:
             await BattleGateway(next(iter(peers)), game).run(bind, relay_ip, tail_ip, stack)
         elif relay_ip:

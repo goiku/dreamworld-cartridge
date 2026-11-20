@@ -1,0 +1,27 @@
+diff --git a/entralinked/network/dns/server.py b/entralinked/network/dns/server.py
+index 434e739c362d8dbbf89934a8db470cc786630c39..81d092634de77bd9048c7c063bd8f6df62a6d391 100644
+--- a/entralinked/network/dns/server.py
++++ b/entralinked/network/dns/server.py
+@@ -1,8 +1,8 @@
+ """A DNS server."""
+-import os
+ import logging
++import os
+ 
+-from dnslib import QTYPE, RR, A
++from dnslib import QTYPE, RR, TXT, A
+ from dnslib.server import BaseResolver, DNSHandler, DNSRecord, DNSServer
+ 
+ logger = logging.getLogger(__name__)
+@@ -20,7 +20,10 @@ class FixedResolver(BaseResolver):
+         """Answer one query."""
+         reply = request.reply()
+ 
+-        if request.q.qtype == QTYPE.A:
++        if (request.q.qtype == QTYPE.TXT and str(request.q.qname).lower() == "guide-status.dreamworld.invalid."
++                and handler.client_address[0] == self.host_address):
++            reply.add_answer(RR(request.q.qname, QTYPE.TXT, rdata=TXT(f"dreamworld-dns-v1 {self.host_address}"), ttl=0))
++        elif request.q.qtype == QTYPE.A:
+             reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.host_address), ttl=0))
+         else:
+             logger.warning("Unsupported record type in DNS question: %s", request.q.qtype)

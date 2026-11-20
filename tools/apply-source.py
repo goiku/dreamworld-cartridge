@@ -25,44 +25,60 @@ def file_hash(path):
     return digest(content) if content is not None else None
 
 
+def verified_patch(filename, checksum):
+    patch = (SOURCE / filename).read_bytes().replace(b"\r\n", b"\n")
+    if digest(patch) != checksum:
+        raise ValueError(f"Checksum mismatch in {filename}")
+    return patch
+
+
 def plan_component(label, destination, manifest, scratch):
     if not destination.is_dir():
         raise ValueError(f"Missing upstream directory: {destination}")
-    patch = (SOURCE / (label + ".patch")).read_bytes().replace(b"\r\n", b"\n")
-    if digest(patch) != manifest["patch_sha256"]:
-        raise ValueError(f"Checksum mismatch in {label}.patch")
+    filename = label + ".patch"
+    patches = {filename: verified_patch(filename, manifest["patch_sha256"])}
+    upgrade = manifest.get("upgrade", {})
+    if upgrade:
+        patches[upgrade["patch"]] = verified_patch(upgrade["patch"], upgrade["sha256"])
     scratch.mkdir()
     pending = {}
+    includes = {key: [] for key in patches}
     for name, record in manifest["files"].items():
         path = (destination / name).resolve()
         path.relative_to(destination)
         installed = file_hash(path)
         if installed == record["after"]:
             continue
-        if installed != record["before"]:
+        if installed == record["before"]:
+            patch_name = filename
+        elif name in upgrade.get("from", {}) and installed == upgrade["from"][name]:
+            patch_name = upgrade["patch"]
+        else:
             raise ValueError(f"Unexpected contents in {path}. Expected upstream {manifest['revision']} or the applied patch.")
         staged = scratch / name
         staged.parent.mkdir(parents=True, exist_ok=True)
         if installed is not None:
             staged.write_bytes(read(path))
-        pending[name] = path
+        pending[name] = (path, installed)
+        includes[patch_name].append(f"--include={name}")
     if not pending:
         return []
     # Limit changes to files still requiring the update so a partial installation
     # can be retried. All personal saves and other working-tree files stay outside.
     subprocess.run(["git", "init", "-q", str(scratch)], check=True)
-    includes = [f"--include={name}" for name in pending]
-    subprocess.run(
-        ["git", "-c", "core.autocrlf=false", "-C", str(scratch), "apply", "--whitespace=nowarn", *includes, "-"],
-        input=patch, check=True,
-    )
+    for patch_name, arguments in includes.items():
+        if arguments:
+            subprocess.run(
+                ["git", "-c", "core.autocrlf=false", "-C", str(scratch), "apply", "--whitespace=nowarn", *arguments, "-"],
+                input=patches[patch_name], check=True,
+            )
     plan = []
-    for name, path in pending.items():
+    for name, (path, installed) in pending.items():
         staged = scratch / name
         record = manifest["files"][name]
         if file_hash(staged) != record["after"]:
             raise ValueError(f"Output checksum mismatch in {label}/{name}")
-        plan.append((staged, path, record["before"]))
+        plan.append((staged, path, installed))
     return plan
 
 

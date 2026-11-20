@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "df1c4f71abd8202bb0605af9172d2a83e68b15551e21d2ca1a1a379d7c260527",
+    "patch_sha256": "d4a55446bb5117c270a37bf8a4da38792e1e6f4b984dbee0b89b6b32d2a8322f",
     "files": {
       "Start-DreamWorld-LAN.cmd": {
         "before": null,
@@ -61,11 +61,15 @@
       },
       "api/pgl_top.py": {
         "before": "4b94b2f8e3fcd81c91bbde5b153782d475d84b9c8edd5574cb99275c08ad796f",
-        "after": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b"
+        "after": "647d9fe60dbdef161b46955e0b19c29c8e399b5dd0ffe995b96066695952b70c"
+      },
+      "api/player_guide.py": {
+        "before": null,
+        "after": "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91"
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a"
+        "after": "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544"
       },
       "api/signup.py": {
         "before": "ceae94877540ecd6545133e286f58407cdde46940076d6d2834093793cb2c87d",
@@ -82,6 +86,10 @@
       "json_data/customize_zh.json": {
         "before": null,
         "after": "3a84d3bd64a0022dc59d05459ec0f54034acb4dd563fc8e261542cc8eb92cbaa"
+      },
+      "json_data/player_guide.json": {
+        "before": null,
+        "after": "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898"
       },
       "json_data/pokemon.json": {
         "before": "9bb7eb49a42eec485bb8e3837f65b7635bc2ec48467789e34c1d095ad62453ae",
@@ -203,9 +211,21 @@
         "before": null,
         "after": "c11f5a4a78539a87387335b5230916cdcb1d9af98ac3d11c15cc2a60a809814d"
       },
+      "static/player-guide.css": {
+        "before": null,
+        "after": "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c"
+      },
+      "static/player-guide.js": {
+        "before": null,
+        "after": "486393a829d73834397513ce8d1520c0cdf2904b724ec3abb6d4e5867842d479"
+      },
+      "templates/player_guide.html": {
+        "before": null,
+        "after": "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f"
+      },
       "utils/account_manager.py": {
         "before": "7be3a794b8fa6936d4b8983c520893050866e0ab3eebf363ccffc5e82102db1a",
-        "after": "4af1d59b3814b446cf60c1da9a8c15781e0e3becb6d48bf7f4f7d89a4e5c789d"
+        "after": "4a0b52241c9b5c6ae3929873a21a4e3420ef1e0be61db9dbaebe6dc90702bf1f"
       },
       "utils/assets.py": {
         "before": "d70a69227d30b3c5401dc80a88bd270fc860bbd9ea83bf6373b0af3ed38ae6f5",
@@ -239,6 +259,10 @@
         "before": "cf28ae41193a4f9b61fe578ae1fcc06f9d55140baf4c500d4072d8d5347d5db1",
         "after": "45a820db3cc9c657aa276d1fbda3fd4f51c974c8f91fc8703edd8e75d4dc2c63"
       },
+      "utils/player_dns.py": {
+        "before": null,
+        "after": "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
+      },
       "utils/profile_avatars.py": {
         "before": null,
         "after": "4d164e13b63b27dcff46f027ce9ff0f0985c4fa4bb173c19f69f447c1ff800e9"
@@ -263,11 +287,20 @@
         "before": null,
         "after": "639b8b7688b7c0b71cf318675817c5cbfc8a1ce2739712bad1d013aee7511781"
       }
+    },
+    "upgrade": {
+      "patch": "web-upgrade.patch",
+      "sha256": "9f659ac29a81ea7e1e071c63f8cb13f1d2b1c37e6f0ce0d6b1f29e1353589202",
+      "from": {
+        "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
+        "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
+        "utils/account_manager.py": "4af1d59b3814b446cf60c1da9a8c15781e0e3becb6d48bf7f4f7d89a4e5c789d"
+      }
     }
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "ad4c92ae45a37bc44eb050a4ee11cbed0fee128da7d0bcf9518c1146e71b4f03",
+    "patch_sha256": "e7b4867714227130ce371ac8006316fdc23fba9ba54d8cb824b3b64c15d5df78",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -307,7 +340,7 @@
       },
       "entralinked/network/dns/server.py": {
         "before": "8af9789ee0e0de1009d9b5d9560dd02c4f45e82d219c95aab53d41dddb83f218",
-        "after": "ebcf9190c9ab47b7969a394ed04a31cc1a1570ba685fa1b250e2f892301999ea"
+        "after": "bcc832f685b40c0b1b32f4f42180c64aadbe7bd4e8723adb32dd462d698d898f"
       },
       "entralinked/network/gamespy/codec.py": {
         "before": "b85e96e6289638952fda519a0f10b3a3d15cca6e0fab7117f29e926c0be85fb4",
@@ -357,6 +390,10 @@
         "before": "5ddc52ce816112c081362a965d2f496522a09a1b81ef70cb0b16751bcb3c0837",
         "after": "ca35ea8236a54770019627a27c14ffdd1a70a2dab460d4af0951647802388981"
       },
+      "entralinked/network/matchmaking/COPYING-AltWFC.txt": {
+        "before": null,
+        "after": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6"
+      },
       "entralinked/network/matchmaking/__init__.py": {
         "before": null,
         "after": "c0f5c1b2a8af4e87126605c21713341f5b09bc3593fe18e9c8d8747a0557c88c"
@@ -364,10 +401,6 @@
       "entralinked/network/matchmaking/addresses.py": {
         "before": null,
         "after": "6b48a8853efbfcae57a10ffff8aaf081859ecd456631f6f9b68528ca781acd7b"
-      },
-      "entralinked/network/matchmaking/COPYING-AltWFC.txt": {
-        "before": null,
-        "after": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6"
       },
       "entralinked/network/matchmaking/directory.py": {
         "before": null,
@@ -396,6 +429,13 @@
       "entralinked/utility/db_manager.py": {
         "before": "22fca84e16399f3b9791ce2a18926ce00f69c982537537bf80b27c0389aa2fcc",
         "after": "30afa2e5837937b374b9280cbbc9725786dbf1edc1e967d89946563788d644bb"
+      }
+    },
+    "upgrade": {
+      "patch": "game-sync-upgrade.patch",
+      "sha256": "23bfafe5f2e38847d31ac7dfaaba013a5e5206fea0ca3a9d8352f398e5847dd3",
+      "from": {
+        "entralinked/network/dns/server.py": "ebcf9190c9ab47b7969a394ed04a31cc1a1570ba685fa1b250e2f892301999ea"
       }
     }
   }

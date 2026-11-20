@@ -29,7 +29,7 @@ If Windows uses the Python Launcher, use `py -3 setup.py` in place of `python se
 
 ## Bring your first partner home
 
-1. **Connect the cartridge.** In the Wi-Fi settings used by your game, set primary DNS to the private IPv4 address printed as `Game Sync address`. On the C-Gear touch **Wi-Fi → Game Sync** (ゲームシンク on the Japanese cartridge). Tuck in one Pokémon and wait for confirmation. Find your save's Game Sync ID under **Game Sync Settings** on the game's main menu.
+1. **Connect the cartridge.** On the local homepage, select **Find my DS DNS**. Open the instructions for your console and enter the displayed address as the primary DNS of the connection your game uses. On the C-Gear touch **Wi-Fi → Game Sync** (ゲームシンク on the Japanese cartridge). Tuck in one Pokémon and wait for confirmation. Find your save's Game Sync ID under **Game Sync Settings** on the game's main menu.
 2. **Link your save.** Open the local homepage, create an account on this server, sign in, and register your save's Game Sync ID. If registration asks for activation, the server operator can run the command below in a second PowerShell window inside `runtime`. Replace `PlayerName` with the registered username. Server operators can activate accounts locally without configuring email.
 3. **Make a friend on the website.** Enter Dream World, cross the rainbow bridge and complete an encounter's minigame. At the Tree of Dreams, offer one Berry and select the Pokémon you befriended. New players receive five Berries of one kind on their first visit.
 4. **Prepare to wake up.** Return home on the website. Use the power button in the upper right, choose to end the visit and wake your Pokémon, then check the partner shown and confirm.

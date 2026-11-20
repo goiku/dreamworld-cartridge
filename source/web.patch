@@ -1876,7 +1876,7 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..48a70101822dd5e64325b5e2a5ccf545
      }
      if musical_file := _MUSICAL_FILES[present_id]:
 diff --git a/api/pgl_top.py b/api/pgl_top.py
-index 00a1d08e33cf644fed2087f4247656187c6d79bd..5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89 100644
+index 00a1d08e33cf644fed2087f4247656187c6d79bd..d2c32fdd96c67b036a643dc1d24621477d69e981 100644
 --- a/api/pgl_top.py
 +++ b/api/pgl_top.py
 @@ -102,7 +102,7 @@ def _member_data(account: Account) -> dict:
@@ -1888,11 +1888,115 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..5e5eea29abba2b7ce3ed41ba9e0a84a1
  
  
  @endpoint("pgl.top.login", methods=("POST",))  # custom API call - not original
+@@ -110,7 +110,8 @@ def login(query: Query) -> dict:
+     """Check a username and password and log the browser session in."""
+     username = query.get("username", "")
+     password = query.get("password", "")
+-
++    # A failed account switch must not leave the previous player's cartridge active.
++    session.clear()
+     account = accounts.get_account_by_username(username)
+ 
+     if account is None or not check_password_hash(account["password_hash"], password):
+diff --git a/api/player_guide.py b/api/player_guide.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54ded85bebe3
+--- /dev/null
++++ b/api/player_guide.py
+@@ -0,0 +1,88 @@
++"""Player instructions embedded in the archived site, with live DNS for the local console."""
++import json
++import re
++from html import escape
++from urllib.parse import urlsplit
++
++from flask import Blueprint, Response, jsonify, render_template, request, url_for
++
++from config import LANG, LANGUAGE_NAMES, ROOT_DIR
++from utils.player_dns import get_player_dns
++
++player_guide = Blueprint("player_guide", __name__, url_prefix="/player-guide",
++                         template_folder="../templates", static_folder="../static", static_url_path="/assets")
++_messages = json.loads((ROOT_DIR / "json_data/player_guide.json").read_text(encoding="utf-8"))
++_contexts = {
++    "/": ("home_tip", "dns"),
++    "/introduction/": ("home_tip", "account"),
++    "/login/pgl.html": ("login_tip", "account"),
++    "/register/": ("register_tip", "register"),
++    "/profile/": ("register_tip", "register"),
++    "/pdw/": ("dream_tip", "dream"),
++}
++
++
++@player_guide.get("/")
++def guide() -> str:
++    return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
++                           language_names=LANGUAGE_NAMES)
++
++
++@player_guide.get("/dns.json")
++def dns() -> Response:
++    local_browser = urlsplit(request.host_url).hostname in {"127.0.0.1", "localhost", "::1"}
++    response = jsonify(get_player_dns(request.remote_addr if local_browser else None))
++    response.cache_control.no_store = True
++    return response
++
++
++@player_guide.after_app_request
++def insert_player_help(response: Response) -> Response:
++    if response.mimetype != "text/html" or response.status_code not in (200, 400):
++        return response
++    path = request.path.removesuffix("index.html")
++    context = _contexts.get(path)
++    if request.endpoint in ("signup.trainer_club_signup", "signup.trainer_club_confirmation"):
++        context = ("login_tip", "account")
++    if context is None:
++        return response
++    # The home page carries the help when it embeds the original narrow login widget.
++    if path == "/login/pgl.html" and request.headers.get("Sec-Fetch-Dest") == "iframe":
++        response.vary.add("Sec-Fetch-Dest")
++        return response
++    tip, section = context
++    t = _messages[LANG]
++    guide_url = url_for("player_guide.guide")
++    css = url_for("player_guide.static", filename="player-guide.css")
++    guide_section = "console" if section == "dns" else section
++    banner = (f'<aside class="dw-player-help" lang="{LANG}"><span>{escape(t[tip])}</span><nav>'
++              f'<a target="_blank" rel="noopener" href="{guide_url}#dns">{escape(t["dns_title"])}</a>'
++              f'<a target="_blank" rel="noopener" href="{guide_url}#{guide_section}">{escape(t["details"])}</a>'
++              '</nav></aside>')
++    data = response.get_data()
++    stylesheet = f'<link rel="stylesheet" href="{css}">'.encode("ascii")
++    head_end = re.search(rb"</head\s*>|<main\b", data, re.I)
++    if head_end:
++        data = data[:head_end.start()] + stylesheet + data[head_end.start():]
++    # Keep the entire game canvas and the archived form in their original containers.
++    # Character references preserve the various encodings of the archived pages.
++    if path == "/login/pgl.html":
++        marker = rb"</body\s*>"
++        if request.headers.get("Sec-Fetch-Dest") == "document":
++            data = re.sub(rb"<body\b", b"<body data-dw-login", data, count=1, flags=re.I)
++            data = re.sub(rb"</head>", b'<meta name="viewport" content="width=device-width,initial-scale=1"></head>',
++                          data, count=1, flags=re.I)
++        else:
++            banner = banner.replace('class="dw-player-help"', 'class="dw-player-help dw-login-help"')
++        response.vary.add("Sec-Fetch-Dest")
++    elif request.endpoint == "signup.trainer_club_signup":
++        marker = rb'<div\s+id=["\']container["\']'
++    elif request.endpoint == "signup.trainer_club_confirmation":
++        marker = rb"</main\s*>"
++    else:
++        marker = rb'<div\s+id=["\']main["\']'
++    at = re.search(marker, data, re.I) or re.search(rb"</body\s*>", data, re.I)
++    if at:
++        data = data[:at.start()] + banner.encode("ascii", "xmlcharrefreplace") + data[at.start():]
++        response.set_data(data)
++    return response
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95178b83e7 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8eb0dd81f5 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,17 +7,17 @@ import atexit
+@@ -7,17 +7,18 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -1900,9 +2004,10 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95
 +from urllib.parse import parse_qs, urlsplit
  
 -from flask import Blueprint, Flask, Response, current_app, redirect, request
-+from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request
++from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
  from werkzeug.wrappers import Response as WerkzeugResponse
  
++from api.player_guide import player_guide
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
 -from config import get_secret_key
@@ -1914,7 +2019,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95
  from utils.patching import SWF_PATHS, get_patched_swf
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
-@@ -38,8 +38,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +39,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -1924,11 +2029,11 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95
          return redirect(f"{path}/", 301)
      return None
  
-@@ -81,6 +80,48 @@ def api_post() -> Response:
+@@ -81,25 +81,75 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
-+_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html",
++_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
 +                   "/report/", "/customize/", "/campaign/", "/help/"}
 +
 +
@@ -1973,7 +2078,16 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95
  @site.route("/", defaults={"path": ""})
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
-@@ -91,15 +132,17 @@ def catch_all(path: str) -> Response:
+     """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
++    if not path and request.args.get("p") == "logout":
++        session.clear()
++        response = redirect("/")
++        response.headers["Cache-Control"] = "no-store"
++        return response
++
+     path = path.split("&")[0]
+     full_path = f"/{path}"
+ 
      # return patched SWFs from our cache
      filename = Path(path).name
      if filename in SWF_PATHS:
@@ -1996,6 +2110,14 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8d93e0eef0999db12333397cd5541d95
  
      # static asset
      file_path = resolve_static(full_path)
+@@ -121,6 +171,7 @@ def create_app() -> Flask:
+     app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
+     app.secret_key = get_secret_key()
+     app.register_blueprint(signup)
++    app.register_blueprint(player_guide)
+     app.register_blueprint(site)
+ 
+     @app.teardown_appcontext
 diff --git a/api/signup.py b/api/signup.py
 index 5354239c32b74e83efe13c2ee142c2c505199491..f8ac4d9a05a345765b200dc5ce0159ee8b84f023 100644
 --- a/api/signup.py
@@ -2210,6 +2332,246 @@ index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a85
 +  "M010": "迷人★食梦梦", "M011": "宝可梦大轰动！", "M012": "宝可梦中心的时装秀♪", "M013": "美洛耶塔！", "M014": "乐天河童嘉年华！",
 +  "Z003": "启程的伙伴", "Z004": "启程的伙伴", "Z005": "关都的三位伙伴", "Z006": "关都的三位伙伴", "Z007": "劲敌修",
 +  "Z008": "白露", "Z009": "黑连", "Z100": "默认外观", "ZUKAN_DEFAULT_PINK": "默认外观", "Z101": "默认外观", "ZUKAN_DEFAULT_RED": "默认外观"
++}
+diff --git a/json_data/player_guide.json b/json_data/player_guide.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced572dcb6511
+--- /dev/null
++++ b/json_data/player_guide.json
+@@ -0,0 +1,234 @@
++{
++  "en": {
++    "title": "Player guide",
++    "dns_title": "Find my DS DNS",
++    "checking": "Checking the DNS service…",
++    "refresh": "Check again",
++    "ready": "Primary DNS",
++    "offline": "No active game DNS was found. Start the server in LAN mode, or start the gateway on the PC connected to your DS network, then check again.",
++    "ambiguous": "The site cannot identify a single DNS address for your DS. Check which PC serves your DS network and use the LAN address shown by its server or gateway.",
++    "copy": "Copy address",
++    "copied": "Address copied",
++    "console_title": "Where to enter the DNS",
++    "ds": "DS / DS Lite: From the game's main menu, open Nintendo WFC Settings. Select Nintendo Wi-Fi Connection Settings and your saved connection. Scroll down, set Auto-obtain DNS to No and enter the address above under Primary DNS.",
++    "dsi": "DSi / DSi XL: In System Settings, go to page 3 → Internet → Connection Settings. Choose your connection (Advanced Setup for slots 4–6), then Change Settings. Scroll right to Auto-Obtain DNS, choose No and open the detailed settings to enter the primary DNS.",
++    "three_ds": "3DS / 2DS: For a DSi-enhanced cartridge, open System Settings → Internet Settings → Connection Settings. Select your connection → Change Settings → right arrow → DNS. Set Auto-Obtain DNS to No and enter the primary DNS under Detailed Setup. For DS mode, open Nintendo DS Connections under Internet Settings and follow the DS steps.",
++    "console_note": "Edit the connection your game uses. Leave Secondary DNS blank or at 0.0.0.0, then save and test. Keep your existing Nintendo WFC ID. If you play from another network, use the gateway PC's address on your own DS network. For remote play, use the same current release on the host and both gateways.",
++    "account_title": "Use your own account",
++    "account": "Create your own account on this server, then follow the activation instructions shown after registration. Sign in with that username and password. On a shared browser, sign out of any other player's account first.",
++    "register_title": "Link your cartridge",
++    "register": "On the C-Gear, choose ONLINE (Wi-Fi on Japanese cartridges) → Game Sync and tuck in a Pokémon. Find this save's Game Sync ID under Game Sync Settings on the game's main menu, then enter it on the website while signed in to your own account.",
++    "dream_title": "Bring a new friend back",
++    "dream": "Cross the rainbow bridge, befriend a Pokémon in a minigame and offer a Berry at the Tree of Dreams to choose your partner. Return home and use the power button to end the visit and prepare to wake up. On your DS, wake your Pokémon with Game Sync, then choose Wireless → Entralink and walk north to the Entree Forest.",
++    "open_signup": "Create an account",
++    "open_login": "Sign in",
++    "home_tip": "First visit? Find your DS DNS and link your cartridge.",
++    "login_tip": "Sign in with the account you created on this server.",
++    "register_tip": "Use the Game Sync ID shown by your own save.",
++    "dream_tip": "Choose a partner at the Tree of Dreams before ending your visit.",
++    "details": "Open player guide"
++  },
++  "ja": {
++    "title": "遊び方ガイド",
++    "dns_title": "DSに設定するDNSを調べる",
++    "checking": "DNSを確認中…",
++    "refresh": "もう一度確認",
++    "ready": "プライマリDNS",
++    "offline": "ゲーム用DNSが見つかりません。サーバーをLANモードで起動するか、DSと同じネットワークのパソコンでゲートウェイを起動してから、もう一度確認してください。",
++    "ambiguous": "このDSが使うDNSを特定できません。DSと同じネットワークを担当するパソコンで、サーバーまたはゲートウェイに表示されたLANアドレスを確認してください。",
++    "copy": "アドレスをコピー",
++    "copied": "コピーしました",
++    "console_title": "本体でのDNS設定",
++    "ds": "DS／DS Lite：ゲームのメインメニューで「Wi-Fi設定」を開き、「Wi-Fi接続先設定」で使用中の接続先を選びます。下にスクロールして「DNS自動取得」を「しない」にし、上のアドレスを「プライマリDNS」に入力してください。",
++    "dsi": "DSi／DSi LL：「本体設定」3ページ目 →「インターネット」→「接続設定」で使用中の接続先を選びます（接続先4～6は「上級者設定」）。「設定変更」で右に進み、「DNS自動取得」を「しない」にして、詳細設定でプライマリDNSを入力してください。",
++    "three_ds": "3DS／2DS：DSi対応ソフトは「本体設定」→「インターネット設定」→「インターネット接続設定」で使用中の接続先を選びます。「設定変更」→ 右矢印 →「DNS」で「DNS自動取得」を「しない」にし、「詳細設定」にプライマリDNSを入力してください。DSモードの場合は「インターネット設定」→「DSソフト用設定」からDSの手順に進みます。",
++    "console_note": "ゲームで使う接続先を編集してください。セカンダリDNSは空欄または0.0.0.0のまま保存し、接続テストを行います。Wi-FiコネクションIDはそのまま使います。別のネットワークから遊ぶ場合は、自分のDSと同じネットワークにあるゲートウェイのLANアドレスを使ってください。別のネットワークから遊ぶ場合は、ホストと双方のゲートウェイを同じ最新版にそろえてください。",
++    "account_title": "自分のアカウントで始める",
++    "account": "このサーバーで自分のアカウントを作成し、登録後の案内に従って有効にしてください。登録したユーザー名とパスワードでログインします。共用ブラウザーに別の人の名前が表示されている場合は、先にログアウトしてください。",
++    "register_title": "ゲームソフトを登録する",
++    "register": "Cギアの「Wi-Fi」→「ゲームシンク」でポケモンを寝かせます。ゲームのメインメニューの「ゲームシンク設定」で自分のゲームシンクIDコードを確認し、自分のアカウントでログインしたウェブサイトに登録してください。",
++    "dream_title": "仲良くなったポケモンを連れて帰る",
++    "dream": "虹の橋を渡り、ミニゲームでポケモンと仲良くなったら、ゆめの木できのみを1個供えて仲間を選びます。自分のホームに戻り、右上の電源ボタンからポケモンを起こす準備をして終了します。DSのゲームシンクで起こしたら、Cギアの「WIRELESS」→「ハイリンク」で北のハイリンクの森へ向かってください。",
++    "open_signup": "アカウントを作成",
++    "open_login": "ログイン",
++    "home_tip": "初めての方は、DSのDNS設定とゲームソフトの登録から始めましょう。",
++    "login_tip": "このサーバーで作成した自分のアカウントでログインしてください。",
++    "register_tip": "自分のセーブデータに表示されたゲームシンクIDコードを入力してください。",
++    "dream_tip": "終了する前に、ゆめの木で連れて帰る仲間を選びましょう。",
++    "details": "遊び方を見る"
++  },
++  "zh": {
++    "title": "游玩指南",
++    "dns_title": "查看我的掌机 DNS",
++    "checking": "正在检查游戏 DNS…",
++    "refresh": "重新检查",
++    "ready": "主要 DNS",
++    "offline": "没有检测到正在运行的游戏 DNS。请让服主以局域网模式启动服务器。如果你在异地联机，请先启动与自己掌机同一网络的电脑网关，再重新检查。",
++    "ambiguous": "网页暂时无法确定你的掌机该用哪个 DNS。请在为这台掌机提供连接的电脑上，查看服务器或网关显示的局域网地址。",
++    "copy": "复制地址",
++    "copied": "地址已复制",
++    "console_title": "在掌机哪里填 DNS",
++    "ds": "DS / DS Lite：在游戏主菜单打开「Wi-Fi 设置」→「Nintendo Wi-Fi 连接设置」，选正在用的连接。向下找到「自动获取 DNS」，选「否」，把上方地址填入「主要 DNS」（日文「プライマリDNS」）。",
++    "dsi": "DSi / DSi LL：打开「主机设置」第 3 页 →「互联网」→「连接设置」，选正在用的连接（连接 4～6 在「高级设置」里）。进入「更改设置」，向右翻到「自动获取 DNS」，选「否」，再到「详细设置」填主要 DNS。",
++    "three_ds": "3DS / 2DS：用 DSi 增强模式运行卡带时，从「主机设置」→「互联网设置」→「连接设置」选正在用的连接。点「更改设置」→ 右箭头 →「DNS」，关闭「自动获取 DNS」，在「详细设置」填主要 DNS。如果用的是 DS 模式，请在「互联网设置」打开「DS 软件用设置」，再按上面的 DS 步骤操作。",
++    "console_note": "只修改游戏正在使用的连接。次要 DNS 留空或保留 0.0.0.0，保存后做连接测试，保留原有的 Nintendo WFC ID。异地联机时，填你自己这边网关电脑在掌机局域网内的地址。异地联机前，请把主机和两边的网关都更新到同一版本。",
++    "account_title": "使用自己的账号",
++    "account": "先在这个服务器注册自己的账号，按注册完成页的提示激活，再用注册时的用户名和密码登录。若共用电脑上显示的是其他玩家的名字，请先退出，再登录自己的账号。",
++    "register_title": "绑定自己的卡带",
++    "register": "在 C-Gear 下屏点「Wi-Fi」（英文版为 ONLINE）→「游戏同步」（ゲームシンク），让一只宝可梦入睡。在游戏主菜单的「游戏同步设置」查看这份存档的 Game Sync ID，然后用自己的网页账号登录并登记这个 ID。",
++    "dream_title": "把新伙伴带回卡带",
++    "dream": "过彩虹桥，通过小游戏和宝可梦交朋友，再到梦之树献上一枚树果，选择要带走的伙伴。回到网页小屋，用右上角电源按钮选择准备唤醒并结束。回掌机用「游戏同步」唤醒宝可梦，再从 C-Gear 的「WIRELESS」进入「ハイリンク」，向北走到连入之森捕获新伙伴。",
++    "open_signup": "注册自己的账号",
++    "open_login": "登录",
++    "home_tip": "第一次来？先查看掌机 DNS，再绑定自己的卡带。",
++    "login_tip": "请用你在这个服务器注册的账号登录。",
++    "register_tip": "请填写自己这份存档的 Game Sync ID（游戏同步 ID）。",
++    "dream_tip": "结束梦世界前，先在梦之树选好要带回卡带的伙伴。",
++    "details": "查看游玩指南"
++  },
++  "fr": {
++    "title": "Guide de jeu",
++    "dns_title": "Trouver le DNS de ma DS",
++    "checking": "Vérification du DNS…",
++    "refresh": "Vérifier à nouveau",
++    "ready": "DNS primaire",
++    "offline": "Aucun service DNS de jeu actif n’a été détecté. Lancez le serveur en mode réseau local ou la passerelle sur le PC du réseau de votre DS, puis réessayez.",
++    "ambiguous": "Le site ne peut pas identifier le DNS de votre DS. Relevez l’adresse locale affichée par le serveur ou la passerelle sur le PC qui dessert le réseau de votre console.",
++    "copy": "Copier l’adresse",
++    "copied": "Adresse copiée",
++    "console_title": "Saisir le DNS sur la console",
++    "ds": "DS / DS Lite : dans le menu principal du jeu, ouvrez les paramètres de connexion Wi-Fi Nintendo et sélectionnez votre connexion enregistrée. Descendez jusqu’à l’obtention automatique du DNS, choisissez Non et saisissez l’adresse ci-dessus dans DNS primaire.",
++    "dsi": "DSi / DSi XL : ouvrez les paramètres de la console, page 3 → Internet → paramètres de connexion. Choisissez votre connexion (configuration avancée pour les connexions 4 à 6) et modifiez ses paramètres. Allez à droite jusqu’au DNS automatique, choisissez Non et saisissez le DNS primaire dans les paramètres détaillés.",
++    "three_ds": "3DS / 2DS : pour une cartouche compatible DSi, ouvrez Paramètres de la console → Paramètres Internet → Paramètres de connexion. Choisissez votre connexion, modifiez-la, puis touchez la flèche droite → DNS. Désactivez le DNS automatique et saisissez le DNS primaire dans les paramètres détaillés. En mode DS, ouvrez les paramètres de connexion Nintendo DS dans les paramètres Internet et suivez les étapes DS.",
++    "console_note": "Modifiez la connexion utilisée par le jeu. Laissez le DNS secondaire vide ou à 0.0.0.0, enregistrez et testez la connexion. Conservez votre identifiant CWF Nintendo. Si vous jouez depuis un autre réseau, utilisez l’adresse locale du PC passerelle sur le réseau de votre DS. Pour jouer à distance, installez la même version à jour sur le serveur et les deux passerelles.",
++    "account_title": "Utiliser votre propre compte",
++    "account": "Créez votre compte sur ce serveur et suivez les instructions d’activation. Connectez-vous avec le nom d’utilisateur et le mot de passe choisis. Sur un navigateur partagé, déconnectez d’abord tout autre compte ouvert.",
++    "register_title": "Associer votre cartouche",
++    "register": "Sur le C-Gear, ouvrez le menu de jeu en ligne puis la Synchro-Jeu pour endormir un Pokémon. Relevez l’ID de Synchro-Jeu de votre sauvegarde dans les paramètres de Synchro-Jeu du menu principal, puis enregistrez-le sur le site depuis votre propre compte.",
++    "dream_title": "Ramener un nouveau partenaire",
++    "dream": "Traversez le pont arc-en-ciel, liez-vous d’amitié avec un Pokémon dans un mini-jeu et offrez une Baie à l’Arbre des Rêves pour choisir votre partenaire. Rentrez chez vous et utilisez le bouton d’arrêt pour préparer le réveil et terminer la visite. Sur la DS, réveillez votre Pokémon avec la Synchro-Jeu, puis rejoignez le Heylink par le menu sans fil et marchez vers la forêt au nord.",
++    "open_signup": "Créer un compte",
++    "open_login": "Se connecter",
++    "home_tip": "Première visite ? Trouvez le DNS de votre DS, puis associez votre cartouche.",
++    "login_tip": "Connectez-vous avec le compte créé sur ce serveur.",
++    "register_tip": "Saisissez l’ID de Synchro-Jeu de votre sauvegarde.",
++    "dream_tip": "Choisissez votre partenaire à l’Arbre des Rêves avant de terminer la visite.",
++    "details": "Ouvrir le guide"
++  },
++  "it": {
++    "title": "Guida per giocare",
++    "dns_title": "Trova il DNS per il tuo DS",
++    "checking": "Controllo del DNS in corso…",
++    "refresh": "Controlla di nuovo",
++    "ready": "DNS primario",
++    "offline": "Nessun servizio DNS di gioco attivo. Avvia il server in modalità LAN oppure il gateway sul PC collegato alla rete del tuo DS, poi riprova.",
++    "ambiguous": "Il sito non riesce a individuare il DNS del tuo DS. Sul PC che serve la rete della console, controlla l’indirizzo LAN indicato dal server o dal gateway.",
++    "copy": "Copia indirizzo",
++    "copied": "Indirizzo copiato",
++    "console_title": "Dove inserire il DNS sulla console",
++    "ds": "DS / DS Lite: dal menu principale del gioco apri le impostazioni Nintendo Wi-Fi Connection e scegli la tua connessione salvata. Scorri fino all’ottenimento automatico del DNS, scegli No e inserisci l’indirizzo qui sopra in DNS primario.",
++    "dsi": "DSi / DSi XL: apri le impostazioni della console, pagina 3 → Internet → impostazioni di collegamento. Scegli la connessione in uso (impostazioni avanzate per le connessioni 4–6) e modificala. Scorri a destra fino al DNS automatico, scegli No e inserisci il DNS primario nelle impostazioni dettagliate.",
++    "three_ds": "3DS / 2DS: per una cartuccia con funzioni DSi, apri Impostazioni della console → Impostazioni Internet → Impostazioni di collegamento. Seleziona la tua connessione e modificala, poi tocca la freccia destra → DNS. Disattiva il DNS automatico e inserisci il DNS primario nelle impostazioni dettagliate. In modalità DS, apri i collegamenti Nintendo DS nelle impostazioni Internet e segui i passaggi per DS.",
++    "console_note": "Modifica la connessione usata dal gioco. Lascia il DNS secondario vuoto o a 0.0.0.0, salva ed esegui la prova di connessione. Conserva il tuo ID Nintendo WFC. Se giochi da un’altra rete, usa l’indirizzo LAN del PC che fa da gateway nella rete del tuo DS. Per giocare a distanza, aggiorna il server e i due gateway alla stessa versione.",
++    "account_title": "Usa il tuo account",
++    "account": "Crea un account su questo server e segui le istruzioni per attivarlo. Accedi con il nome utente e la password scelti. Su un browser condiviso, esci prima dall’eventuale account di un’altra persona.",
++    "register_title": "Collega la tua cartuccia",
++    "register": "Dal menu online del C-Gear, avvia il Sincrogioco e fai addormentare un Pokémon. Leggi l’ID Sincrogioco del tuo salvataggio nelle impostazioni del Sincrogioco del menu principale, poi accedi al sito e registralo sul tuo account.",
++    "dream_title": "Porta con te un nuovo amico",
++    "dream": "Attraversa il ponte arcobaleno, diventa amico di un Pokémon in un minigioco e offri una Bacca all’Albero dei Sogni per scegliere il tuo compagno. Torna a casa e usa il pulsante di uscita per preparare il risveglio e terminare la visita. Sul DS, sveglia il tuo Pokémon con il Sincrogioco e raggiungi l’Intramondo dal menu wireless, poi vai nella foresta a nord.",
++    "open_signup": "Crea un account",
++    "open_login": "Accedi",
++    "home_tip": "Prima visita? Trova il DNS del tuo DS e collega la cartuccia.",
++    "login_tip": "Accedi con il tuo account su questo server.",
++    "register_tip": "Inserisci l’ID Sincrogioco del tuo salvataggio.",
++    "dream_tip": "Scegli un compagno all’Albero dei Sogni prima di terminare la visita.",
++    "details": "Apri la guida"
++  },
++  "de": {
++    "title": "Spielanleitung",
++    "dns_title": "DNS-Adresse für meinen DS anzeigen",
++    "checking": "DNS-Dienst wird geprüft…",
++    "refresh": "Erneut prüfen",
++    "ready": "Primärer DNS-Server",
++    "offline": "Kein aktiver Spiel-DNS gefunden. Starte den Server im LAN-Modus oder das Gateway auf einem PC im Netzwerk deines DS und prüfe die Verbindung erneut.",
++    "ambiguous": "Die DNS-Adresse für deinen DS lässt sich hier nicht eindeutig bestimmen. Lies die vom Server oder Gateway angezeigte LAN-Adresse an dem PC ab, der die Verbindung für deinen DS bereitstellt.",
++    "copy": "Adresse kopieren",
++    "copied": "Adresse kopiert",
++    "console_title": "DNS an der Konsole eingeben",
++    "ds": "DS / DS Lite: Öffne im Hauptmenü des Spiels die Einstellungen der Nintendo Wi-Fi Connection und wähle deine gespeicherte Verbindung. Scrolle zur automatischen DNS-Abfrage, wähle Nein und trage die oben angezeigte Adresse als primären DNS-Server ein.",
++    "dsi": "DSi / DSi XL: Öffne die Systemeinstellungen, Seite 3 → Internet → Verbindungseinstellungen. Wähle deine Verbindung (für 4–6 die erweiterten Einstellungen) und ändere ihre Einstellungen. Blättere nach rechts zur automatischen DNS-Abfrage, wähle Nein und trage den primären DNS-Server in der Detailansicht ein.",
++    "three_ds": "3DS / 2DS: Öffne für ein Spiel mit DSi-Funktionen Systemeinstellungen → Interneteinstellungen → Verbindungseinstellungen. Wähle deine Verbindung → Einstellungen ändern → rechter Pfeil → DNS. Schalte die automatische DNS-Abfrage aus und trage den primären DNS-Server in der Detailansicht ein. Öffne im DS-Modus die Nintendo DS-Verbindungen unter Interneteinstellungen und folge der Anleitung für DS.",
++    "console_note": "Bearbeite die vom Spiel verwendete Verbindung. Lass das Feld für den sekundären DNS-Server leer oder auf 0.0.0.0, speichere und teste die Verbindung. Behalte deine Nintendo WFC-ID. Wenn du aus einem anderen Netz spielst, verwende die LAN-Adresse des Gateway-PCs im lokalen Netz deines DS. Für das Spiel über zwei Netzwerke sollten der Host und beide Gateways dieselbe aktuelle Version verwenden.",
++    "account_title": "Mit deinem eigenen Konto spielen",
++    "account": "Erstelle auf diesem Server dein eigenes Konto und folge den Anweisungen zur Aktivierung. Melde dich mit deinem Benutzernamen und Passwort an. Wenn im gemeinsam genutzten Browser ein anderes Konto geöffnet ist, melde es zuerst ab.",
++    "register_title": "Deine Spielkarte verknüpfen",
++    "register": "Öffne im C-Gear den Online-Bereich und nutze die Spielsynchro, um ein Pokémon schlafen zu legen. Lies die Spielsynchro-ID deines Spielstands in den Spielsynchro-Einstellungen im Hauptmenü ab und registriere sie auf der Website in deinem eigenen Konto.",
++    "dream_title": "Ein neues Pokémon mitnehmen",
++    "dream": "Überquere die Regenbogenbrücke und freunde dich in einem Minispiel mit einem Pokémon an. Opfere am Traumbaum eine Beere, wähle deinen Partner und kehre nach Hause zurück, um den Besuch über die Ausschalttaste mit der Vorbereitung zum Aufwecken zu beenden. Wecke auf dem DS dein Pokémon mit der Spielsynchro, öffne im Drahtlos-Bereich die Kontaktebene und gehe nach Norden in den Wald.",
++    "open_signup": "Konto erstellen",
++    "open_login": "Anmelden",
++    "home_tip": "Zum ersten Mal hier? Prüfe die DNS-Adresse für deinen DS und verknüpfe deine Spielkarte.",
++    "login_tip": "Melde dich mit deinem eigenen Konto auf diesem Server an.",
++    "register_tip": "Gib die Spielsynchro-ID deines eigenen Spielstands ein.",
++    "dream_tip": "Wähle am Traumbaum einen Partner aus, bevor du deinen Besuch beendest.",
++    "details": "Anleitung öffnen"
++  },
++  "es": {
++    "title": "Guía de juego",
++    "dns_title": "Consultar el DNS de mi DS",
++    "checking": "Comprobando el DNS…",
++    "refresh": "Volver a comprobar",
++    "ready": "DNS primario",
++    "offline": "No se ha detectado ningún DNS del juego activo. Inicia el servidor en modo LAN o la puerta de enlace en el PC conectado a la red de tu DS y vuelve a comprobarlo.",
++    "ambiguous": "No se puede determinar el DNS de tu DS. En el PC que da servicio a la red de tu consola, consulta la dirección local que indica el servidor o la puerta de enlace.",
++    "copy": "Copiar dirección",
++    "copied": "Dirección copiada",
++    "console_title": "Dónde configurar el DNS en la consola",
++    "ds": "DS / DS Lite: abre la configuración de la Conexión Wi-Fi de Nintendo desde el menú principal del juego y selecciona tu conexión guardada. Baja hasta la obtención automática del DNS, elige No e introduce la dirección de arriba en DNS primario.",
++    "dsi": "DSi / DSi XL: abre la configuración de la consola, página 3 → Internet → configuración de conexión. Selecciona tu conexión (configuración avanzada para las conexiones 4–6) y edita los ajustes. Avanza a la derecha hasta el DNS automático, elige No e introduce el DNS primario en la configuración detallada.",
++    "three_ds": "3DS / 2DS: para un cartucho con funciones DSi, ve a Configuración de la consola → Configuración de internet → Ajustes de conexión. Selecciona tu conexión → Modificar ajustes → flecha derecha → DNS. Desactiva la obtención automática e introduce el DNS primario en la configuración detallada. En modo DS, abre las conexiones de Nintendo DS en la configuración de internet y sigue los pasos para DS.",
++    "console_note": "Edita la conexión que usa el juego. Deja el DNS secundario en blanco o en 0.0.0.0, guarda los cambios y prueba la conexión. Conserva tu ID de la CWF de Nintendo. Si juegas desde otra red, usa la dirección local del PC que sirve de puerta de enlace en la red de tu DS. Para jugar desde redes distintas, actualiza el servidor y ambas puertas de enlace a la misma versión.",
++    "account_title": "Usa tu propia cuenta",
++    "account": "Crea tu cuenta en este servidor y sigue las instrucciones de activación. Inicia sesión con el nombre de usuario y la contraseña que elegiste. Si compartes el navegador y aparece el nombre de otra persona, cierra primero esa sesión.",
++    "register_title": "Vincula tu cartucho",
++    "register": "En el menú en línea del C-Gear, abre la Sincronía del Juego y duerme a un Pokémon. Consulta el ID de Sincronía del Juego de tu partida en los ajustes de sincronía del menú principal. Inicia sesión en la web con tu cuenta y registra ese ID.",
++    "dream_title": "Trae a tu nuevo compañero",
++    "dream": "Cruza el puente arcoíris, hazte amigo de un Pokémon en un minijuego y ofrece una Baya en el Árbol de los Sueños para elegir a tu compañero. Vuelve a casa y usa el botón de salida para preparar el despertar y terminar la visita. En la DS, despierta a tu Pokémon con la Sincronía del Juego, entra en la Zona Nexo desde el menú inalámbrico y ve al bosque del norte.",
++    "open_signup": "Crear una cuenta",
++    "open_login": "Iniciar sesión",
++    "home_tip": "¿Es tu primera visita? Consulta el DNS de tu DS y vincula tu cartucho.",
++    "login_tip": "Inicia sesión con la cuenta que creaste en este servidor.",
++    "register_tip": "Introduce el ID de Sincronía del Juego de tu propia partida.",
++    "dream_tip": "Elige un compañero en el Árbol de los Sueños antes de terminar la visita.",
++    "details": "Abrir la guía"
++  },
++  "ko": {
++    "title": "플레이 안내",
++    "dns_title": "내 DS의 DNS 확인",
++    "checking": "게임 DNS 확인 중…",
++    "refresh": "다시 확인",
++    "ready": "기본 DNS",
++    "offline": "실행 중인 게임 DNS를 찾을 수 없습니다. 서버를 LAN 모드로 시작하거나 DS와 같은 네트워크의 PC에서 게이트웨이를 실행한 뒤 다시 확인하세요.",
++    "ambiguous": "이 DS에 사용할 DNS를 하나로 특정할 수 없습니다. DS의 네트워크를 담당하는 PC에서 서버 또는 게이트웨이가 표시하는 LAN 주소를 확인하세요.",
++    "copy": "주소 복사",
++    "copied": "복사했습니다",
++    "console_title": "본체에서 DNS 설정하기",
++    "ds": "DS / DS Lite: 게임 메인 메뉴의 Nintendo Wi-Fi 커넥션 설정에서 사용 중인 접속 설정을 선택하세요. 아래로 내려 DNS 자동 취득을 끄고 위의 주소를 기본 DNS에 입력하세요.",
++    "dsi": "DSi / DSi XL: 본체 설정 3페이지 → 인터넷 → 접속 설정에서 사용 중인 접속을 선택하세요(접속 4~6은 고급 설정). 설정 변경에서 오른쪽으로 이동해 DNS 자동 취득을 끈 뒤 상세 설정에 기본 DNS를 입력하세요.",
++    "three_ds": "3DS / 2DS: DSi 기능을 지원하는 게임 카드는 본체 설정 → 인터넷 설정 → 인터넷 접속 설정에서 사용 중인 접속을 선택하세요. 설정 변경 → 오른쪽 화살표 → DNS에서 자동 취득을 끄고 상세 설정에 기본 DNS를 입력하세요. DS 모드라면 인터넷 설정의 DS 소프트웨어용 설정을 열고 위의 DS 절차를 따르세요.",
++    "console_note": "게임이 사용하는 접속 설정만 변경하세요. 보조 DNS는 비워 두거나 0.0.0.0으로 두고 저장한 뒤 접속 테스트를 하세요. 기존 Nintendo WFC ID는 그대로 유지하세요. 다른 네트워크에서 접속한다면 내 DS와 같은 네트워크에 있는 게이트웨이 PC의 LAN 주소를 사용하세요. 다른 네트워크에서 플레이할 때는 호스트와 양쪽 게이트웨이를 같은 최신 버전으로 업데이트하세요.",
++    "account_title": "내 계정으로 시작하기",
++    "account": "이 서버에서 본인 계정을 만들고 가입 후 표시되는 안내에 따라 활성화하세요. 가입할 때 정한 사용자 이름과 비밀번호로 로그인하세요. 공용 브라우저에 다른 사람 이름이 표시되면 먼저 로그아웃하세요.",
++    "register_title": "내 게임 카드 등록하기",
++    "register": "C기어의 온라인 메뉴에서 게임싱크를 실행해 포켓몬 한 마리를 재우세요. 게임 메인 메뉴의 게임싱크 설정에서 내 저장 데이터의 게임싱크 ID를 확인한 뒤, 웹사이트에 본인 계정으로 로그인해 등록하세요.",
++    "dream_title": "새 친구를 게임으로 데려오기",
++    "dream": "무지개다리를 건너 미니게임에서 포켓몬과 친구가 된 뒤 꿈의 나무에 나무열매 한 개를 바치고 데려갈 포켓몬을 고르세요. 집으로 돌아가 전원 버튼으로 깨울 준비를 하고 방문을 마치세요. DS의 게임싱크로 포켓몬을 깨운 뒤 C기어의 무선 메뉴에서 하일링크로 들어가 북쪽 숲으로 가세요.",
++    "open_signup": "계정 만들기",
++    "open_login": "로그인",
++    "home_tip": "처음이라면 DS의 DNS를 확인하고 내 게임 카드를 등록하세요.",
++    "login_tip": "이 서버에서 만든 본인 계정으로 로그인하세요.",
++    "register_tip": "내 저장 데이터에 표시되는 게임싱크 ID를 입력하세요.",
++    "dream_tip": "방문을 마치기 전에 꿈의 나무에서 데려갈 친구를 고르세요.",
++    "details": "플레이 안내 보기"
++  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
 index 5a62360967cb5c55b2df56bf6fb5e0f8661bed73..8c0ceddffff85dbb9a566bb76e3e2acdf6ee3cb0 100644
@@ -10292,18 +10654,206 @@ index 0000000000000000000000000000000000000000..99f83ee9e34aea95f959440494953f12
 +        Start-Sleep -Seconds 3
 +    }
 +}
+diff --git a/static/player-guide.css b/static/player-guide.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..e65fe8291aabc1e91a763f1307c490cb44c8f2a3
+--- /dev/null
++++ b/static/player-guide.css
+@@ -0,0 +1,45 @@
++.dw-player-help {
++  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
++  gap: 6px 18px; padding: 9px 16px; margin: 0 auto; width: 100%; max-width: 1003px;
++  background: #f4f5e8; border-block: 1px solid #c5c9a4; color: #33392d;
++  text-align: start; font: 14px/1.5 system-ui, sans-serif;
++}
++.dw-player-help span { flex: 1 1 280px; }
++.dw-player-help nav { display: flex; flex-wrap: wrap; gap: 6px 16px; }
++.dw-player-help nav a { color: #264c45; font: 600 14px/1.5 system-ui, sans-serif; text-decoration: underline; }
++.dw-login-help { margin: 355px 0 0; max-width: 630px; }
++body[data-dw-login] { margin: 0; padding: 20px 12px; background: #f4f5ee; }
++[data-dw-login] .pgl-login-widget { position: static; margin: 0 auto; height: auto; padding: 14px 22px 22px; background: #333e39; border-radius: 4px; }
++[data-dw-login] .dw-player-help { max-width: 440px; margin-top: 14px; }
++/* The archived site scales a fixed desktop viewport to the width of the phone. */
++@media (pointer: coarse) and (max-device-width: 700px) and (min-width: 760px) {
++  body:not([data-dw-login]) .dw-player-help { font-size: 32px; padding: 12px 22px; gap: 4px 20px; }
++  body:not([data-dw-login]) .dw-player-help nav a { font-size: 34px; padding: 7px 0; }
++}
++.dw-guide { margin: 0; background: #f4f5ee; color: #202c28; font: 16px/1.6 system-ui, sans-serif; }
++.dw-guide * { box-sizing: border-box; }
++.dw-guide [hidden] { display: none; }
++.dw-guide a { color: #21564c; text-underline-offset: 3px; }
++.dw-guide :focus-visible, .dw-player-help :focus-visible { outline: 3px solid #b16b03; outline-offset: 3px; }
++.guide-header { background: #253831; color: #fff; padding: 12px max(16px, calc((100% - 800px) / 2)); display: flex; align-items: center; justify-content: space-between; }
++.guide-header > a { color: #fff; font-weight: 700; text-decoration: none; }
++.guide-languages { position: relative; }
++.guide-languages summary, .console-model summary { cursor: pointer; }
++.guide-languages nav { position: absolute; right: 0; width: 155px; padding: 8px; background: #fff; border: 1px solid #b4bdb3; z-index: 1; }
++.guide-languages a { display: block; padding: 3px 8px; }
++.guide-main { max-width: 840px; margin: 0 auto; padding: 24px 20px 65px; }
++.guide-main h1 { font-size: clamp(1.7rem, 4vw, 2.2rem); margin: 0 0 8px; line-height: 1.25; }
++.guide-main h2 { margin: 0 0 12px; font-size: 1.25rem; line-height: 1.45; }
++.guide-main p { margin: 0 0 12px; white-space: pre-line; }
++.guide-nav, .guide-actions { display: flex; flex-wrap: wrap; gap: 8px 17px; }
++.guide-nav { margin: 12px 0 24px; font-size: .92rem; }
++.guide-main section { scroll-margin: 12px; padding: 22px 0; border-bottom: 1px solid #c3cbbc; }
++.guide-main .dns-card { background: #fff; padding: 20px; border: 1px solid #b2c5b9; border-inline-start: 4px solid #386453; border-radius: 3px; }
++.dns-card output { display: block; margin-bottom: 15px; font: 700 1.65rem ui-monospace, monospace; color: #16483a; }
++.guide-actions button, .guide-actions a { font: inherit; cursor: pointer; border: 1px solid #567466; background: white; color: #214b3b; border-radius: 4px; padding: 5px 13px; }
++.guide-actions button:first-child { background: #315c4b; color: white; }
++.guide-actions button:disabled { opacity: .65; cursor: wait; }
++.console-model { background: #fff; border: 1px solid #c5cfc6; margin-bottom: 6px; border-radius: 4px; }
++.console-model summary { padding: 8px 12px; font-weight: 600; }
++.console-model p { padding: 0 12px 3px; }
++.guide-main .guide-note { margin: 12px 0 0; font-size: .92rem; color: #415347; }
+diff --git a/static/player-guide.js b/static/player-guide.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4e7f5015f
+--- /dev/null
++++ b/static/player-guide.js
+@@ -0,0 +1,49 @@
++(() => {
++  const card = document.getElementById("dns");
++  const message = document.getElementById("dns-message");
++  const address = document.getElementById("dns-address");
++  const refresh = document.getElementById("refresh-dns");
++  const copy = document.getElementById("copy-dns");
++
++  async function check() {
++    refresh.disabled = true;
++    address.hidden = true;
++    address.textContent = "";
++    copy.hidden = true;
++    copy.textContent = copy.dataset.copy;
++    message.textContent = card.dataset.checking;
++    try {
++      const response = await fetch(card.dataset.endpoint, {cache: "no-store"});
++      if (!response.ok) throw new Error("DNS lookup unavailable");
++      const result = await response.json();
++      if (result.status === "ready" && result.address) {
++        address.textContent = result.address;
++        address.hidden = false;
++        copy.hidden = !navigator.clipboard?.writeText;
++        message.textContent = card.dataset.ready;
++      } else {
++        message.textContent = result.status === "ambiguous" ? card.dataset.ambiguous : card.dataset.offline;
++      }
++    } catch {
++      message.textContent = card.dataset.offline;
++    } finally {
++      refresh.disabled = false;
++    }
++  }
++
++  copy.addEventListener("click", async () => {
++    const value = address.textContent;
++    try {
++      await navigator.clipboard.writeText(value);
++      if (address.textContent === value) copy.textContent = copy.dataset.copied;
++    } catch {
++      const range = document.createRange();
++      range.selectNodeContents(address);
++      const selection = window.getSelection();
++      selection.removeAllRanges();
++      selection.addRange(range);
++    }
++  });
++  refresh.addEventListener("click", check);
++  check();
++})();
+diff --git a/templates/player_guide.html b/templates/player_guide.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..f88c0b592373913c87d11c5c3cd5296658972e05
+--- /dev/null
++++ b/templates/player_guide.html
+@@ -0,0 +1,53 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>{{ t.title }} · Pokémon Dream World</title>
++  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
++  <script defer src="{{ url_for('player_guide.static', filename='player-guide.js') }}"></script>
++</head>
++<body class="dw-guide">
++  <header class="guide-header">
++    <a href="/">Pokémon Global Link</a>
++    <details class="guide-languages">
++      <summary>{{ language_names[lang] }}</summary>
++      <nav>{% for code, name in language_names.items() %}<a lang="{{ code }}" href="/languages/{{ code }}/?page=/player-guide/" {% if code == lang %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</nav>
++    </details>
++  </header>
++  <main class="guide-main">
++    <h1>{{ t.title }}</h1>
++    <nav class="guide-nav" aria-label="{{ t.title }}">
++      <a href="#dns">{{ t.dns_title }}</a><a href="#console">{{ t.console_title }}</a>
++      <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
++    </nav>
++    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
++             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-checking="{{ t.checking }}">
++      <h2>{{ t.dns_title }}</h2>
++      <div role="status" aria-live="polite">
++        <p id="dns-message">{{ t.checking }}</p>
++        <output id="dns-address" hidden></output>
++      </div>
++      <div class="guide-actions">
++        <button id="refresh-dns" type="button">{{ t.refresh }}</button>
++        <button id="copy-dns" type="button" hidden data-copy="{{ t.copy }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
++      </div>
++      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.dns_title }}</a></noscript>
++    </section>
++    <section id="console">
++      <h2>{{ t.console_title }}</h2>
++      {% for key, name in [('ds','Nintendo DS / DS Lite'),('dsi','Nintendo DSi / DSi XL'),('three_ds','Nintendo 3DS / 2DS')] %}
++      <details class="console-model"><summary>{{ name }}</summary><p>{{ t[key] }}</p></details>
++      {% endfor %}
++      <p class="guide-note">{{ t.console_note }}</p>
++    </section>
++    <section id="account">
++      <h2>{{ t.account_title }}</h2><p>{{ t.account }}</p>
++      <div class="guide-actions"><a href="{{ url_for('signup.trainer_club_signup', locale=lang) }}">{{ t.open_signup }}</a>
++      <a href="/login/pgl.html">{{ t.open_login }}</a></div>
++    </section>
++    <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
++    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
++  </main>
++</body>
++</html>
 diff --git a/utils/account_manager.py b/utils/account_manager.py
-index ce8a908319d323d20284ec73bc043b4f7b1c38b4..25fcc43768de292c4b7c67b239bd7171234e54a1 100644
+index ce8a908319d323d20284ec73bc043b4f7b1c38b4..fd88eb004882a6675dea49572a0b1a0ed9777d38 100644
 --- a/utils/account_manager.py
 +++ b/utils/account_manager.py
-@@ -1,5 +1,6 @@
+@@ -1,15 +1,12 @@
  """Trainer Club accounts and the Game Sync IDs linked to them (an SQLite database)."""
  import sqlite3
 +from contextlib import nullcontext
  from typing import cast
  
  from config import SAVE_DIR
-@@ -126,17 +127,30 @@ class AccountManager(SQLiteStore):
+ from game_sync_server.entralinked.utility.sqlite_store import SQLiteStore
+ from utils.models import Account, Privacy
+ 
+-# generate_password_hash("testpass")
+-_TEST_PASSWORD_HASH = ("scrypt:32768:8:1$jZODhHVaqfKNahLu$671ff90e1738953e87edfa84abcc5fe3148409a7b37a207b9bb15fb02a96062b"
+-                       "bfe1195be50503b1c3058cdbfbf3a9c9d824beace12898add8ae2e55fa83e99a")
+-
+ 
+ class AccountManager(SQLiteStore):
+     """The accounts table (one row per login) and account_gscds (gscd -> owner)."""
+@@ -36,12 +33,6 @@ class AccountManager(SQLiteStore):
+             gscd TEXT PRIMARY KEY,
+             username TEXT NOT NULL
+         )""",
+-        # activated test accounts
+-        f"""
+-        INSERT INTO accounts (username, password_hash, email, country, birth_month, pgl_privacy, dw_privacy, activated)
+-        SELECT column1, '{_TEST_PASSWORD_HASH}', 'a@example.com', 1, 1, 'everyone', 'everyone', 1
+-        FROM (VALUES ('Test'), ('TestMulti'))
+-        WHERE NOT EXISTS (SELECT 1 FROM accounts)""",
+     )
+ 
+     def _fetch_one(self, query: str, *params: object) -> sqlite3.Row | None:
+@@ -126,17 +117,30 @@ class AccountManager(SQLiteStore):
          row = self._fetch_one("SELECT username FROM account_gscds WHERE gscd = ?", gscd)
          return row["username"] if row else None
  
@@ -10879,6 +11429,67 @@ index 8826c25c7362d58bfd58c36eadde6483f78f3404..c612eeb5019d349ca15f29061b220c4e
          # InitPDWHomeData copies the API response into PDWHomeData, so the shiny flag needs
          # the same copy. Every SWF shares pdw.swf's PDWHomeData, which pdw.swf loads first,
          # and that copy has no shiny field. AVM2 class objects are dynamic, so setting
+diff --git a/utils/player_dns.py b/utils/player_dns.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e95241db04530857b55e910efb54a6a8cb11122b
+--- /dev/null
++++ b/utils/player_dns.py
+@@ -0,0 +1,55 @@
++"""Find the DS-facing DNS listener on the computer showing the local guide."""
++import ipaddress
++import os
++import socket
++from contextlib import suppress
++
++from dnslib import QTYPE, DNSError, DNSRecord
++
++PRIVATE_LAN = tuple(ipaddress.IPv4Network(prefix) for prefix in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
++STATUS_NAME = "guide-status.dreamworld.invalid."
++
++
++def _candidates() -> list[str]:
++    addresses = {os.environ.get("DW_GAME_BIND", "")}
++    with suppress(OSError):
++        addresses.update(str(entry[4][0]) for entry in socket.getaddrinfo(
++            socket.gethostname(), None, socket.AF_INET, socket.SOCK_DGRAM))
++    return sorted(ip for ip in addresses if ip and _is_lan(ip))
++
++
++def _is_lan(value: str) -> bool:
++    try:
++        address = ipaddress.IPv4Address(value)
++    except ValueError:
++        return False
++    return any(address in network for network in PRIVATE_LAN)
++
++
++def _is_serving(ip: str) -> bool:
++    query = DNSRecord.question(STATUS_NAME, "TXT")
++    try:
++        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
++            # A candidate must actually belong to this computer. Never probe other LAN devices.
++            probe.bind((ip, 0))
++            probe.settimeout(0.18)
++            probe.connect((ip, 53))
++            probe.send(query.pack())
++            reply = DNSRecord.parse(probe.recv(512))
++        if reply.header.id != query.header.id or not reply.header.qr or reply.header.rcode or reply.q != query.q:
++            return False
++        marker = [f"dreamworld-dns-v1 {ip}".encode("ascii")]
++        return any(rr.rname == query.q.qname and rr.rtype == QTYPE.TXT and rr.rdata.data == marker for rr in reply.rr)
++    except (OSError, DNSError):
++        return False
++
++
++def get_player_dns(peer: str | None) -> dict[str, str | None]:
++    # A hub relays its guests' web traffic from distinct 127.64/10 aliases. Only a
++    # direct local browser can use this computer's LAN address; gateways answer locally.
++    if peer not in ("127.0.0.1", "::1"):
++        return {"status": "ambiguous", "address": None}
++    active = [ip for ip in _candidates() if _is_serving(ip)]
++    if len(active) == 1:
++        return {"status": "ready", "address": active[0]}
++    return {"status": "ambiguous" if active else "offline", "address": None}
 diff --git a/utils/profile_avatars.py b/utils/profile_avatars.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..70b4087799bda039f9dd6bab09ccd759d78038ab
