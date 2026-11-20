@@ -1,7 +1,12 @@
 """pgl.present.*: the Customize page (present.swf) for picking C-Gear skins, Pokédex skins, and Musicals."""
-from pathlib import PurePosixPath
+import secrets
+from functools import cache
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, session, url_for
+
+from api.pgl_pals import current_save
 from api.routes import Query, endpoint
 from config import ASSET_LANG, LANG, ROOT_DIR
 from utils import save_data
@@ -15,6 +20,8 @@ _IMG_DIR = (ROOT_DIR / "dreamworld_assets" / f"{ASSET_LANG}.pokemon-gl.com"
 
 _PRESENTS: dict[str, dict] = load_json_data("customize")
 _CHINESE_NAMES: dict[str, str] = load_json_data("customize_zh") if LANG == "zh" else {}
+customize = Blueprint("customize", __name__, template_folder="../templates")
+_UI = load_json_data("customize_ui")[LANG]
 
 _SkinField = Literal["cgear_skin", "dex_skin", "musical"]
 
@@ -128,3 +135,65 @@ def present_dldata_update(query: Query) -> dict:
     if changes:
         save_data.change_game_sync(lambda game_sync: game_sync.update(changes))
     return {}
+
+
+@cache
+def _preview(present_id: str) -> Path | None:
+    # Some mirrors (especially English) kept the catalog but lost the image.
+    # Other regional archives sometimes carry the exact same thumbnail.
+    data = _PRESENTS[present_id]["data"]
+    thumb = data[ASSET_LANG][2]
+    if not thumb:
+        return None
+    for code in dict.fromkeys((ASSET_LANG, *data)):
+        if data[code][2] == thumb:
+            path = (ROOT_DIR / "dreamworld_assets" / f"{code}.pokemon-gl.com" / "src/swf/customize/assets"
+                    / code / "img" / thumb)
+            if path.is_file():
+                return path
+    return None
+
+
+@customize.get("/customize/preview/<present_id>")
+def preview(present_id: str):
+    if present_id not in _PRESENTS or not (path := _preview(present_id)):
+        abort(404)
+    return send_file(path, conditional=True)
+
+
+@customize.get("/customize/index.html")
+def archive_index():
+    return redirect(url_for(".index"))
+
+
+@customize.route("/customize/", methods=["GET", "POST"])
+def index():
+    category = request.args.get("kind", "cgear")
+    if category not in _CATEGORIES:
+        abort(404)
+    card = current_save()
+    member = save_data.read_member(card) if card else {}
+    ready = bool(card and member.get("rom_id") and member.get("langcode"))
+    items = present_list({})[category + "_list"] if ready else []
+    if request.method == "POST":
+        token = session.get("customize_csrf")
+        if (not ready or request.form.get("card") != card or not token or
+                not secrets.compare_digest(token.encode(), request.form.get("csrf", "").encode())):
+            abort(403)
+        choice = request.form.get("choice")
+        if choice == "none":
+            save_data.change_game_sync(lambda sync: sync.update({_CATEGORIES[category]: None}))
+        elif any(item["present_id"] == choice for item in items):
+            present_dldata_update({category + "_id": choice})
+        else:
+            abort(400)
+        flash(_UI["saved"], "customize")
+        return redirect(url_for(".index", kind=category), code=303)
+
+    if ready and "customize_csrf" not in session:
+        session["customize_csrf"] = secrets.token_urlsafe()
+    for item in items:
+        item["preview"] = bool(_preview(item["present_id"]))
+    return render_template("customize.html", t=_UI, guide=load_json_data("distribution_ui")[LANG],
+                           lang=LANG, asset_lang=ASSET_LANG, card=card, ready=ready, category=category,
+                           items=items, categories=_CATEGORIES, selected=any(i["is_select"] == "1" for i in items))

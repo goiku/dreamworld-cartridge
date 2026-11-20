@@ -2843,12 +2843,20 @@ index 0000000000000000000000000000000000000000..abc9e9077f8a7c1c46479013c1cff15e
 +def withdraw_request(query: Query) -> dict:
 +    return _remove(query, accepted=False)
 diff --git a/api/pgl_present.py b/api/pgl_present.py
-index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2e5ea6b65 100644
+index f63b5a4a4b433834a4a5aed344d3195be2c1af40..09c888a4e3177481a2b6acba07ffe3e0a646cac1 100644
 --- a/api/pgl_present.py
 +++ b/api/pgl_present.py
-@@ -3,16 +3,18 @@ from pathlib import PurePosixPath
+@@ -1,18 +1,27 @@
+ """pgl.present.*: the Customize page (present.swf) for picking C-Gear skins, Pokédex skins, and Musicals."""
+-from pathlib import PurePosixPath
++import secrets
++from functools import cache
++from pathlib import Path, PurePosixPath
  from typing import Literal
  
++from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, session, url_for
++
++from api.pgl_pals import current_save
  from api.routes import Query, endpoint
 -from config import LANG, ROOT_DIR
 +from config import ASSET_LANG, LANG, ROOT_DIR
@@ -2865,10 +2873,12 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
  
  _PRESENTS: dict[str, dict] = load_json_data("customize")
 +_CHINESE_NAMES: dict[str, str] = load_json_data("customize_zh") if LANG == "zh" else {}
++customize = Blueprint("customize", __name__, template_folder="../templates")
++_UI = load_json_data("customize_ui")[LANG]
  
  _SkinField = Literal["cgear_skin", "dex_skin", "musical"]
  
-@@ -27,7 +29,7 @@ _CATEGORIES: dict[str, _SkinField] = {
+@@ -27,7 +36,7 @@ _CATEGORIES: dict[str, _SkinField] = {
  
  def _musical_file(entry: dict) -> str | None:
      """Return the URL of the Musical's mp3, which sits next to its thumbnail."""
@@ -2877,7 +2887,7 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
      if entry["type"] != "MUSICAL" or not thumb:
          return None
      mp3 = min((_IMG_DIR / thumb).parent.glob("*.mp3"), default=None)
-@@ -42,12 +44,10 @@ def _dlc_filenames(entry: dict) -> list[str]:
+@@ -42,12 +51,10 @@ def _dlc_filenames(entry: dict) -> list[str]:
      return [PurePosixPath(file).name for _, file, _ in entry["data"].values() if file]
  
  
@@ -2894,7 +2904,7 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
      return PurePosixPath(file).name if file else None
  
  
-@@ -64,22 +64,24 @@ def _offered(entry: dict, category: str, member: Member) -> bool:
+@@ -64,22 +71,24 @@ def _offered(entry: dict, category: str, member: Member) -> bool:
      return entry["type"] == _folder(category, member) and entry.get("gender", trainer_gender) == trainer_gender
  
  
@@ -2924,7 +2934,7 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
          "is_select":    "0",
      }
      if musical_file := _MUSICAL_FILES[present_id]:
-@@ -99,7 +101,7 @@ def present_list(_query: Query) -> dict:
+@@ -99,7 +108,7 @@ def present_list(_query: Query) -> dict:
          selected = game_sync.get(field)
          items = []
          for present_id, entry in presents:
@@ -2933,7 +2943,7 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
              if item is None:
                  continue
  
-@@ -120,7 +122,7 @@ def present_dldata_update(query: Query) -> dict:
+@@ -120,9 +129,71 @@ def present_dldata_update(query: Query) -> dict:
          entry = _PRESENTS.get(query.get(f"{category}_id") or "")
          if entry is None or not _offered(entry, category, member):
              continue
@@ -2942,6 +2952,70 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..fe00772f9e3b815576954e95e4ada3c2
          if dlc:
              changes[field] = dlc
      if changes:
+         save_data.change_game_sync(lambda game_sync: game_sync.update(changes))
+     return {}
++
++
++@cache
++def _preview(present_id: str) -> Path | None:
++    # Some mirrors (especially English) kept the catalog but lost the image.
++    # Other regional archives sometimes carry the exact same thumbnail.
++    data = _PRESENTS[present_id]["data"]
++    thumb = data[ASSET_LANG][2]
++    if not thumb:
++        return None
++    for code in dict.fromkeys((ASSET_LANG, *data)):
++        if data[code][2] == thumb:
++            path = (ROOT_DIR / "dreamworld_assets" / f"{code}.pokemon-gl.com" / "src/swf/customize/assets"
++                    / code / "img" / thumb)
++            if path.is_file():
++                return path
++    return None
++
++
++@customize.get("/customize/preview/<present_id>")
++def preview(present_id: str):
++    if present_id not in _PRESENTS or not (path := _preview(present_id)):
++        abort(404)
++    return send_file(path, conditional=True)
++
++
++@customize.get("/customize/index.html")
++def archive_index():
++    return redirect(url_for(".index"))
++
++
++@customize.route("/customize/", methods=["GET", "POST"])
++def index():
++    category = request.args.get("kind", "cgear")
++    if category not in _CATEGORIES:
++        abort(404)
++    card = current_save()
++    member = save_data.read_member(card) if card else {}
++    ready = bool(card and member.get("rom_id") and member.get("langcode"))
++    items = present_list({})[category + "_list"] if ready else []
++    if request.method == "POST":
++        token = session.get("customize_csrf")
++        if (not ready or request.form.get("card") != card or not token or
++                not secrets.compare_digest(token.encode(), request.form.get("csrf", "").encode())):
++            abort(403)
++        choice = request.form.get("choice")
++        if choice == "none":
++            save_data.change_game_sync(lambda sync: sync.update({_CATEGORIES[category]: None}))
++        elif any(item["present_id"] == choice for item in items):
++            present_dldata_update({category + "_id": choice})
++        else:
++            abort(400)
++        flash(_UI["saved"], "customize")
++        return redirect(url_for(".index", kind=category), code=303)
++
++    if ready and "customize_csrf" not in session:
++        session["customize_csrf"] = secrets.token_urlsafe()
++    for item in items:
++        item["preview"] = bool(_preview(item["present_id"]))
++    return render_template("customize.html", t=_UI, guide=load_json_data("distribution_ui")[LANG],
++                           lang=LANG, asset_lang=ASSET_LANG, card=card, ready=ready, category=category,
++                           items=items, categories=_CATEGORIES, selected=any(i["is_select"] == "1" for i in items))
 diff --git a/api/pgl_top.py b/api/pgl_top.py
 index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16cc1f7c58 100644
 --- a/api/pgl_top.py
@@ -3246,10 +3320,10 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe31b1f21c 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..ca29c938a9535a4478cddb2f5cbcbd9fac4acd2f 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,27 @@ import atexit
+@@ -7,18 +7,28 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -3266,6 +3340,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
 +from api.practice import practice
++from api.pgl_present import customize
 +from api.tournaments import tournaments
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
@@ -3281,7 +3356,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +47,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +48,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -3291,7 +3366,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +62,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +63,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -3304,7 +3379,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +95,80 @@ def api_post() -> Response:
+@@ -81,25 +96,80 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -3390,13 +3465,14 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..72b0212300facac676e36f3b48023fbe
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +190,14 @@ def create_app() -> Flask:
+@@ -121,6 +191,15 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
++    app.register_blueprint(customize)
 +    app.register_blueprint(tournaments)
 +    app.register_blueprint(visit_sync)
 +    app.register_blueprint(offline_friends)
@@ -3828,6 +3904,102 @@ index 98f87de1b673f1d2b0eb38dd0ea1f547cd26060c..3d07fdb8dc742301cfd829d30f329aeb
  
  def get_secret_key() -> str:
      """Flask's session-signing key, created in the save directory on first use."""
+diff --git a/json_data/customize_ui.json b/json_data/customize_ui.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..389a7e5ac97691ddfdbabcbe6953fbae72b681f6
+--- /dev/null
++++ b/json_data/customize_ui.json
+@@ -0,0 +1,90 @@
++{
++  "zh": {
++    "title": "自定义游戏",
++    "cgear": "C装置皮肤",
++    "zukan": "图鉴皮肤",
++    "musical": "音乐剧剧目",
++    "save": "应用当前设置",
++    "none": "不发送到 DS",
++    "saved": "已保存自定义设置。",
++    "wake": "请在唤醒前选好皮肤并保存。结束梦世界游玩后，在掌机用游戏同步唤醒宝可梦即可接收。",
++    "login": "前往首页登录"
++  },
++  "ja": {
++    "title": "ゲームのカスタマイズ",
++    "cgear": "Cギアのスキン",
++    "zukan": "ずかんのスキン",
++    "musical": "ミュージカルの演目",
++    "save": "この設定を保存する",
++    "none": "DSに送らない",
++    "saved": "カスタマイズを設定しました。",
++    "wake": "設定を保存してドリームワールドを終了し、ゲームシンクでポケモンを起こすと受け取れます。",
++    "login": "トップページでログイン"
++  },
++  "en": {
++    "title": "Customize your game",
++    "cgear": "C-Gear skins",
++    "zukan": "Pokédex skins",
++    "musical": "Pokémon Musicals",
++    "save": "Apply settings",
++    "none": "Do not send to DS",
++    "saved": "Your settings have been saved.",
++    "wake": "Save your choice before waking your Pokémon. Finish your Dream World visit, then use Game Sync on your DS to receive it.",
++    "login": "Sign in on the home page"
++  },
++  "fr": {
++    "title": "Personnaliser le jeu",
++    "cgear": "Habillages du C-Gear",
++    "zukan": "Habillages du Pokédex",
++    "musical": "Comédies musicales",
++    "save": "Appliquer les réglages",
++    "none": "Ne pas envoyer à la DS",
++    "saved": "Réglages enregistrés.",
++    "wake": "Enregistrez votre choix, quittez le Monde des Rêves et réveillez votre Pokémon avec la Synchro-Jeu pour le recevoir.",
++    "login": "Se connecter sur la page d’accueil"
++  },
++  "it": {
++    "title": "Personalizza il gioco",
++    "cgear": "Sfondi del C-Gear",
++    "zukan": "Sfondi del Pokédex",
++    "musical": "Musical Pokémon",
++    "save": "Applica le impostazioni",
++    "none": "Non inviare al DS",
++    "saved": "Impostazioni salvate.",
++    "wake": "Salva la tua scelta ed esci dal Dream World. Risveglia il tuo Pokémon con il Sincrogioco per riceverla.",
++    "login": "Accedi dalla pagina iniziale"
++  },
++  "de": {
++    "title": "Spiel anpassen",
++    "cgear": "C-Gear-Hintergründe",
++    "zukan": "Pokédex-Hintergründe",
++    "musical": "Pokémon Musicals",
++    "save": "Auswahl speichern",
++    "none": "Nicht an den DS senden",
++    "saved": "Deine Auswahl wurde gespeichert.",
++    "wake": "Speichere deine Auswahl und verlasse die Traumwelt. Wecke dein Pokémon mit der Spielsynchro auf, um die Auswahl zu empfangen.",
++    "login": "Auf der Startseite anmelden"
++  },
++  "es": {
++    "title": "Personalizar el juego",
++    "cgear": "Diseños del C-Gear",
++    "zukan": "Diseños de la Pokédex",
++    "musical": "Musicales Pokémon",
++    "save": "Guardar ajustes",
++    "none": "No enviar a la DS",
++    "saved": "Se han guardado los ajustes.",
++    "wake": "Guarda tu selección y sal del Pokémon Dream World. Usa la Sincronía de Juego para despertar a tu Pokémon y recibirla.",
++    "login": "Iniciar sesión en la página principal"
++  },
++  "ko": {
++    "title": "게임 꾸미기",
++    "cgear": "C기어 스킨",
++    "zukan": "도감 스킨",
++    "musical": "포켓몬 뮤지컬",
++    "save": "설정 저장",
++    "none": "DS로 보내지 않기",
++    "saved": "설정을 저장했습니다.",
++    "wake": "선택한 뒤 설정을 저장하고 꿈세계를 종료하세요. 게임싱크로 포켓몬을 깨우면 받을 수 있습니다.",
++    "login": "홈에서 로그인"
++  }
++}
 diff --git a/json_data/customize_zh.json b/json_data/customize_zh.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a8505a42898
@@ -16606,6 +16778,57 @@ index 0000000000000000000000000000000000000000..96c59ee944d4d84fa6585947afa26952
 +    } catch(error) {if(id===generation) message.textContent=t[error.message] || t.unavailable;}
 +    finally {if(id===generation){busy=false;render();}}
 +});
+diff --git a/templates/customize.html b/templates/customize.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..b919bedcdf02236e3046a8d15e8785baf233c2bb
+--- /dev/null
++++ b/templates/customize.html
+@@ -0,0 +1,45 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head>
++<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
++<title>{{ t.title }} · Pokémon Global Link</title>
++<style>
++*{box-sizing:border-box}body{margin:0;color:#23372e;background:#f6f6ed;font:1rem/1.5 system-ui,sans-serif}
++main{max-width:66rem;margin:auto;padding:1rem}a{color:#245841}h1{margin:.85rem 0 .5rem;line-height:1.2}
++nav{display:flex;gap:.5rem;flex-wrap:wrap}.links{justify-content:space-between}
++.tabs{margin:1rem 0}.tabs a,button{padding:.5rem 1rem;border:1px solid #668779;border-radius:.4rem}
++.tabs [aria-current],button{background:#315c49;color:white}.tabs a{text-decoration:none}button{cursor:pointer;font:inherit}
++fieldset{min-width:0;border:0;padding:0;margin:0}legend{font-weight:650;font-size:1.2rem;margin-bottom:.5rem}
++.choices{display:grid;gap:.65rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,9.4rem),1fr))}
++.choice{background:white;border:1px solid #bccabe;border-radius:.45rem;padding:.6rem;display:flex;align-items:center;gap:.45rem;cursor:pointer}
++.choice:has(:checked){outline:2px solid #376950;outline-offset:-2px;background:#edf5e8}
++.choice img{display:block;width:100%;height:4.8rem;object-fit:contain}.choice span{min-width:0;overflow-wrap:anywhere}
++.entry{display:grid}.entry audio{width:100%}
++input{accent-color:#315c49}.actions{position:sticky;bottom:0;background:#f6f6ed;border-top:1px solid #bccabe;padding:.65rem 0;margin-top:1rem}
++[role=status]{background:#e0efdf;padding:.7rem;border-left:4px solid #376950}
++</style></head>
++<body><main>
++<nav class="links"><a href="/pdw/">← {{ guide.home }}</a><a href="/languages/?page=/customize/">Language</a></nav>
++<h1>{{ t.title }}</h1>
++{% if not card %}<p>{{ guide.login }}</p><a href="/">{{ t.login }}</a>
++{% elif not ready %}<p>{{ guide.sync }}</p>
++{% else %}
++<p>{{ t.wake }}</p>
++{% for notice in get_flashed_messages(category_filter=['customize']) %}<p role="status">{{ notice }}</p>{% endfor %}
++<nav class="tabs" aria-label="{{ t.title }}">
++{% for key in categories %}<a href="{{ url_for('.index', kind=key) }}"{% if key == category %} aria-current="page"{% endif %}>{{ t[key] }}</a>{% endfor %}
++</nav>
++<form method="post" action="{{ url_for('.index', kind=category) }}">
++<input type="hidden" name="csrf" value="{{ session.customize_csrf }}"><input type="hidden" name="card" value="{{ card }}">
++<fieldset><legend>{{ t[category] }}</legend>
++<div class="choices">
++{% for item in items %}
++<div class="entry"><label class="choice"><input type="radio" name="choice" value="{{ item.present_id }}"{% if item.is_select == '1' %} checked{% endif %}>
++<span>{% if item.preview %}<img src="{{ url_for('.preview',present_id=item.present_id) }}" alt="" loading="lazy">{% endif %}{{ item.present_name }}</span></label>
++{% if item.musical_file %}<audio controls preload="none" aria-label="{{ item.present_name }}" src="/src/swf/customize/assets/{{ asset_lang }}/img{{ item.musical_file }}"></audio>{% endif %}</div>
++{% endfor %}
++<label class="choice"><input type="radio" name="choice" value="none"{% if not selected %} checked{% endif %}>{{ t.none }}</label>
++</div></fieldset>
++<div class="actions"><button type="submit">{{ t.save }}</button></div>
++</form>{% endif %}
++</main></body></html>
 diff --git a/templates/distributions.html b/templates/distributions.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..ad96aefa4c91ca68b453b2a208eb55fa6d3f8d5d
@@ -16942,6 +17165,64 @@ index 0000000000000000000000000000000000000000..dda6168461367d6a3d5cdb8ba7e160ca
 +<a download href="{{ url_for('.download',sha=row.sha) }}">{{ t.file }} · #{{ row.number }}</a>
 +<button hidden type="button" data-number="{{ row.number }}" data-crc="{{ row.crc }}">{{ t.add }}</button></li>{% endfor %}</ul>
 +<script id="text" type="application/json">{{ t|tojson }}</script></main></body></html>
+diff --git a/tests/test_customize.py b/tests/test_customize.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6c4c9005b73dd7b4fdc52789717eb1f0d3d52087
+--- /dev/null
++++ b/tests/test_customize.py
+@@ -0,0 +1,52 @@
++"""The wallpaper picker must work without the missing present.swf."""
++import re
++
++from api import pgl_pals, pgl_present
++from api.server import create_app
++from game_sync_server.entralinked.model.dlc.dlc import DlcList
++from tests.test_visit_storage import Server
++from utils import save_data
++
++
++def test_movie_skin_selection(tmp_path, monkeypatch):
++    server = Server(tmp_path / "skin.sqlite")
++    try:
++        card = server.resident(7)
++        monkeypatch.setattr(pgl_pals, "accounts", server.accounts)
++        monkeypatch.setattr(save_data, "db", server.db)
++        client = create_app().test_client()
++        url = "/customize/"
++        page = client.get(url)
++        assert page.status_code == 200 and b"present.swf" not in page.data
++        assert b'name="choice"' not in page.data
++        assert client.post(url, data={"choice": "C014"}).status_code == 403
++        with client.session_transaction() as state:
++            state.update(username="Trainer", gscd=card)
++        page = client.get(url)
++        assert b'value="C013"' in page.data and b'value="C014"' in page.data
++        assert b'value="C014-2"' not in page.data
++        assert client.get("/customize/index.html").location == url
++        csrf = re.search(r'name="csrf" value="([^"]+)"', page.get_data(as_text=True))[1]
++        post = dict(card=card, csrf=csrf, choice="C014")
++        assert client.post(url, data=dict(post, card="stale")).status_code == 403
++        assert client.post(url, data=dict(post, csrf="stale")).status_code == 403
++        assert client.post(url, data=dict(post, choice="C014-2")).status_code == 400
++        initial = server.db.read(card, "game_sync")
++        for skin, idx in (("C013", 13), ("C014", 14)):
++            response = client.post(url, data=dict(post, choice=skin), follow_redirects=True)
++            assert response.status_code == 200 and f'value="{skin}" checked'.encode() in response.data
++            sync = server.db.read(card, "game_sync")
++            assert DlcList().get_dlc_index("CGEAR", sync["cgear_skin"]) == idx
++            assert dict(sync, cgear_skin=initial.get("cgear_skin")) == initial
++            if pgl_present._preview(skin):
++                preview = client.get("/customize/preview/" + skin)
++                assert preview.data.startswith(b"\x89PNG")
++        server.db.update(card, "player_data", lambda data: data["member"].update(rom_id=23))
++        assert b'value="C014-2"' in client.get(url).data
++        assert client.post(url, data=post).status_code == 400
++        assert client.get("/customize/?kind=zukan").status_code == 200
++        assert client.get("/customize/?kind=musical").status_code == 200
++        assert client.post(url, data=dict(post, choice="none")).status_code == 303
++        assert server.db.read(card, "game_sync")["cgear_skin"] is None
++    finally:
++        server.close()
 diff --git a/tests/test_distributions.py b/tests/test_distributions.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..0f65d2c3e81eba6e62a330276736a765a75fe415

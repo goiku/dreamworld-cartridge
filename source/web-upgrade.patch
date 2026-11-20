@@ -56,10 +56,10 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe31b1f21c 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..ca29c938a9535a4478cddb2f5cbcbd9fac4acd2f 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -9,16 +9,25 @@ import logging
+@@ -9,16 +9,26 @@ import logging
  from pathlib import Path
  from urllib.parse import parse_qs, urlsplit
  
@@ -73,6 +73,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
 +from api.practice import practice
++from api.pgl_present import customize
 +from api.tournaments import tournaments
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
@@ -86,7 +87,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -53,6 +62,12 @@ def _params(data: str) -> Query:
+@@ -53,6 +63,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -99,7 +100,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -80,13 +95,14 @@ def api_post() -> Response:
+@@ -80,13 +96,14 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -117,7 +118,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
  
  
  @site.get("/languages/")
-@@ -107,7 +123,11 @@ def change_language(code: str) -> Response:
+@@ -107,7 +124,11 @@ def change_language(code: str) -> Response:
      language = normalize_language(code)
      if language not in WEB_PORTS:
          return not_found(request.path)
@@ -130,7 +131,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
      target = _language_page()
      return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
  
-@@ -126,6 +146,12 @@ def login_available() -> Response:
+@@ -126,6 +147,12 @@ def login_available() -> Response:
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
      """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
@@ -143,13 +144,14 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..72b0212300facac676e36f3b48023fbe
      path = path.split("&")[0]
      full_path = f"/{path}"
  
-@@ -164,6 +190,14 @@ def create_app() -> Flask:
+@@ -164,6 +191,15 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
++    app.register_blueprint(customize)
 +    app.register_blueprint(tournaments)
 +    app.register_blueprint(visit_sync)
 +    app.register_blueprint(offline_friends)

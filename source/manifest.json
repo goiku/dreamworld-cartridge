@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "a76f80477a29f099ba87df615f5e4c6ff71477d9c7347a18dfd9fb151cfbde48",
+    "patch_sha256": "43e137d3ed1a183997b9dc5c796bb0037ab4e8aa147d861b7aaf1fce2e4bfcd4",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -107,8 +107,9 @@
       },
       "api/pgl_present.py": {
         "before": "9ada76d63aefc4553e3284ee66c8641a2c95cedc891a9efcfdb0c0575dfdf57e",
-        "after": "94c997a305771f4e298c7265c224405b5665bb604078c4b418ee54687ba706ce",
+        "after": "c4c5264de9f6d7bd21428783431ac7130fdf47987a7e43062950208bc51f273f",
         "previous": [
+          "94c997a305771f4e298c7265c224405b5665bb604078c4b418ee54687ba706ce",
           "abc11f9001e096fbac387f175c5d5e47e15ecfdb46d3d379584fa981e11accb3"
         ]
       },
@@ -136,8 +137,9 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
+        "after": "ef538d88e25182a0532479ae8ad7b7b6223be48f98755b189be82bce0ad731e7",
         "previous": [
+          "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
@@ -164,6 +166,10 @@
       "config.py": {
         "before": "f8d6da3966c9d791fc1b95b350337f449ecf20cac80aa5c027085fe986cfd545",
         "after": "4dc20035c35b91a3845d5fa182538231955acd0c9e1a223239f1d42bfd02b85f"
+      },
+      "json_data/customize_ui.json": {
+        "before": null,
+        "after": "ca550ef8ede947ebb791a24771b52a22f208eb28b2e5246782ce69ad062faef7"
       },
       "json_data/customize_zh.json": {
         "before": null,
@@ -435,6 +441,10 @@
         "before": null,
         "after": "c5915d9f617586478cfa12726a981c9c664debbae031e80e66d35e9de6a0a10a"
       },
+      "templates/customize.html": {
+        "before": null,
+        "after": "05a19b9b548dd1f5ed7a557ad85e36b12af7ff874a6977963c06a7d4368f99d0"
+      },
       "templates/distributions.html": {
         "before": null,
         "after": "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763",
@@ -484,6 +494,10 @@
       "templates/tournaments.html": {
         "before": null,
         "after": "f2ad57b71e99b70699d1861532fc3412b025f297b8dd7edbc6081eabb15bb54f"
+      },
+      "tests/test_customize.py": {
+        "before": null,
+        "after": "c497e09c638ed5ef07cf52c3437f41912e28f334468d0999be5f763c0dc9d075"
       },
       "tests/test_distributions.py": {
         "before": null,
@@ -700,7 +714,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "8d0a21f7abd70ac80bc0a464e23a03ceb4073efb846a572009b786622ffb97ea",
+      "sha256": "f4625cc0cb7c0351d83c09744b89f4bc10abfff157e629576fece47d8f58c52a",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",

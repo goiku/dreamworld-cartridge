@@ -1,0 +1,90 @@
+{
+  "zh": {
+    "title": "自定义游戏",
+    "cgear": "C装置皮肤",
+    "zukan": "图鉴皮肤",
+    "musical": "音乐剧剧目",
+    "save": "应用当前设置",
+    "none": "不发送到 DS",
+    "saved": "已保存自定义设置。",
+    "wake": "请在唤醒前选好皮肤并保存。结束梦世界游玩后，在掌机用游戏同步唤醒宝可梦即可接收。",
+    "login": "前往首页登录"
+  },
+  "ja": {
+    "title": "ゲームのカスタマイズ",
+    "cgear": "Cギアのスキン",
+    "zukan": "ずかんのスキン",
+    "musical": "ミュージカルの演目",
+    "save": "この設定を保存する",
+    "none": "DSに送らない",
+    "saved": "カスタマイズを設定しました。",
+    "wake": "設定を保存してドリームワールドを終了し、ゲームシンクでポケモンを起こすと受け取れます。",
+    "login": "トップページでログイン"
+  },
+  "en": {
+    "title": "Customize your game",
+    "cgear": "C-Gear skins",
+    "zukan": "Pokédex skins",
+    "musical": "Pokémon Musicals",
+    "save": "Apply settings",
+    "none": "Do not send to DS",
+    "saved": "Your settings have been saved.",
+    "wake": "Save your choice before waking your Pokémon. Finish your Dream World visit, then use Game Sync on your DS to receive it.",
+    "login": "Sign in on the home page"
+  },
+  "fr": {
+    "title": "Personnaliser le jeu",
+    "cgear": "Habillages du C-Gear",
+    "zukan": "Habillages du Pokédex",
+    "musical": "Comédies musicales",
+    "save": "Appliquer les réglages",
+    "none": "Ne pas envoyer à la DS",
+    "saved": "Réglages enregistrés.",
+    "wake": "Enregistrez votre choix, quittez le Monde des Rêves et réveillez votre Pokémon avec la Synchro-Jeu pour le recevoir.",
+    "login": "Se connecter sur la page d’accueil"
+  },
+  "it": {
+    "title": "Personalizza il gioco",
+    "cgear": "Sfondi del C-Gear",
+    "zukan": "Sfondi del Pokédex",
+    "musical": "Musical Pokémon",
+    "save": "Applica le impostazioni",
+    "none": "Non inviare al DS",
+    "saved": "Impostazioni salvate.",
+    "wake": "Salva la tua scelta ed esci dal Dream World. Risveglia il tuo Pokémon con il Sincrogioco per riceverla.",
+    "login": "Accedi dalla pagina iniziale"
+  },
+  "de": {
+    "title": "Spiel anpassen",
+    "cgear": "C-Gear-Hintergründe",
+    "zukan": "Pokédex-Hintergründe",
+    "musical": "Pokémon Musicals",
+    "save": "Auswahl speichern",
+    "none": "Nicht an den DS senden",
+    "saved": "Deine Auswahl wurde gespeichert.",
+    "wake": "Speichere deine Auswahl und verlasse die Traumwelt. Wecke dein Pokémon mit der Spielsynchro auf, um die Auswahl zu empfangen.",
+    "login": "Auf der Startseite anmelden"
+  },
+  "es": {
+    "title": "Personalizar el juego",
+    "cgear": "Diseños del C-Gear",
+    "zukan": "Diseños de la Pokédex",
+    "musical": "Musicales Pokémon",
+    "save": "Guardar ajustes",
+    "none": "No enviar a la DS",
+    "saved": "Se han guardado los ajustes.",
+    "wake": "Guarda tu selección y sal del Pokémon Dream World. Usa la Sincronía de Juego para despertar a tu Pokémon y recibirla.",
+    "login": "Iniciar sesión en la página principal"
+  },
+  "ko": {
+    "title": "게임 꾸미기",
+    "cgear": "C기어 스킨",
+    "zukan": "도감 스킨",
+    "musical": "포켓몬 뮤지컬",
+    "save": "설정 저장",
+    "none": "DS로 보내지 않기",
+    "saved": "설정을 저장했습니다.",
+    "wake": "선택한 뒤 설정을 저장하고 꿈세계를 종료하세요. 게임싱크로 포켓몬을 깨우면 받을 수 있습니다.",
+    "login": "홈에서 로그인"
+  }
+}
