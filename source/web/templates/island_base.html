@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('offline_friends.static',filename='island-friends.css') }}">
 <script defer src="{{ url_for('offline_friends.static',filename='island-friends.js') }}"></script>
 </head><body>
-<header class="mast"><div><a href="/pdw/">{{ t.home }}</a><span aria-hidden="true">✦</span><a href="/islands/">{{ t.friends }}</a></div>
-<a href="/languages/?page=/islands/" lang="en" hreflang="en">Language</a></header>
+{% if not in_room %}<header class="mast"><div><a href="/pdw/">{{ t.home }}</a><span aria-hidden="true">✦</span><a href="/islands/">{{ t.friends }}</a></div>
+<a href="/languages/?page=/islands/" lang="en" hreflang="en">Language</a></header>{% endif %}
 <main>{% block main %}{% endblock %}</main>
 </body></html>

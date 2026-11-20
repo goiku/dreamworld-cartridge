@@ -22,3 +22,8 @@
   gap:8px 18px; align-items:center; background:#f6f3df; color:#3e3a29; font:15px/1.5 system-ui,sans-serif; }
 #dw-friend-tools[hidden],#dw-friend-tools [hidden] { display:none; }
 #dw-friend-tools a { color:#31553e; text-decoration:underline; cursor:pointer; }
+#dw-friend-panel { width:min(46rem, 90vw); padding:0; border:1px solid #74896c; background:#fffef6; }
+#dw-friend-panel::backdrop { background:rgb(22 32 25 / 45%); }
+#dw-friend-panel form { display:flex; justify-content:flex-end; padding:.5rem; }
+#dw-friend-panel button { font:inherit; padding:.35rem .8rem; cursor:pointer; }
+#dw-friend-panel iframe { display:block; width:100%; height:min(65vh, 42rem); border:0; }

@@ -235,7 +235,8 @@ def bridge_menu(response: Response) -> Response:
     html = response.get_data()
     pos = html.lower().find(b"<div", html.lower().find(b"<body"))
     if pos >= 0:
-        menu = render_template("island_bridge_menu.html", s=_pal_labels[LANG], target=getattr(g, "island_target", None))
+        menu = render_template("island_bridge_menu.html", s=_pal_labels[LANG], ui=load_json_data("island_actions")[LANG],
+                               target=getattr(g, "island_target", None))
         response.set_data(html[:pos] + menu.encode("ascii", "xmlcharrefreplace") + html[pos:])
         response.cache_control.no_store = True
     return response

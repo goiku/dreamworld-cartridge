@@ -170,6 +170,7 @@ def profile(island_id: str) -> str:
     stock = [(item["pokeitem_id"],item["item_cnt"]) for item in managers.get_chest(card).data["list"]
              if item["item_cnt"] > 0] if active else []
     return render_template("island_profile.html", doc=doc, owner=content["profile"]["pgl_name"],
+                           in_room=request.args.get("in_room") == "1",
                            groups=groups(content, LANG, _labels[LANG]), interactive=active, stock=stock,
                            ui=load_json_data("island_actions")[LANG], item_name=lambda n:text.lookup_str("item", n),
                            history=actions.history(card,island_id) if paired else [],
@@ -188,7 +189,8 @@ def interact(island_id: str) -> WerkzeugResponse:
         notice = "saved"
     except (ValueError,KeyError):
         notice = "changed"
-    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions"),303)
+    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions",
+                            in_room="1" if request.form.get("in_room") == "1" else None),303)
 
 
 @offline_friends.get("/native/<identifier>")

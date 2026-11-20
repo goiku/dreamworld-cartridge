@@ -9,7 +9,8 @@
     "changed": "小岛或背包有变化，请重新选择。",
     "pending": "待同步",
     "accepted": "已完成",
-    "declined": "未能完成"
+    "declined": "未能完成",
+    "close": "回到小岛"
   },
   "ja": {
     "title": "友だちの島でお手伝い",
@@ -21,7 +22,8 @@
     "changed": "島や持ち物を確認して選び直してください。",
     "pending": "同期待ち",
     "accepted": "完了",
-    "declined": "不成立"
+    "declined": "不成立",
+    "close": "島に戻る"
   },
   "en": {
     "title": "Help on this island",
@@ -33,7 +35,8 @@
     "changed": "Check the island and your inventory, then choose again.",
     "pending": "Pending sync",
     "accepted": "Completed",
-    "declined": "Declined"
+    "declined": "Declined",
+    "close": "Back to island"
   },
   "fr": {
     "title": "Aider sur cette île",
@@ -45,7 +48,8 @@
     "changed": "Vérifiez l’île et votre inventaire.",
     "pending": "En attente",
     "accepted": "Terminé",
-    "declined": "Refusé"
+    "declined": "Refusé",
+    "close": "Retour sur l’île"
   },
   "es": {
     "title": "Ayudar en esta isla",
@@ -57,7 +61,8 @@
     "changed": "Comprueba la isla y el inventario.",
     "pending": "Pendiente",
     "accepted": "Completado",
-    "declined": "Rechazado"
+    "declined": "Rechazado",
+    "close": "Volver a la isla"
   },
   "de": {
     "title": "Auf dieser Insel helfen",
@@ -69,7 +74,8 @@
     "changed": "Prüfe die Insel und deinen Beutel.",
     "pending": "Ausstehend",
     "accepted": "Abgeschlossen",
-    "declined": "Abgelehnt"
+    "declined": "Abgelehnt",
+    "close": "Zurück zur Insel"
   },
   "it": {
     "title": "Aiuta su quest’isola",
@@ -81,7 +87,8 @@
     "changed": "Controlla l’isola e l’inventario.",
     "pending": "In attesa",
     "accepted": "Completato",
-    "declined": "Rifiutato"
+    "declined": "Rifiutato",
+    "close": "Torna all’isola"
   },
   "ko": {
     "title": "친구의 섬에서 돕기",
@@ -93,6 +100,7 @@
     "changed": "섬과 소지품을 확인하고 다시 선택하세요.",
     "pending": "동기화 대기",
     "accepted": "완료",
-    "declined": "거절됨"
+    "declined": "거절됨",
+    "close": "섬으로 돌아가기"
   }
 }

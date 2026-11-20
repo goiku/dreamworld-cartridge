@@ -28,6 +28,20 @@ index 0000000000000000000000000000000000000000..104000231ad7d8ce3711e7e395c164ab
 +cd /d "%~dp0"
 +".venv\Scripts\python.exe" launch_windows.py %*
 +if errorlevel 1 pause
+diff --git a/Start-melonDS.cmd b/Start-melonDS.cmd
+new file mode 100644
+index 0000000000000000000000000000000000000000..61d775e24f170483529548cd8616b33ca07226d7
+--- /dev/null
++++ b/Start-melonDS.cmd
+@@ -0,0 +1,8 @@
++@echo off
++setlocal
++if exist "%~dp0.venv\Scripts\pythonw.exe" (
++    start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0static\melonds-tuck-in.py"
++) else (
++    py -3 "%~dp0static\melonds-tuck-in.py"
++    if errorlevel 1 pause
++)
 diff --git a/Visit-Friend.cmd b/Visit-Friend.cmd
 new file mode 100644
 index 0000000000000000000000000000000000000000..d6410bee02aa695c3623b5f06f87af3f20b67df1
@@ -604,10 +618,10 @@ index 0f820d760a91cf1a6fe81c56871951e36f97bead..0ac047e3206e7af4bb9db012feea1ae4
 +    return _bookmark(query, False)
 diff --git a/api/island_adventure.py b/api/island_adventure.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..ba15a3676b559d5b59c253bcce148897351828c2
+index 0000000000000000000000000000000000000000..e9a001cde6118ca938593a3a54d4214e25fac82e
 --- /dev/null
 +++ b/api/island_adventure.py
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,242 @@
 +"""A visitor's footprint trail, using the home's own Dream Tree and cartridge queue."""
 +import hashlib
 +import random
@@ -845,7 +859,8 @@ index 0000000000000000000000000000000000000000..ba15a3676b559d5b59c253bcce148897
 +    html = response.get_data()
 +    pos = html.lower().find(b"<div", html.lower().find(b"<body"))
 +    if pos >= 0:
-+        menu = render_template("island_bridge_menu.html", s=_pal_labels[LANG], target=getattr(g, "island_target", None))
++        menu = render_template("island_bridge_menu.html", s=_pal_labels[LANG], ui=load_json_data("island_actions")[LANG],
++                               target=getattr(g, "island_target", None))
 +        response.set_data(html[:pos] + menu.encode("ascii", "xmlcharrefreplace") + html[pos:])
 +        response.cache_control.no_store = True
 +    return response
@@ -1072,10 +1087,10 @@ index 0000000000000000000000000000000000000000..c297355ea4d0b1d67c8dc55644944c02
 +                     (card, session["island_browser"]))
 diff --git a/api/offline_friends.py b/api/offline_friends.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..996c1b1e1b4739c9847f8b142210c939ece83331
+index 0000000000000000000000000000000000000000..abdfb671cbb87598ce604e790d3dbeb034e9c1ad
 --- /dev/null
 +++ b/api/offline_friends.py
-@@ -0,0 +1,221 @@
+@@ -0,0 +1,223 @@
 +"""A home cartridge's cached islands, share controls, native room links, and visitor log."""
 +import hashlib
 +import json
@@ -1248,6 +1263,7 @@ index 0000000000000000000000000000000000000000..996c1b1e1b4739c9847f8b142210c939
 +    stock = [(item["pokeitem_id"],item["item_cnt"]) for item in managers.get_chest(card).data["list"]
 +             if item["item_cnt"] > 0] if active else []
 +    return render_template("island_profile.html", doc=doc, owner=content["profile"]["pgl_name"],
++                           in_room=request.args.get("in_room") == "1",
 +                           groups=groups(content, LANG, _labels[LANG]), interactive=active, stock=stock,
 +                           ui=load_json_data("island_actions")[LANG], item_name=lambda n:text.lookup_str("item", n),
 +                           history=actions.history(card,island_id) if paired else [],
@@ -1266,7 +1282,8 @@ index 0000000000000000000000000000000000000000..996c1b1e1b4739c9847f8b142210c939
 +        notice = "saved"
 +    except (ValueError,KeyError):
 +        notice = "changed"
-+    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions"),303)
++    return redirect(url_for(".profile",island_id=island_id,notice=notice,_anchor="interactions",
++                            in_room="1" if request.form.get("in_room") == "1" else None),303)
 +
 +
 +@offline_friends.get("/native/<identifier>")
@@ -5563,10 +5580,10 @@ index 0000000000000000000000000000000000000000..409c4f500dd36ea716fc64a19f839ff7
 +["SPA","2046 BW - Item Liberty Pass (SPA).pgf","f2dcf9937816b8981564fb7c3f2ed0bdf834d885",48,"0d8dc4bdb3110e114cb1e2c31dc93e9cce6976d4","23df607be9a9bef8e07c457d7e862f8a34d2badfde1e0a5ce741fd7c829ff72b",2046]]
 diff --git a/json_data/island_actions.json b/json_data/island_actions.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fba2de8eab
+index 0000000000000000000000000000000000000000..95534c33124e5e069a6453532e1592cb99a5a604
 --- /dev/null
 +++ b/json_data/island_actions.json
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,106 @@
 +{
 +  "zh": {
 +    "title": "好友互动",
@@ -5578,7 +5595,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "小岛或背包有变化，请重新选择。",
 +    "pending": "待同步",
 +    "accepted": "已完成",
-+    "declined": "未能完成"
++    "declined": "未能完成",
++    "close": "回到小岛"
 +  },
 +  "ja": {
 +    "title": "友だちの島でお手伝い",
@@ -5590,7 +5608,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "島や持ち物を確認して選び直してください。",
 +    "pending": "同期待ち",
 +    "accepted": "完了",
-+    "declined": "不成立"
++    "declined": "不成立",
++    "close": "島に戻る"
 +  },
 +  "en": {
 +    "title": "Help on this island",
@@ -5602,7 +5621,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "Check the island and your inventory, then choose again.",
 +    "pending": "Pending sync",
 +    "accepted": "Completed",
-+    "declined": "Declined"
++    "declined": "Declined",
++    "close": "Back to island"
 +  },
 +  "fr": {
 +    "title": "Aider sur cette île",
@@ -5614,7 +5634,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "Vérifiez l’île et votre inventaire.",
 +    "pending": "En attente",
 +    "accepted": "Terminé",
-+    "declined": "Refusé"
++    "declined": "Refusé",
++    "close": "Retour sur l’île"
 +  },
 +  "es": {
 +    "title": "Ayudar en esta isla",
@@ -5626,7 +5647,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "Comprueba la isla y el inventario.",
 +    "pending": "Pendiente",
 +    "accepted": "Completado",
-+    "declined": "Rechazado"
++    "declined": "Rechazado",
++    "close": "Volver a la isla"
 +  },
 +  "de": {
 +    "title": "Auf dieser Insel helfen",
@@ -5638,7 +5660,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "Prüfe die Insel und deinen Beutel.",
 +    "pending": "Ausstehend",
 +    "accepted": "Abgeschlossen",
-+    "declined": "Abgelehnt"
++    "declined": "Abgelehnt",
++    "close": "Zurück zur Insel"
 +  },
 +  "it": {
 +    "title": "Aiuta su quest’isola",
@@ -5650,7 +5673,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "Controlla l’isola e l’inventario.",
 +    "pending": "In attesa",
 +    "accepted": "Completato",
-+    "declined": "Rifiutato"
++    "declined": "Rifiutato",
++    "close": "Torna all’isola"
 +  },
 +  "ko": {
 +    "title": "친구의 섬에서 돕기",
@@ -5662,7 +5686,8 @@ index 0000000000000000000000000000000000000000..ed084736482392e8353ebd2f770300fb
 +    "changed": "섬과 소지품을 확인하고 다시 선택하세요.",
 +    "pending": "동기화 대기",
 +    "accepted": "완료",
-+    "declined": "거절됨"
++    "declined": "거절됨",
++    "close": "섬으로 돌아가기"
 +  }
 +}
 diff --git a/json_data/island_adventure.json b/json_data/island_adventure.json
@@ -6973,10 +6998,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329f9d152f1
+index 0000000000000000000000000000000000000000..5366ba2f576c5b22aecf9689cc9a1c00d8f67e22
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,362 @@
+@@ -0,0 +1,402 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -7021,7 +7046,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "Physical DS",
 +    "emulator": "melonDS on this PC",
 +    "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
-+    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again."
++    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again.",
++    "tuck_title": "Clear the clock-change wait before tuck-in",
++    "tuck_download": "Download the Chinese Windows helper",
++    "tuck_setup": "Save in-game and close melonDS. Open the helper with Python 3.11 or later. Select melonDS 1.1, your everyday game, an unmodified copy of the same edition and region, and your latest .sav. Open the helper in the new profile folder for future sessions.",
++    "tuck_steps": "Choose 平时游玩 for everyday play, 申请入睡 to clear the console or clock-change timer and start the original game, or 唤醒并领取 to wake up. All three share one save. On a Japanese C-Gear, tap Wi-Fi → ゲームシンク, then はい to confirm.",
++    "tuck_card": "For a cartridge, export the 512 KiB save, use the helper to create a copy and restore that copy to the cartridge. The game checks its timer before uploading. Other events that share this timer are also released."
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -7066,7 +7096,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "DS実機",
 +    "emulator": "このPCのmelonDS",
 +    "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
-+    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。"
++    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。",
++    "tuck_title": "寝かしつける前に時計変更の待ち時間を解除する",
++    "tuck_download": "中国語の Windows 用ツールをダウンロード",
++    "tuck_setup": "ゲーム内でレポートを書き、melonDS を終了します。Python 3.11 以降でツールを起動し、melonDS 1.1、普段遊ぶソフト、同じ地域・バージョンの未改変ソフト、最新の .sav を選びます。次回からは新しくできたフォルダーのツールを使います。",
++    "tuck_steps": "普段は「平时游玩」、寝かしつけるときは「申请入睡」、起こすときは「唤醒并领取」を選びます。「申请入睡」で本体・時計変更による待ち時間を解除します。セーブデータは共通です。下画面の Wi-Fi → ゲームシンクから進めます。",
++    "tuck_card": "実機は 512 KiB のセーブデータを取り出し、ツールで作ったコピーを書き戻してください。ソフトはアップロード前に待ち時間を確認します。同じタイマーを使うほかのイベントにも反映されます。"
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7111,7 +7146,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "实体掌机",
 +    "emulator": "本机 melonDS 模拟器",
 +    "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
-+    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。"
++    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。",
++    "tuck_title": "入睡前清除换机等待",
++    "tuck_download": "下载中文游玩助手（Windows）",
++    "tuck_setup": "先在游戏内保存，关闭 melonDS。用 Python 3.11 或更新版本打开助手，选择自己的 melonDS 1.1、平时玩的游戏、同地区同版本的未修改游戏，以及最新的 .sav。第一次设置会复制一份游玩进度，以后从新文件夹打开助手。",
++    "tuck_steps": "平时点「平时游玩（汉化版）」。要入睡，点「申请入睡（原版）」，助手会先清除换机或改时钟的计时，再启动游戏。下屏点 Wi-Fi → ゲームシンク（游戏同步），はい是“是”，いいえ是“否”。网页准备好唤醒后，点助手的「唤醒并领取（原版）」。三个入口共用同一份进度。",
++    "tuck_card": "实体卡带可用助手处理自己导出的 512 KiB 存档，再把副本恢复到卡带。原版卡带会在上传前检查本地等待。清零也会影响使用同一计时器的其他活动。"
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7156,7 +7196,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "Console DS",
 +    "emulator": "melonDS sur ce PC",
 +    "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
-+    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez."
++    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez.",
++    "tuck_title": "Lever le délai après un changement d’heure",
++    "tuck_download": "Télécharger l’assistant Windows en chinois",
++    "tuck_setup": "Sauvegardez en jeu et fermez melonDS. Avec Python 3.11 ou ultérieur, ouvrez l’assistant et choisissez melonDS 1.1, votre jeu habituel, un exemplaire non modifié de la même édition et région et votre dernier fichier .sav. Utilisez ensuite le nouveau dossier.",
++    "tuck_steps": "平时游玩 lance le jeu habituel. 申请入睡 efface le délai lié au changement de console ou d’heure avant de lancer le jeu original. 唤醒并领取 sert au réveil. Les trois utilisent la même sauvegarde.",
++    "tuck_card": "Sur cartouche, exportez la sauvegarde de 512 Kio et restaurez la copie créée. Le jeu vérifie le délai avant l’envoi. Les autres activités liées au même compteur sont aussi débloquées."
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7201,7 +7246,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "Console DS",
 +    "emulator": "melonDS su questo PC",
 +    "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
-+    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova."
++    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova.",
++    "tuck_title": "Azzerare l’attesa dopo il cambio dell’orologio",
++    "tuck_download": "Scarica l’assistente Windows in cinese",
++    "tuck_setup": "Salva nel gioco e chiudi melonDS. Apri l’assistente con Python 3.11 o successivo. Seleziona melonDS 1.1, il gioco abituale, una copia originale della stessa edizione e regione e il file .sav più recente. In seguito usa la nuova cartella.",
++    "tuck_steps": "平时游玩 avvia il gioco abituale. 申请入睡 azzera l’attesa dovuta al cambio di console o di orario e avvia il gioco originale. 唤醒并领取 serve a svegliare il Pokémon. Le tre opzioni condividono il salvataggio.",
++    "tuck_card": "Per una cartuccia esporta il salvataggio da 512 KiB e ripristina la copia creata. Il gioco controlla il timer prima di inviare i dati. Si sbloccano anche le altre attività che usano lo stesso timer."
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7246,7 +7296,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "DS-Konsole",
 +    "emulator": "melonDS auf diesem PC",
 +    "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
-+    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut."
++    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut.",
++    "tuck_title": "Wartezeit nach einem Uhrenwechsel aufheben",
++    "tuck_download": "Chinesischen Windows-Helfer herunterladen",
++    "tuck_setup": "Speichere im Spiel und schließe melonDS. Öffne den Helfer mit Python ab 3.11. Wähle melonDS 1.1, dein übliches Spiel, eine unveränderte Kopie derselben Edition und Region und deine aktuelle .sav-Datei. Nutze künftig den neuen Ordner.",
++    "tuck_steps": "平时游玩 startet dein übliches Spiel. 申请入睡 setzt die Wartezeit nach einem Konsolen- oder Uhrenwechsel zurück und startet das Original. 唤醒并领取 ist zum Aufwecken. Alle drei verwenden denselben Spielstand.",
++    "tuck_card": "Exportiere bei einem Spielmodul den 512 KiB großen Spielstand und spiele die erstellte Kopie zurück. Das Spiel prüft den Timer vor dem Hochladen. Auch andere Ereignisse mit diesem Timer werden freigegeben."
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7291,7 +7346,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "Consola DS",
 +    "emulator": "melonDS en este PC",
 +    "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
-+    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo."
++    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo.",
++    "tuck_title": "Quitar la espera tras cambiar el reloj",
++    "tuck_download": "Descargar el asistente de Windows en chino",
++    "tuck_setup": "Guarda en el juego y cierra melonDS. Abre el asistente con Python 3.11 o posterior. Elige melonDS 1.1, tu juego habitual, una copia sin modificar de la misma edición y región y tu último archivo .sav. Para las próximas sesiones, usa la carpeta nueva.",
++    "tuck_steps": "平时游玩 abre el juego habitual. 申请入睡 pone a cero la espera por cambio de consola o de reloj y abre el juego original. 唤醒并领取 sirve para despertar al Pokémon. Las tres opciones comparten la partida.",
++    "tuck_card": "Para un cartucho, exporta la partida de 512 KiB y restaura la copia creada. El juego comprueba el contador antes de enviar los datos. También se liberan las actividades que usan ese contador."
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7336,7 +7396,12 @@ index 0000000000000000000000000000000000000000..db1db4536548fb4be3bb8fe42a0f5329
 +    "physical": "실제 DS",
 +    "emulator": "이 PC의 melonDS",
 +    "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
-+    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요."
++    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요.",
++    "tuck_title": "시계 변경 후 생긴 대기 시간 해제",
++    "tuck_download": "중국어 Windows 도우미 다운로드",
++    "tuck_setup": "게임에서 저장하고 melonDS를 종료하세요. Python 3.11 이상으로 도우미를 열고 melonDS 1.1, 평소 사용하는 게임, 같은 지역과 버전의 원본 게임, 최신 .sav 파일을 선택하세요. 다음부터는 새 폴더의 도우미를 여세요.",
++    "tuck_steps": "평소에는 平时游玩을 선택하세요. 申请入睡는 본체나 시계 변경으로 인한 대기 시간을 해제하고 원본 게임을 실행합니다. 깨울 때는 唤醒并领取를 선택하세요. 세 메뉴는 저장 파일 하나를 공유합니다.",
++    "tuck_card": "실물 카트리지는 512 KiB 저장 파일을 추출하고 도우미로 만든 복사본을 복원하세요. 게임은 업로드 전에 대기 시간을 확인합니다. 같은 타이머를 쓰는 다른 활동도 함께 해제됩니다."
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -16539,10 +16604,10 @@ index 0000000000000000000000000000000000000000..64401ac302588b0e63ac74464701304d
 +})();
 diff --git a/static/island-adventure.css b/static/island-adventure.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..ecda260da09347fa61c936b22adc1a1834a77855
+index 0000000000000000000000000000000000000000..f74828f1dce8703863c41c4b640630512ba3e8d4
 --- /dev/null
 +++ b/static/island-adventure.css
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,29 @@
 +.dw-trail { margin:0; color:#36372b; background:#f7f5e9; font: 17px/1.6 system-ui,sans-serif; }
 +.dw-trail header { padding:12px max(18px,calc((100vw - 660px)/2)); background:#344d3f; }
 +.dw-trail header a { color:white; text-decoration:none; }
@@ -16567,12 +16632,17 @@ index 0000000000000000000000000000000000000000..ecda260da09347fa61c936b22adc1a18
 +  gap:8px 18px; align-items:center; background:#f6f3df; color:#3e3a29; font:15px/1.5 system-ui,sans-serif; }
 +#dw-friend-tools[hidden],#dw-friend-tools [hidden] { display:none; }
 +#dw-friend-tools a { color:#31553e; text-decoration:underline; cursor:pointer; }
++#dw-friend-panel { width:min(46rem, 90vw); padding:0; border:1px solid #74896c; background:#fffef6; }
++#dw-friend-panel::backdrop { background:rgb(22 32 25 / 45%); }
++#dw-friend-panel form { display:flex; justify-content:flex-end; padding:.5rem; }
++#dw-friend-panel button { font:inherit; padding:.35rem .8rem; cursor:pointer; }
++#dw-friend-panel iframe { display:block; width:100%; height:min(65vh, 42rem); border:0; }
 diff --git a/static/island-bridge.js b/static/island-bridge.js
 new file mode 100644
-index 0000000000000000000000000000000000000000..e8cfdb7d57e340a0b18161c7b2b8696781e90e31
+index 0000000000000000000000000000000000000000..85ee46e6f0717176a53d7b4e8129288d3371d2c6
 --- /dev/null
 +++ b/static/island-bridge.js
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,94 @@
 +(() => {
 +  const tools = document.getElementById("dw-friend-tools");
 +  if (!tools) return;
@@ -16580,12 +16650,16 @@ index 0000000000000000000000000000000000000000..e8cfdb7d57e340a0b18161c7b2b86967
 +  const updated = tools.querySelector("[data-updated]");
 +  const adventure = tools.querySelector("[data-adventure]");
 +  const profile = tools.querySelector("[data-profile]");
++  const panel = document.getElementById("dw-friend-panel");
++  const frame = panel.querySelector("iframe");
 +  const roster = tools.querySelector("[data-roster]");
 +  const owner = tools.querySelector("[data-owner]");
 +  const time = tools.querySelector("time");
 +  let navigation = 0;
 +
 +  function show(room, showRoster = false) {
++    const profilePath = room && "/islands/" + room.shared_island_id + "/profile";
++    if (panel.open && profile.getAttribute("href") !== profilePath) panel.close();
 +    tools.hidden = !room && !showRoster;
 +    roster.hidden = Boolean(room);
 +    owner.hidden = updated.hidden = adventure.hidden = profile.hidden = !room;
@@ -16596,9 +16670,17 @@ index 0000000000000000000000000000000000000000..e8cfdb7d57e340a0b18161c7b2b86967
 +      time.textContent = stamp.toLocaleString(document.documentElement.lang || undefined);
 +      const path = "/islands/" + room.shared_island_id;
 +      adventure.href = path + "/adventure";
-+      profile.href = path + "/profile";
++      profile.href = profilePath;
 +    }
 +  }
++
++  profile.addEventListener("click", event => {
++    if (!panel.showModal || event.ctrlKey || event.shiftKey || event.metaKey || event.altKey) return;
++    event.preventDefault();
++    frame.src = profile.href + "?in_room=1";
++    panel.showModal();
++  });
++  panel.addEventListener("close", () => frame.removeAttribute("src"));
 +
 +  const gameApi = target && "/islands/" + target.island_id + "/game-api/";
 +  if (gameApi) {
@@ -16803,6 +16885,309 @@ index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7
 +  setInterval(refreshPresence, 30000);
 +  document.addEventListener("visibilitychange", refreshPresence);
 +}
+diff --git a/static/melonds-tuck-in.py b/static/melonds-tuck-in.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..ee494b01b8b2ced436df601aa945e26a47db3769
+--- /dev/null
++++ b/static/melonds-tuck-in.py
+@@ -0,0 +1,297 @@
++"""Local Windows melonDS launcher for Gen V saves. Only the player chooses files."""
++import binascii
++import csv
++import json
++import os
++from pathlib import Path
++from queue import Empty, Queue
++import shutil
++import struct
++import subprocess
++import sys
++import tempfile
++from threading import Thread
++import tomllib
++import uuid
++from contextlib import contextmanager, ExitStack
++
++
++GAME = {b"IRA": 20, b"IRB": 21, b"IRD": 22, b"IRE": 23}
++CONFIG = "游玩配置.json"
++
++
++def checked_save(raw):
++    """Validate every populated trainer, clock block and checksum table before editing."""
++    if len(raw) != 0x80000:
++        raise ValueError("请选择游戏内保存的 512 KiB 原始 .sav 文件。")
++    game = raw[0x1941F]
++    if game not in GAME.values():
++        raise ValueError("无法识别《黑／白／黑2／白2》的训练家数据。")
++    sequel = game in (22, 23)
++    stride, table, table_len, table_sum, trainer_len = (
++        (0x26000, 0x25F00, 0x94, 0x25FA2, 0xB0) if sequel
++        else (0x24000, 0x23F00, 0x8C, 0x23F9A, 0x68)
++    )
++    updated = bytearray(raw)
++    waits = []
++    for base in (0, stride):
++        if base and raw[base:base+stride] in (bytes(stride), b"\xff" * stride):
++            continue
++        def crc(start, size):
++            return binascii.crc_hqx(updated[base+start:base+start+size], 0xFFFF)
++        def word(start):
++            return struct.unpack_from("<H", updated, base+start)[0]
++        def set_word(start, value):
++            struct.pack_into("<H", updated, base+start, value)
++        if (updated[base+0x1941F] != game
++                or crc(table, table_len) != word(table_sum)
++                or not crc(0x19400, trainer_len) == word(0x19400+trainer_len+2) == word(table+54)
++                or not crc(0x1D900, 0x5C) == word(0x1D95E) == word(table+74)):
++            raise ValueError("存档数据校验失败，请重新导出完整的游戏内存档。")
++        penalty = struct.unpack_from("<I", updated, base+0x1D944)[0]
++        if penalty > 1440:
++            raise ValueError("存档中的等待值超出已知范围。")
++        waits.append(penalty)
++        if penalty:
++            struct.pack_into("<I", updated, base+0x1D944, 0)
++            checksum = crc(0x1D900, 0x5C)
++            set_word(0x1D95E, checksum)
++            set_word(table+74, checksum)
++            set_word(table_sum, crc(table, table_len))
++    return bytes(updated), waits
++
++
++def atomic_write(path, data):
++    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as f:
++        swap = Path(f.name)
++        try:
++            f.write(data)
++            f.flush()
++            os.fsync(f.fileno())
++        except BaseException:
++            f.close()
++            swap.unlink(missing_ok=True)
++            raise
++    try:
++        os.replace(swap, path)
++    finally:
++        swap.unlink(missing_ok=True)
++
++
++def game_code(path):
++    with path.open("rb") as f:
++        f.seek(12)
++        return f.read(4)
++
++
++def save_path(emulator, rom):
++    portable = emulator.parent / "portable"
++    config = (portable if portable.is_dir() else emulator.parent) / "melonDS.toml"
++    if not portable.is_dir() and not config.is_file() and os.environ.get("LOCALAPPDATA"):
++        # Non-portable Windows builds use Qt ConfigLocation/<melonDS>.
++        config = Path(os.environ["LOCALAPPDATA"]) / "melonDS" / "melonDS" / "melonDS.toml"
++    if not config.is_file():
++        raise ValueError("请先打开 melonDS 1.1，配置网络，正常退出后再选择该程序。")
++    with config.open("rb") as f:
++        folder = tomllib.load(f).get("Instance0", {}).get("SaveFilePath", "")
++    dest = (emulator.parent / folder).resolve() if folder else rom.parent
++    return dest / rom.with_suffix(".sav").name
++
++
++def prepare(parent, emulator, regular, sync, saved):
++    data = saved.read_bytes()
++    checked_save(data)
++    code = game_code(sync)
++    if GAME.get(code[:3]) != data[0x1941F] or game_code(regular) != code:
++        raise ValueError("两个游戏文件要对应同一版本和地区，存档也要匹配该版本。")
++    # A distinct basename also isolates players who configured a common save folder.
++    name = "DW-" + uuid.uuid4().hex[:12] + ".nds"
++    work = Path(tempfile.mkdtemp(prefix="梦世界游玩-", dir=parent))
++    with ExitStack() as cleanup:
++        cleanup.callback(work.rmdir)
++        slot = save_path(emulator, work / name)
++        slot.parent.mkdir(parents=True, exist_ok=True)
++        with slot.open("xb") as f:
++            cleanup.callback(slot.unlink, missing_ok=True)
++            f.write(data)
++        profile = {"emulator": str(emulator), "regular": str(regular), "sync": str(sync),
++                   "rom": name, "save": str(slot)}
++        for path in (work / CONFIG, work / "中文游玩助手.pyw", work / "DreamWorld.cmd"):
++            cleanup.callback(path.unlink, missing_ok=True)
++        (work / CONFIG).write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
++        shutil.copyfile(__file__, work / "中文游玩助手.pyw")
++        interpreter = Path(sys.executable).with_name("pythonw.exe")
++        if not interpreter.is_file():
++            interpreter = Path(sys.executable)
++        command = str(interpreter).replace("%", "%%")
++        (work / "DreamWorld.cmd").write_text(
++            '@echo off\nsetlocal DisableDelayedExpansion\nchcp 65001 >nul\n'
++            f'start "" "{command}" "%~dp0中文游玩助手.pyw"\n',
++            encoding="utf-8", newline="\r\n")
++        cleanup.pop_all()
++    return work
++
++
++@contextmanager
++def first_emulator():
++    import msvcrt
++    lock = Path(tempfile.gettempdir()) / "dreamworld-melonds-launch.lock"
++    with lock.open("a+b") as f:
++        if f.seek(0, 2) == 0:
++            f.write(b"0")
++            f.flush()
++        f.seek(0)
++        try:
++            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
++        except OSError as exc:
++            raise ValueError("请先保存并退出另一个游玩助手启动的游戏。") from exc
++        try:
++            result = subprocess.check_output(
++                ["tasklist.exe", "/FI", "IMAGENAME eq melonDS.exe", "/FO", "CSV", "/NH"],
++                creationflags=subprocess.CREATE_NO_WINDOW)
++            rows = csv.reader(result.decode("mbcs", errors="replace").splitlines())
++            if any(row and row[0].lower() == "melonds.exe" for row in rows):
++                raise ValueError("请先在已打开的 melonDS 中保存并退出，再切换版本。")
++            yield
++        finally:
++            f.seek(0)
++            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
++
++
++def clear_for_tuck(slot, backup):
++    raw = slot.read_bytes()
++    cleared, waits = checked_save(raw)
++    if any(waits):
++        atomic_write(backup, raw)
++        atomic_write(slot, cleared)
++    return waits
++
++
++def launch(work, mode):
++    cfg = json.loads((work / CONFIG).read_text(encoding="utf-8"))
++    source_key = {"regular": "regular", "sleep": "sync", "wake": "sync"}[mode]
++    emu, source, slot = (Path(cfg[key]) for key in ("emulator", source_key, "save"))
++    rom = work / cfg["rom"]
++    with first_emulator():
++        if slot != save_path(emu, rom):
++            raise ValueError("melonDS 存档目录已改变。请恢复之前的目录，或用最新进度重新配置。")
++        raw = slot.read_bytes()
++        if len(raw) != 0x80000 or GAME.get(game_code(source)[:3]) != raw[0x1941F]:
++            raise ValueError("当前游戏与进度版本不一致。")
++        with tempfile.TemporaryDirectory(dir=work) as tmp:
++            link = Path(tmp) / "game.nds"
++            try:
++                os.link(source, link)
++            except OSError:
++                shutil.copyfile(source, link)
++            os.replace(link, rom)
++        if mode == "sleep":
++            clear_for_tuck(slot, work / "上次清除等待前.sav")
++        subprocess.run([str(emu), str(rom)], cwd=emu.parent, check=True)
++
++
++def save_copy(root):
++    from tkinter import filedialog, messagebox
++    src = filedialog.askopenfilename(parent=root, title="选择自己的掌机存档备份", filetypes=[("原始存档", "*.sav")])
++    if not src:
++        return
++    data, waits = checked_save(Path(src).read_bytes())
++    if not any(waits):
++        messagebox.showinfo("存档检查", "这份存档的换机／改时钟等待已经是零。", parent=root)
++        return
++    folder = filedialog.askdirectory(parent=root, title="选择新副本的保存目录")
++    if folder:
++        with tempfile.NamedTemporaryFile(prefix="解除等待-", suffix=".sav", dir=folder, delete=False) as f:
++            f.write(data)
++        messagebox.showinfo("已生成存档副本", "副本位置\n"+f.name, parent=root)
++
++
++def main():
++    from tkinter import Tk, filedialog, messagebox, ttk
++    root = Tk()
++    root.title("梦世界游玩助手")
++    root.resizable(False, False)
++    box = ttk.Frame(root, padding=18)
++    box.pack()
++    work = Path(__file__).resolve().parent
++    results = Queue()
++    playing = False
++
++    def start_game(mode):
++        nonlocal playing
++        if playing:
++            messagebox.showinfo("游戏正在运行", "请先在游戏内保存并退出，再切换版本。", parent=root)
++            return
++        playing = True
++        def worker():
++            try:
++                launch(work, mode)
++            except Exception as exc:
++                results.put(str(exc))
++            else:
++                results.put("")
++        Thread(target=worker).start()
++        root.after(300, poll)
++
++    def poll():
++        nonlocal playing
++        try:
++            error = results.get_nowait()
++        except Empty:
++            root.after(300, poll)
++            return
++        playing = False
++        if error:
++            messagebox.showerror("无法启动游戏", error, parent=root)
++
++    def guard(fn):
++        def run():
++            try:
++                fn()
++            except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
++                messagebox.showerror("无法继续", str(exc), parent=root)
++        return run
++
++    def setup():
++        nonlocal work
++        chosen = []
++        for label, pattern in (("选择平时用的 melonDS.exe", "melonDS.exe"),
++                               ("选择平时玩的游戏（可以是汉化版）", "*.nds"),
++                               ("选择能联网的同版本原版游戏", "*.nds"),
++                               ("选择该玩家最新的游戏内存档", "*.sav")):
++            picked = filedialog.askopenfilename(parent=root, title=label, filetypes=[(label, pattern)])
++            if not picked:
++                return
++            chosen.append(Path(picked))
++        parent = filedialog.askdirectory(parent=root, title="选择保存游玩助手和进度的文件夹")
++        if parent:
++            work = prepare(Path(parent), *chosen)
++            messagebox.showinfo("共用进度已建立", "以后请从这个文件夹双击 DreamWorld.cmd\n"+str(work), parent=root)
++            draw()
++
++    def draw():
++        for widget in box.winfo_children():
++            widget.destroy()
++        def note(s):
++            ttk.Label(box, text=s, wraplength=455, justify="left").pack(fill="x", pady=4)
++        def button(label, fn):
++            ttk.Button(box, text=label, command=guard(fn)).pack(fill="x", pady=3)
++        if (work / CONFIG).is_file():
++            note("三个入口共用一份进度。切换前，在游戏内保存并退出模拟器。")
++            button("平时游玩（汉化版）", lambda: start_game("regular"))
++            button("申请入睡（原版）", lambda: start_game("sleep"))
++            button("唤醒并领取（原版）", lambda: start_game("wake"))
++        else:
++            note("每位玩家选择自己的游戏和存档。首次设置会创建一份独立的游玩进度。")
++            button("设置我的 melonDS 和存档", setup)
++        note("下屏 Wi-Fi → ゲームシンク（游戏同步）。はい＝是，いいえ＝否。\n"
++             "レポート＝保存。ねかしつける／ねむらせる＝让宝可梦入睡。おこす＝唤醒。")
++        note("每次点「申请入睡」都会清除这份进度里的换机／改时钟等待，其他受同一计时器限制的活动也会解锁。"
++             "实体卡带可导出备份，清除后恢复副本。")
++        button("为掌机存档生成清除等待的副本", lambda: save_copy(root))
++    draw()
++    root.mainloop()
++
++
++if __name__ == "__main__":
++    main()
 diff --git a/static/player-guide.css b/static/player-guide.css
 new file mode 100644
 index 0000000000000000000000000000000000000000..94e1f6a154309d519984690a87cffe962cf466cd
@@ -17285,7 +17670,7 @@ index 0000000000000000000000000000000000000000..1c08729e52ed4880a12faf43afee72f4
 +</main></body></html>
 diff --git a/templates/island_base.html b/templates/island_base.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..81faed52041e3bf4c4eb46cd0953e3c492cb8c1f
+index 0000000000000000000000000000000000000000..f4a0cf1a28431bc315e98fdaef578c2dec45c3a4
 --- /dev/null
 +++ b/templates/island_base.html
 @@ -0,0 +1,12 @@
@@ -17297,24 +17682,28 @@ index 0000000000000000000000000000000000000000..81faed52041e3bf4c4eb46cd0953e3c4
 +<link rel="stylesheet" href="{{ url_for('offline_friends.static',filename='island-friends.css') }}">
 +<script defer src="{{ url_for('offline_friends.static',filename='island-friends.js') }}"></script>
 +</head><body>
-+<header class="mast"><div><a href="/pdw/">{{ t.home }}</a><span aria-hidden="true">✦</span><a href="/islands/">{{ t.friends }}</a></div>
-+<a href="/languages/?page=/islands/" lang="en" hreflang="en">Language</a></header>
++{% if not in_room %}<header class="mast"><div><a href="/pdw/">{{ t.home }}</a><span aria-hidden="true">✦</span><a href="/islands/">{{ t.friends }}</a></div>
++<a href="/languages/?page=/islands/" lang="en" hreflang="en">Language</a></header>{% endif %}
 +<main>{% block main %}{% endblock %}</main>
 +</body></html>
 diff --git a/templates/island_bridge_menu.html b/templates/island_bridge_menu.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..055af3b448981dd067910e32df5702a1622cfd6c
+index 0000000000000000000000000000000000000000..645faa9d97e5b32edb3584e62ad873a4c168d7a4
 --- /dev/null
 +++ b/templates/island_bridge_menu.html
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,14 @@
 +<link rel="stylesheet" href="{{ url_for('island_adventure.static', filename='island-adventure.css') }}">
 +<nav id="dw-friend-tools" aria-label="{{ s.friends }}" hidden>
 +  <strong data-owner hidden></strong>
 +  <a data-roster href="/islands/">{{ s.friends }}</a>
 +  <span data-updated hidden>{{ s.updated }} <time></time></span>
 +  <a data-adventure hidden>{{ s.adventure }}</a>
-+  <a data-profile hidden>{{ s.profile }}</a>
++  <a data-profile hidden>{{ s.profile }} · {{ ui.title }}</a>
 +</nav>
++<dialog id="dw-friend-panel" aria-label="{{ s.profile }}">
++  <form method="dialog"><button autofocus>{{ ui.close }}</button></form>
++  <iframe title="{{ s.profile }} · {{ ui.title }}"></iframe>
++</dialog>
 +<script type="application/json" id="dw-friend-data">{{ target | tojson }}</script>
 +<script src="{{ url_for('island_adventure.static', filename='island-bridge.js') }}"></script>
 diff --git a/templates/island_friends.html b/templates/island_friends.html
@@ -17368,22 +17757,23 @@ index 0000000000000000000000000000000000000000..31fb7139b5d1ff961475aeef0b3b8e19
 +{% endblock %}
 diff --git a/templates/island_profile.html b/templates/island_profile.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3618ce4477ac1aa6ac38a01dc1a7cdb5aefebc2
+index 0000000000000000000000000000000000000000..7365b01e5276d6a0edbc5214a8abeb9aa67c7506
 --- /dev/null
 +++ b/templates/island_profile.html
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +{% extends "island_base.html" %}
 +{% block title %}{{ owner }} · {{ t.profile }}{% endblock %}
 +{% block main %}
 +<div class="room-head"><div><h1>{{ owner }} <span class="room-type">· {{ t.profile }}</span></h1>
 +<p class="dates">{{ t.updated }} <time data-time="{{ doc.updated_at }}">{{ date(doc.updated_at) }}</time></p></div>
-+<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a></div>
++{% if not in_room %}<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a>{% endif %}</div>
 +{% if interactive or history %}
 +<section id="interactions"><h2>{{ ui.title }}</h2><p>{{ ui.hint }}</p>
 +{% if request.args.notice in ('saved','changed') %}<p role="status">{{ ui[request.args.notice] }}</p>{% endif %}
 +{% macro fields(kind,index) -%}
 +<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}">
 +<input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="slot" value="{{ index }}">
++{% if in_room %}<input type="hidden" name="in_room" value="1">{% endif %}
 +{%- endmacro %}
 +{% if interactive %}
 +{% for plot in doc.content.garden %}{% if plot.planted_at and plot.dirt_hp < full and plot.kinomi_state < ripe %}
@@ -17448,10 +17838,10 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +</html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..4f0af8ad44788df7ee9e69d76a6bfe3979e2a2ab
+index 0000000000000000000000000000000000000000..7e13095200a70b9fb0ac218d590187e023723653
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,77 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -17474,7 +17864,7 @@ index 0000000000000000000000000000000000000000..4f0af8ad44788df7ee9e69d76a6bfe39
 +    <nav class="guide-nav" aria-label="{{ t.title }}">
 +      <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
 +      <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
-+      <a href="#distributions">{{ gifts.title }}</a>
++      <a href="#tuck-in">{{ t.tuck_title }}</a><a href="#distributions">{{ gifts.title }}</a>
 +    </nav>
 +    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
 +             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-emulator-offline="{{ t.emulator_offline }}" data-checking="{{ t.checking }}">
@@ -17512,6 +17902,11 @@ index 0000000000000000000000000000000000000000..4f0af8ad44788df7ee9e69d76a6bfe39
 +      </details>
 +    </section>
 +    <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
++    <section id="tuck-in">
++      <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_setup }}</p>
++      <p><a download="melonds-tuck-in.py" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
++      <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p>
++    </section>
 +    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
 +    <section id="distributions">
 +      <h2>{{ gifts.title }}</h2>
@@ -18230,10 +18625,10 @@ index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf
 +    assert content["sleeper"]["pokemon_nickname"] == "A汉"
 diff --git a/tests/test_island_actions.py b/tests/test_island_actions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..b37f8d950f529e56d40115af0a25351e0f1139c5
+index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927a1705b26
 --- /dev/null
 +++ b/tests/test_island_actions.py
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,142 @@
 +from contextlib import ExitStack, contextmanager
 +from unittest.mock import patch
 +
@@ -18368,7 +18763,13 @@ index 0000000000000000000000000000000000000000..b37f8d950f529e56d40115af0a25351e
 +        assert client.post(base + "/interact", data=form).status_code == 403
 +        with client.session_transaction() as session:
 +            form["csrf"] = session["island_csrf"]
++        panel = client.get(base + "/profile?in_room=1")
++        assert b'name="in_room" value="1"' in panel.data and b'class="mast"' not in panel.data
 +        assert client.post(base + "/interact", data=form).status_code == 303
++        assert len(actions.pending(guest, island)) == 1
++        response = client.post(base + "/interact", data={**form, "in_room": "1"}, follow_redirects=True)
++        assert response.status_code == 200 and response.request.args.get("in_room") == "1"
++        assert b'role="status"' in response.data and b'class="mast"' not in response.data
 +        assert len(actions.pending(guest, island)) == 1
 diff --git a/tests/test_island_encounters.py b/tests/test_island_encounters.py
 new file mode 100644
@@ -18797,6 +19198,127 @@ index 0000000000000000000000000000000000000000..631eded028853bcb5744e5ae51944c00
 +    assert labels["board"] not in rows
 +    assert labels["player_name"] not in dict(rows[labels["profile"]])
 +    assert rows[labels["chest"]] == [("#9000", "×2")]
+diff --git a/tests/test_melonds_tuck_in.py b/tests/test_melonds_tuck_in.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e65c0255db2c85dc70213a53332d113524849119
+--- /dev/null
++++ b/tests/test_melonds_tuck_in.py
+@@ -0,0 +1,115 @@
++"""Exercise the local launcher on synthetic Gen V saves, without starting melonDS."""
++from binascii import crc_hqx
++from contextlib import nullcontext
++import importlib.util
++import json
++from pathlib import Path
++import struct
++
++import pytest
++
++
++helper_path = Path(__file__).resolve().parents[1] / "static/melonds-tuck-in.py"
++spec = importlib.util.spec_from_file_location("melonds_tuck_in", helper_path)
++helper = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(helper)
++
++
++def save_fixture(game, waits):
++    sequel = game in (22, 23)
++    table, stride, table_crc = (0x25F00, 0x26000, 0x25FA2) if sequel else (0x23F00, 0x24000, 0x23F9A)
++    table_length = 148 if sequel else 140
++    trainer_length = 176 if sequel else 104
++    raw = bytearray(512 * 1024)
++    for index, minutes in enumerate(waits):
++        base = index * stride
++        raw[base + 0x1941F] = game
++        raw[base + 0x18E00] = 4 + index
++        struct.pack_into("<I", raw, base + 0x1D944, minutes)
++        for pos, size, mirror in ((0x19400, trainer_length, 54), (0x1D900, 92, 74)):
++            check = crc_hqx(raw[base+pos:base+pos+size], 0xffff)
++            for offset in (pos + size + 2, table + mirror):
++                struct.pack_into("<H", raw, base + offset, check)
++        check = crc_hqx(raw[base+table:base+table+table_length], 0xffff)
++        struct.pack_into("<H", raw, base+table_crc, check)
++    return bytes(raw)
++
++
++@pytest.mark.parametrize("game", [20, 21, 22, 23])
++@pytest.mark.parametrize("waits", [[339, 1440], [0, 13], [5], [0]])
++def test_all_titles_keep_every_other_byte(game, waits):
++    original = save_fixture(game, waits)
++    prepared, actual = helper.checked_save(original)
++    assert actual == waits
++    expected = save_fixture(game, [0] * len(waits))
++    assert prepared == expected
++    assert helper.checked_save(prepared) == (prepared, [0] * len(waits))
++
++
++@pytest.mark.parametrize("offset", [0x19400, 0x1D944, 0x23F00, 0x24000+0x1D95E])
++def test_corruption_is_rejected(offset, tmp_path):
++    bad = bytearray(save_fixture(20, [73, 11]))
++    bad[offset] ^= 64
++    slot, undo = tmp_path / "game.sav", tmp_path / "before.sav"
++    slot.write_bytes(bad)
++    with pytest.raises(ValueError):
++        helper.clear_for_tuck(slot, undo)
++    assert slot.read_bytes() == bad and not undo.exists()
++
++
++def test_two_players_each_keep_one_save_across_languages(tmp_path, monkeypatch):
++    emulator = tmp_path / "melonDS.exe"
++    emulator.touch()
++    (tmp_path / "melonDS.toml").write_text('[Instance0]\nSaveFilePath = "saves"\n')
++    args = [tmp_path / name for name in ("translation.nds", "original.nds", "player.sav")]
++    regular, sync, original = args
++    for index, rom in enumerate((regular, sync)):
++        rom.write_bytes(bytes(12) + b"IRAJ" + bytes([index]))
++    raw = save_fixture(20, [73, 24])
++    original.write_bytes(raw)
++    profile, other = (helper.prepare(tmp_path, emulator, *args) for _ in range(2))
++    settings = json.loads((profile / helper.CONFIG).read_text("utf8"))
++    slot = Path(settings["save"])
++    other_slot = Path(json.loads((other / helper.CONFIG).read_text("utf8"))["save"])
++    assert other_slot != slot
++    monkeypatch.setattr(helper, "first_emulator", nullcontext)
++    runs = []
++    def record(argv, cwd, check):
++        rom = Path(argv[1])
++        runs.append((rom, rom.read_bytes(), slot.read_bytes()))
++    monkeypatch.setattr(helper.subprocess, "run", record)
++    for mode in ("regular", "wake", "sleep"):
++        helper.launch(profile, mode)
++    assert len({rom for rom, _, _ in runs}) == 1
++    assert [game for _, game, _ in runs] == [regular.read_bytes(), sync.read_bytes(), sync.read_bytes()]
++    assert [data for _, _, data in runs] == [raw, raw, save_fixture(20, [0, 0])]
++    before = profile / "上次清除等待前.sav"
++    assert before.read_bytes() == raw
++    helper.launch(profile, "sleep")
++    assert before.read_bytes() == raw
++    advanced = save_fixture(20, [17, 2])
++    slot.write_bytes(advanced)
++    helper.launch(profile, "sleep")
++    assert before.read_bytes() == advanced
++    assert other_slot.read_bytes() == raw == original.read_bytes()
++
++
++def test_wrong_size_wait_or_rom_is_rejected(tmp_path):
++    for raw in (b"", save_fixture(20, [1441])):
++        with pytest.raises(ValueError):
++            helper.checked_save(raw)
++    original = tmp_path / "B.sav"
++    original.write_bytes(save_fixture(21, [1, 1]))
++    rom = tmp_path / "W.nds"
++    rom.write_bytes(bytes(12) + b"IRAJ")
++    with pytest.raises(ValueError):
++        helper.prepare(tmp_path, tmp_path / "melonDS.exe", rom, rom, original)
++    assert not list(tmp_path.glob("梦世界游玩-*"))
++
++
++def test_portable_settings_override_the_file_by_the_executable(tmp_path):
++    emulator, rom = tmp_path / "melonDS.exe", tmp_path / "games/example.nds"
++    (tmp_path / "portable").mkdir()
++    for directory, folder in ((tmp_path, "old"), (tmp_path / "portable", "new")):
++        (directory / "melonDS.toml").write_text(f'[Instance0]\nSaveFilePath = "{folder}"\n')
++    assert helper.save_path(emulator, rom) == tmp_path / "new/example.sav"
 diff --git a/tests/test_native_shared_areas.py b/tests/test_native_shared_areas.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..9f839949b3a0bcdbf74d09117d628b9b32295f4c

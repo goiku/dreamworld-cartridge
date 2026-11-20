@@ -4,7 +4,11 @@
   <a data-roster href="/islands/">{{ s.friends }}</a>
   <span data-updated hidden>{{ s.updated }} <time></time></span>
   <a data-adventure hidden>{{ s.adventure }}</a>
-  <a data-profile hidden>{{ s.profile }}</a>
+  <a data-profile hidden>{{ s.profile }} · {{ ui.title }}</a>
 </nav>
+<dialog id="dw-friend-panel" aria-label="{{ s.profile }}">
+  <form method="dialog"><button autofocus>{{ ui.close }}</button></form>
+  <iframe title="{{ s.profile }} · {{ ui.title }}"></iframe>
+</dialog>
 <script type="application/json" id="dw-friend-data">{{ target | tojson }}</script>
 <script src="{{ url_for('island_adventure.static', filename='island-bridge.js') }}"></script>

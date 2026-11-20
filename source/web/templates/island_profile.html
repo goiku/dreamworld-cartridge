@@ -3,13 +3,14 @@
 {% block main %}
 <div class="room-head"><div><h1>{{ owner }} <span class="room-type">· {{ t.profile }}</span></h1>
 <p class="dates">{{ t.updated }} <time data-time="{{ doc.updated_at }}">{{ date(doc.updated_at) }}</time></p></div>
-<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a></div>
+{% if not in_room %}<a class="button primary" href="{{ url_for('.room',island_id=doc.island_id) }}">{{ t.visit }}</a>{% endif %}</div>
 {% if interactive or history %}
 <section id="interactions"><h2>{{ ui.title }}</h2><p>{{ ui.hint }}</p>
 {% if request.args.notice in ('saved','changed') %}<p role="status">{{ ui[request.args.notice] }}</p>{% endif %}
 {% macro fields(kind,index) -%}
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}">
 <input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="slot" value="{{ index }}">
+{% if in_room %}<input type="hidden" name="in_room" value="1">{% endif %}
 {%- endmacro %}
 {% if interactive %}
 {% for plot in doc.content.garden %}{% if plot.planted_at and plot.dirt_hp < full and plot.kinomi_state < ripe %}

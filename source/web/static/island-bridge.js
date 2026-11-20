@@ -5,12 +5,16 @@
   const updated = tools.querySelector("[data-updated]");
   const adventure = tools.querySelector("[data-adventure]");
   const profile = tools.querySelector("[data-profile]");
+  const panel = document.getElementById("dw-friend-panel");
+  const frame = panel.querySelector("iframe");
   const roster = tools.querySelector("[data-roster]");
   const owner = tools.querySelector("[data-owner]");
   const time = tools.querySelector("time");
   let navigation = 0;
 
   function show(room, showRoster = false) {
+    const profilePath = room && "/islands/" + room.shared_island_id + "/profile";
+    if (panel.open && profile.getAttribute("href") !== profilePath) panel.close();
     tools.hidden = !room && !showRoster;
     roster.hidden = Boolean(room);
     owner.hidden = updated.hidden = adventure.hidden = profile.hidden = !room;
@@ -21,9 +25,17 @@
       time.textContent = stamp.toLocaleString(document.documentElement.lang || undefined);
       const path = "/islands/" + room.shared_island_id;
       adventure.href = path + "/adventure";
-      profile.href = path + "/profile";
+      profile.href = profilePath;
     }
   }
+
+  profile.addEventListener("click", event => {
+    if (!panel.showModal || event.ctrlKey || event.shiftKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    frame.src = profile.href + "?in_room=1";
+    panel.showModal();
+  });
+  panel.addEventListener("close", () => frame.removeAttribute("src"));
 
   const gameApi = target && "/islands/" + target.island_id + "/game-api/";
   if (gameApi) {

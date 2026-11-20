@@ -132,5 +132,11 @@ def test_profile_form_reserves_trade_only_with_its_session_token(tmp_path, monke
         assert client.post(base + "/interact", data=form).status_code == 403
         with client.session_transaction() as session:
             form["csrf"] = session["island_csrf"]
+        panel = client.get(base + "/profile?in_room=1")
+        assert b'name="in_room" value="1"' in panel.data and b'class="mast"' not in panel.data
         assert client.post(base + "/interact", data=form).status_code == 303
+        assert len(actions.pending(guest, island)) == 1
+        response = client.post(base + "/interact", data={**form, "in_room": "1"}, follow_redirects=True)
+        assert response.status_code == 200 and response.request.args.get("in_room") == "1"
+        assert b'role="status"' in response.data and b'class="mast"' not in response.data
         assert len(actions.pending(guest, island)) == 1
