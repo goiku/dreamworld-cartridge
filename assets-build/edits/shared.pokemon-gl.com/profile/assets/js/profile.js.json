@@ -1,0 +1,42 @@
+[
+  [
+    28226,
+    28296,
+    ""
+  ],
+  [
+    29200,
+    29200,
+    ");\n      that.showDialog(PGL.Text.get('pg_aui_1'), { ok:true }"
+  ],
+  [
+    32811,
+    32883,
+    "var trainerText = $('<span>').text("
+  ],
+  [
+    32907,
+    32907,
+    ").html();\n      $('dd.trade-player-name', row).html(PGL.Utils.renderDSFont('ds-font-3', trainerText"
+  ],
+  [
+    47544,
+    47544,
+    "/^(ja|ko|zh)$/.test("
+  ],
+  [
+    47556,
+    47588,
+    ")"
+  ],
+  [
+    50902,
+    50902,
+    "/^(ja|ko|zh)$/.test("
+  ],
+  [
+    50914,
+    50946,
+    ")"
+  ]
+]

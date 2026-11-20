@@ -1,0 +1,401 @@
+[
+  {
+    "output": "zh.pokemon-gl.com/introduction/index.html",
+    "base": "ja.pokemon-gl.com/pdw/index.html",
+    "edits": "edits/zh.pokemon-gl.com/introduction/index.html.json",
+    "base_sha256": "44c8dc4e1bdedcd2cda627f6c2c366035d9a1e2aefc986830b178dba1c586a3c",
+    "text_sha256": "74b1f107ea500b8d58d6e89e1e6566d234941b9965099edec113ee5048fdb45c"
+  },
+  {
+    "output": "zh.pokemon-gl.com/login/pgl.html",
+    "file": "new/zh.pokemon-gl.com/login/pgl.html"
+  },
+  {
+    "output": "zh.pokemon-gl.com/login/pgl.js",
+    "base": "shared.pokemon-gl.com/login/pgl.js",
+    "edits": "edits/zh.pokemon-gl.com/login/pgl.js.json",
+    "base_sha256": "ecefbb876d34a463c6639f7d58761d55ab249c5924407a24f713b57212dbbfd1",
+    "text_sha256": "4d602799d87be2309ee3215b1591aa1fd1242b99321adea48110f9c88d380d44"
+  },
+  {
+    "output": "zh.pokemon-gl.com/register/index.html",
+    "base": "ja.pokemon-gl.com/pdw/index.html",
+    "edits": "edits/zh.pokemon-gl.com/register/index.html.json",
+    "base_sha256": "44c8dc4e1bdedcd2cda627f6c2c366035d9a1e2aefc986830b178dba1c586a3c",
+    "text_sha256": "768b071cf12f71e3dbd03d9aa060d81134fef500b8bc5f34a51195344c562821"
+  },
+  {
+    "output": "zh.pokemon-gl.com/www.pokemon.com/zh/account/pgl/signup/index.html",
+    "file": "new/zh.pokemon-gl.com/www.pokemon.com/zh/account/pgl/signup/index.html"
+  },
+  {
+    "output": "zh.pokemon-gl.com/top/assets/js/text.js",
+    "base": "shared.pokemon-gl.com/top/assets/js/text.js",
+    "edits": "edits/zh.pokemon-gl.com/top/assets/js/text.js.json",
+    "base_sha256": "6a55e83b9eac3c5e9abb44872cc5e594a22ff03285d1f42a7625225e37bd12db",
+    "text_sha256": "d5de19de6c407089c3e2dc9e0f2f1e5736d311be3d1938fbe2187422290c3d8e"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/theme/assets/ja/xml/strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/theme/assets/ja/xml/strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/theme/assets/ja/xml/strings.xml.json",
+    "base_sha256": "0aee51e266838d7f4d70fabf8b7f2a1802454d1742aa984099134b702ba55a3e",
+    "text_sha256": "96228b71b83499449e3843750c28c981de33fcd7e601f021152ec1ee69fb7b0e"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/game/strings_ja.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/game/strings_ja.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/game/strings_ja.xml.json",
+    "base_sha256": "d25e5755837dc41f37e8645d5ddfd62e12ac513bc7c3839aedd4e900960cde5a",
+    "text_sha256": "f6e46b9256f11cdc5653e3465aef31b675d594f8d39cff3541395a3cc76ae733"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/spxml/sp_2.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/spxml/sp_2.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/spxml/sp_2.xml.json",
+    "base_sha256": "26e0d4b3795361b6bbbbc443055ebee3655b603ba95c88e515d96adbfc1dece7",
+    "text_sha256": "26654349b329444286f49fa8adca1adca93dc092223a18e1f245a06cdab9bdf9"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings.xml.json",
+    "base_sha256": "69c3f93b7c679c1f370cf0e25c00572335f45a21ccd0ebae5de3c8a5173e2e6d",
+    "text_sha256": "93e2ff38b5be934279409f8c78b414ae575b3ab6d426110a907b0c4be68e15a4"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings_backup.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings_backup.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/alert_strings_backup.xml.json",
+    "base_sha256": "2b4a0b8363a0ec4a3065916254237d0d3dee59a8291380172ed8c21d1d14b29f",
+    "text_sha256": "64762a3d5b02d06112e6d1937fb4764154069889e68bd4f6ccd107f07da1bd19"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/arc_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/arc_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/arc_strings.xml.json",
+    "base_sha256": "325112e9b81cca374ad9b7fb118e5a01651f4d19be7903e21b5fecd1b6d87597",
+    "text_sha256": "914bfc575a4ac6b0bad6e5e63c80dd6d37af74f7d892564df24bacfc8c46e6da"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/at_01_pdw_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/at_01_pdw_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/at_01_pdw_strings.xml.json",
+    "base_sha256": "470e94aef69532d0943350914e1db98170ef96eed9cfc3e18606c0604e084c86",
+    "text_sha256": "6d2e336af0d3c87a656d4a1eadea301fd66cf40f37d6160e26f85489d8282dad"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/board_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/board_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/board_strings.xml.json",
+    "base_sha256": "13dfd9dce92fbf8439daf69e0a2426de96ce198e5435b35f8514d98ad66a68af",
+    "text_sha256": "648e0de17d0e3857b5a591fd7a961f39343d5b9dc75a77e2cbad16ae108a3856"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaign_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaign_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaign_strings.xml.json",
+    "base_sha256": "b01c7da8a49ce887d5294019408331ed0603476f762f77b40f0e569602ee3088",
+    "text_sha256": "81087e3a8af009ca3a2c13c25927f461e87844f7d48f253b42d3a1e965b99f2f"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing1_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing1_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing1_strings.xml.json",
+    "base_sha256": "616f62519b25ee7c410390aff2135664ca4b40703b5e0f34771791a46795ab91",
+    "text_sha256": "07779aa5571c997ea1cd42c71f10e2924b11e93de9a43cc06ccd402214b0a92d"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing2_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing2_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/campaing2_strings.xml.json",
+    "base_sha256": "f22330310ceb89ac699a802fcce21934b9ac1d5f967bfca839286589323e8af7",
+    "text_sha256": "b5ea6121b5d9a6e66eb23b71f52154e8f6c424e19e38f2eef5053ef6cb70d774"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/dreamtree_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/dreamtree_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/dreamtree_strings.xml.json",
+    "base_sha256": "4715206debca4afa66a62ecc049a1a7edc576c1d3d9620427a7691fe4641e366",
+    "text_sha256": "c50a44684120b538cc637b3eac5438e5edfced1a39ac92b75269091ab9562675"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_room_share_common_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_room_share_common_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_room_share_common_strings.xml.json",
+    "base_sha256": "d543cdde6387013b4f02ab7b876579ed406933cdc059965081cd04635d3fd08b",
+    "text_sha256": "01e0e1085e8d0a234ad55968d0379ac5af96cd26d96aea87fbd6c532a672ef36"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings.xml.json",
+    "base_sha256": "8963bd90b57a96e3edadd6eb19d4e005e643ba56acc7e6be4ed00337affa2b5a",
+    "text_sha256": "c3a01dd707a33824f4079998650731b84a20f0e031c951d241aa78f8fd4679c6"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings_.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings_.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/farm_strings_.xml.json",
+    "base_sha256": "20c11902864bd53430f9a2706d97d4f3a034a75b41da8512c768dc0616f188ca",
+    "text_sha256": "04a453aa6b8fa419ad208c61bb249248488493add07ebac34e1d4da36f0d95fa"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/footprint_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/footprint_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/footprint_strings.xml.json",
+    "base_sha256": "d4c13f4898e055b8ae5775ad4fd1112e7b14969a1447f12cbdd39001f56d3be7",
+    "text_sha256": "8e976e0fe32a2a730c43596b5592a6354b615fe4096c91b4041f2a4ee9782d7e"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/home_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/home_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/home_strings.xml.json",
+    "base_sha256": "dd60b4910fa073a7738f65412429892b5f835e68ba2deb510aa016f567b5d942",
+    "text_sha256": "035ce396ed8aa8c2bfe0113607f256b17ad01a87933eb1d9eb3cea8533ca6c65"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/island_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/island_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/island_strings.xml.json",
+    "base_sha256": "d9c9a82df90daef09c39cc0adb68d649c62e1e9e22224ea3284f76dbec88513d",
+    "text_sha256": "02ac383471ffcb86ebd4ed3568af84e9da82b25ff314ddd09c0d23892232af31"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/opening_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/opening_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/opening_strings.xml.json",
+    "base_sha256": "ac4ac0b7df99400b982bfc9c652f82b472f884fc2bb1526074cc95f5effa5c7a",
+    "text_sha256": "244880cee748a8388892d0d59e51b146b0457b56d08c4749c7004d66359062bc"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/pdw_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/pdw_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/pdw_strings.xml.json",
+    "base_sha256": "facee1edb25048354d3b7fb479da0b72d570b9bdc6aa4609a54861004a3a6c96",
+    "text_sha256": "97e8d36c78782f3cba1d5a60e74eae43163d7dd9aa8359434b2331dc080be895"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/room_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/room_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/room_strings.xml.json",
+    "base_sha256": "92ed0201e1d5be6e8d6bad7cdd5df97e8583004e07fd46ee2c70f85c16adb090",
+    "text_sha256": "d655d15f254530f1a69ea0824cfc440a7dac7732471b7a563be9493187bb526b"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/share_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/share_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/share_strings.xml.json",
+    "base_sha256": "9cb8ea18e004b3c7b782383d7f9c320e565a2a65530ca22b0b62608f99456acb",
+    "text_sha256": "5315a1e79852118efba144a4212f4814766503e5acc4e43876a7130e115fc675"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/strings.xml.json",
+    "base_sha256": "0aee51e266838d7f4d70fabf8b7f2a1802454d1742aa984099134b702ba55a3e",
+    "text_sha256": "96228b71b83499449e3843750c28c981de33fcd7e601f021152ec1ee69fb7b0e"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/takarabako_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/takarabako_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/takarabako_strings.xml.json",
+    "base_sha256": "f6cb5ce6969c156b68110d593779be618378c28b35cfd1b191f3b401bfa00436",
+    "text_sha256": "51697463df2cfd9ee257aa917f196bf6391d44de4b7b89ab8522a2a737042edc"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/tutorial_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/tutorial_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/tutorial_strings.xml.json",
+    "base_sha256": "d3f2c770be9dc857658ad3ed729b933db276198168be683ca427e089e4d24845",
+    "text_sha256": "0ac7c376ff65824b2b3cce68a5170cd2a57d6d2bccae64e6d28f2122c34b6824"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/world_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/pdw/assets/ja/xml/world_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/world_strings.xml.json",
+    "base_sha256": "f895e4c95802a42781652156882a6510742549210a15e9e8a52f1154c589c55f",
+    "text_sha256": "36556bad7b2c1fdb6862b19c307953ef2832cd700385dbe32c8fc4ad76c89fcd"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/game/game1/strings_ja.xml",
+    "base": "shared.pokemon-gl.com/src/swf/pdw/assets/game/game1/strings_ja.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/game/game1/strings_ja.xml.json",
+    "base_sha256": "ca06240f7e8eb278d86a6a03772fafa3bb619922c38e00de814c573e83c31753",
+    "text_sha256": "d54e45d1e26288002152b79eb8166e76c723ad482b4a8dad14b076ac92a85c3c"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/game/game7/strings_ja.xml",
+    "base": "shared.pokemon-gl.com/src/swf/pdw/assets/game/game7/strings_ja.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/game/game7/strings_ja.xml.json",
+    "base_sha256": "0125be8c19d5fc5052a6e6d5536a4b8dbd05107859cd654ca9ef509549de68d5",
+    "text_sha256": "a37e9c2a3ff8df51712f2ea3ff10f3863be810cec8d97ac4e9dd284b494a14dd"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/pdw/assets/game/game9/strings_ja.xml",
+    "base": "shared.pokemon-gl.com/src/swf/pdw/assets/game/game9/strings_ja.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/pdw/assets/game/game9/strings_ja.xml.json",
+    "base_sha256": "462124f595655c86665d8e71a6fcadfea37e860058aef55205b9fb2780f31c01",
+    "text_sha256": "dff5826793868a38e1a1c7ac4af0785308aa4d4b93f7065bae7b0f9dc08111d0"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/mailer/assets/ja/strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/mailer/assets/ja/strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/mailer/assets/ja/strings.xml.json",
+    "base_sha256": "cc3d3d6c82bb8302c560691e8c21d43eb69f44a39ae3f4a9d69ef4adefe94c04",
+    "text_sha256": "87d9eff06eef36d4c56bbce2a82398c19f5a7cb1660bbb3432d2aa0d834354c5"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/mailer/assets/ja/xml/mailer_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/mailer/assets/ja/xml/mailer_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/mailer/assets/ja/xml/mailer_strings.xml.json",
+    "base_sha256": "87ccaf23d95d228a22966141574d07f2597f7381716bbf99acabf32e575ef05d",
+    "text_sha256": "41083432e5f14bb1e99ae26efc1b2fdc2ad203a28312d4b934e7354f7bae4e03"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/information/assets/ja/xml/information_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/information/assets/ja/xml/information_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/information/assets/ja/xml/information_strings.xml.json",
+    "base_sha256": "8c3c46656125a94b4657ad8193dc23e0bc8c96250adc98cec37e2601d7ae7894",
+    "text_sha256": "dbfdb830fa89ede760356096a3603260a59e2130e99cc7e0ac7ea199a951afe6"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/gbu/assets/ja/xml/gbu_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/gbu/assets/ja/xml/gbu_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/gbu/assets/ja/xml/gbu_strings.xml.json",
+    "base_sha256": "0b198f0c4aebc83aef3898779416cd72dd093b23ceb3e8a2afb456ae7c25e5f1",
+    "text_sha256": "7fe14d819f38dc23d4d56ef61a14b4529f6eb8558cb8b2d023bfe4bb37ed24f3"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/customize/assets/ja/xml/customize_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/customize/assets/ja/xml/customize_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/customize/assets/ja/xml/customize_strings.xml.json",
+    "base_sha256": "678305482e17a3a244e8761d03abf0e3f260ea780f1f9da1aad1ff673482a1a4",
+    "text_sha256": "b937c42cc79f4b561386776839c59a7408fe6ab3de8c3c41b57da90952ec520d"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/customize/assets/ja/xml/present_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/customize/assets/ja/xml/present_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/customize/assets/ja/xml/present_strings.xml.json",
+    "base_sha256": "f32e30273fd753dd21511cc8cc0d17de81bae2df94bc0e23bd7e7294ede42ead",
+    "text_sha256": "615b5fedebfb471ba7b1ff6c8d5879aa32934bbb401fb58487e6ff81cbc740ee"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/campaign/assets/ja/xml/at_01_campaign_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/campaign/assets/ja/xml/at_01_campaign_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/campaign/assets/ja/xml/at_01_campaign_strings.xml.json",
+    "base_sha256": "8bd576130d806776d78e75b2b0b273312a97b1691d7fc008e4e3a069c5332aca",
+    "text_sha256": "411adf9bb04af1c002b19868be55af90eb70958acf0683cf09d6ec3c70fc52b5"
+  },
+  {
+    "output": "zh.pokemon-gl.com/src/swf/campaign/assets/ja/xml/campaign_strings.xml",
+    "base": "ja.pokemon-gl.com/src/swf/campaign/assets/ja/xml/campaign_strings.xml",
+    "edits": "edits/zh.pokemon-gl.com/src/swf/campaign/assets/ja/xml/campaign_strings.xml.json",
+    "base_sha256": "05f8491448556d62b839542a8723502ca4c25f93952b0e1a6c1320ca4063ffd4",
+    "text_sha256": "95c5ae5ee3e09b74f28630d848a72ce994377098c0762e82084c77580ae432b1"
+  },
+  {
+    "output": "zh.pokemon-gl.com/report/assets/js/text.js",
+    "base": "shared.pokemon-gl.com/report/assets/js/text.js",
+    "edits": "edits/zh.pokemon-gl.com/report/assets/js/text.js.json",
+    "base_sha256": "c31a12326732ce072f2e26c34c9ab4c8b44ae69f3a263756a8b67c2aebefd1d0",
+    "text_sha256": "a75c90fe420b5eeafe4cdcf936002a95e4a1d582055f2015cf335f9d17e471f1"
+  },
+  {
+    "output": "zh.pokemon-gl.com/profile/assets/js/text.js",
+    "base": "shared.pokemon-gl.com/profile/assets/js/text.js",
+    "edits": "edits/zh.pokemon-gl.com/profile/assets/js/text.js.json",
+    "base_sha256": "aace9d9c9344e4f87ae7c1140de7d9ceb9f339cae6326021463d8910ca8663ee",
+    "text_sha256": "4c3d03426dd112909473d1fe3e6a566ee077a5c36229ab88fafec9b6d79a3edf"
+  },
+  {
+    "output": "zh.pokemon-gl.com/assets/global/js/text.js",
+    "base": "shared.pokemon-gl.com/assets/global/js/text.js",
+    "edits": "edits/zh.pokemon-gl.com/assets/global/js/text.js.json",
+    "base_sha256": "ae1e3494f31bda3e953d2aec8534fbd798c7c044fcbafb2e70572b0d7f295e0d",
+    "text_sha256": "2f5d91e58dd2ceab92e618ad5a2a21ad75b2a28843025749f80a45acf2a6fcf1"
+  },
+  {
+    "output": "zh.pokemon-gl.com/assets/global/zh/site.css",
+    "file": "new/zh.pokemon-gl.com/assets/global/zh/site.css"
+  },
+  {
+    "output": "zh.pokemon-gl.com/assets/global/zh/site.js",
+    "file": "new/zh.pokemon-gl.com/assets/global/zh/site.js"
+  },
+  {
+    "output": "www.pokemon.com/en/account/pgl/signup/index.html",
+    "base": "www.pokemon.com/en/account/pgl/signup/index.html",
+    "edits": "edits/www.pokemon.com/en/account/pgl/signup/index.html.json",
+    "base_sha256": "5197987afe33d81619de5534730636d88c650c2675e284f9487700ef17913cdf",
+    "text_sha256": "d88742e2e74ba039f345ed294250bb7c7283c85dbbcfa801b04838d626a398d0"
+  },
+  {
+    "output": "shared.pokemon-gl.com/login/pgl.js",
+    "base": "shared.pokemon-gl.com/login/pgl.js",
+    "edits": "edits/shared.pokemon-gl.com/login/pgl.js.json",
+    "base_sha256": "ecefbb876d34a463c6639f7d58761d55ab249c5924407a24f713b57212dbbfd1",
+    "text_sha256": "36803b7ddebaf6ac71e41d9133b9c09ca9247ec9c35d1870d1bedfa36cfb7904"
+  },
+  {
+    "output": "shared.pokemon-gl.com/top/assets/js/top.js",
+    "base": "shared.pokemon-gl.com/top/assets/js/top.js",
+    "edits": "edits/shared.pokemon-gl.com/top/assets/js/top.js.json",
+    "base_sha256": "79bcd6570a9cb93c80bc0064cc89f96f00920445c358b44d5098351ea7f14e26",
+    "text_sha256": "950c6fe37ee6d5c665fa91965739b145f6b7361f29a575623646720fd98f9f7d"
+  },
+  {
+    "output": "shared.pokemon-gl.com/theme/assets/js/theme.js",
+    "base": "shared.pokemon-gl.com/theme/assets/js/theme.js",
+    "edits": "edits/shared.pokemon-gl.com/theme/assets/js/theme.js.json",
+    "base_sha256": "4fe968255491c386f40f0728ca0d8736c9e2618bd60fc5b647f14524420c6540",
+    "text_sha256": "92c392ac6ea46219304672fc0810254244347f3a8d92e3e5fb80d947cf0434ad"
+  },
+  {
+    "output": "shared.pokemon-gl.com/report/assets/js/pokemons.js",
+    "base": "shared.pokemon-gl.com/report/assets/js/pokemons.js",
+    "edits": "edits/shared.pokemon-gl.com/report/assets/js/pokemons.js.json",
+    "base_sha256": "33ec19da4c605738000800e9fe3d11f61b8508e728ea989ff0926b384b933972",
+    "text_sha256": "06d054721debf2007c3d527b8a76e93c6df57b2b1dfee535eb05a3d268bafe81"
+  },
+  {
+    "output": "shared.pokemon-gl.com/report/assets/js/report.js",
+    "base": "shared.pokemon-gl.com/report/assets/js/report.js",
+    "edits": "edits/shared.pokemon-gl.com/report/assets/js/report.js.json",
+    "base_sha256": "a8a07970892af91c483cd016bab4ac72de3e001aabee25cdc7b6dc192473ea42",
+    "text_sha256": "80f543cc5362b3bcd04659d51e357d31c3c4c4f6f6abd5a1722411e1fe73504e"
+  },
+  {
+    "output": "shared.pokemon-gl.com/profile/assets/js/profile.js",
+    "base": "shared.pokemon-gl.com/profile/assets/js/profile.js",
+    "edits": "edits/shared.pokemon-gl.com/profile/assets/js/profile.js.json",
+    "base_sha256": "9582f0ebd75d76d99f27a948d0784bc456106edb19d7e0e6cf176f8e50fb1261",
+    "text_sha256": "29d883032e8240e85ef885f4a484f5001a36ff7f2be14fc948383863964c774b"
+  },
+  {
+    "output": "shared.pokemon-gl.com/assets/global/js/pgl.js",
+    "base": "shared.pokemon-gl.com/assets/global/js/pgl.js",
+    "edits": "edits/shared.pokemon-gl.com/assets/global/js/pgl.js.json",
+    "base_sha256": "1750235d35f7a098b25353d875c21f6c3434bfd0cb0deac99c1c5fdbdcae8951",
+    "text_sha256": "671d766214179807179b1312041da8cb223bb0045918e49aa72236c9f34528c6"
+  },
+  {
+    "output": "ko.pokemon-gl.com/introduction/index.html",
+    "file": "new/ko.pokemon-gl.com/introduction/index.html"
+  },
+  {
+    "output": "ko.pokemon-gl.com/register/index.html",
+    "file": "new/ko.pokemon-gl.com/register/index.html"
+  },
+  {
+    "output": "ko.pokemon-gl.com/register/assets/ko.css",
+    "file": "new/ko.pokemon-gl.com/register/assets/ko.css"
+  },
+  {
+    "output": "en.pokemon-gl.com/introduction/index.html",
+    "base": "en.pokemon-gl.com/introduction/index.html",
+    "edits": "edits/en.pokemon-gl.com/introduction/index.html.json",
+    "base_sha256": "bad3feec3df6343d2a5c0bca6b0bc4a28cc4bc31bac9548e072f84f1ba03c3a2",
+    "text_sha256": "a6fe2cbac5b631c6f1dc8099b58d1151bd3ad4cdcc047519a61e0d4e2c391f9c"
+  }
+]

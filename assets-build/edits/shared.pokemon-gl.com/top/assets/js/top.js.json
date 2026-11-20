@@ -1,0 +1,37 @@
+[
+  [
+    3376,
+    3376,
+    "if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {\n        loginUrl = { check: '/pglcheck', form: '/login/pgl.html' };\n      } else "
+  ],
+  [
+    7010,
+    7010,
+    ", zh:','"
+  ],
+  [
+    7563,
+    7563,
+    "cjk = /^(ja|ko|zh)$/.test(PGL.language);\n      var "
+  ],
+  [
+    7569,
+    7613,
+    "cjk"
+  ],
+  [
+    7652,
+    7696,
+    "cjk"
+  ],
+  [
+    30926,
+    30926,
+    "/^(ja|zh)$/.test("
+  ],
+  [
+    30938,
+    30946,
+    ")"
+  ]
+]

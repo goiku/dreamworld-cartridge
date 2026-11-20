@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PGL 닉네임 등록 | Pokémon Global Link</title>
+  <link rel="stylesheet" href="/register/assets/ko.css">
+  <script src="/assets/global/js/jquery-1.7.min.js"></script>
+  <script src="/assets/global/js/jquery.blockUI.js"></script>
+  <script src="/assets/global/js/jquery.corner.js"></script>
+  <script src="/assets/global/js/pgl.js"></script>
+  <script src="/assets/global/js/text.js"></script>
+  <script src="/register/assets/js/register.js"></script>
+</head>
+<body>
+  <main>
+    <a class="home" href="/">Pokémon Global Link</a>
+    <h1>PGL 닉네임 등록</h1>
+    <section id="step1">
+      <label>PGL 닉네임 <input name="pgl_name" readonly></label>
+      <label>게임싱크 ID <input name="gscd" maxlength="10" autocomplete="off"></label>
+      <p>게임싱크 ID는 나중에 마이페이지에서도 등록할 수 있습니다.</p>
+      <button type="button" id="step1-next-button">다음</button>
+    </section>
+    <section id="step2" style="display:none">
+      <h2>등록 내용 확인</h2>
+      <dl><dt>PGL 닉네임</dt><dd id="name_preview"></dd><dt>게임싱크 ID</dt><dd id="gscd_preview"></dd></dl>
+      <div id="logo_preview"></div>
+      <button type="button" id="step2-prev-button">뒤로</button>
+      <button type="button" id="step2-next-button">등록</button>
+    </section>
+    <section id="step3" style="display:none">
+      <h2>등록을 마쳤습니다.</h2>
+      <p class="for-level-0">마이페이지에서 게임싱크 ID를 등록할 수 있습니다.</p>
+      <p class="for-level-1 for-level-2">등록한 게임싱크 ID <strong class="your-gscd"></strong></p>
+      <button type="button" id="step3-next-button">홈으로</button>
+    </section>
+  </main>
+</body>
+</html>

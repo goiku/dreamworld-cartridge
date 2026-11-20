@@ -1,0 +1,16 @@
+[
+  {
+    "base": "shared.pokemon-gl.com/src/swf/pdw/assets/pdw_home.swf",
+    "output": "patches/pdw_home.patched.swf",
+    "delta": "swf-changes/pdw_home.bsdiff",
+    "base_sha256": "09393a9e51e12cfe3d14c153220489193893594dfba31ec9222818354dd484b9",
+    "result_sha256": "acd0eba9d3cf9d8bfee78bdebdf5242cad848a306a397ac7eac9e2dc78088bd1"
+  },
+  {
+    "base": "shared.pokemon-gl.com/src/swf/pdw/assets/pdw_island.swf",
+    "output": "patches/pdw_island.patched.swf",
+    "delta": "swf-changes/pdw_island.bsdiff",
+    "base_sha256": "9fcefede477ac3557aa0c68426b8661384c466134c265520fe2a15f200be129c",
+    "result_sha256": "ff31f49fac40ee9a2b8bb42aa6deb0ada1a70009e44b8530ca214b6dbf27ce51"
+  }
+]

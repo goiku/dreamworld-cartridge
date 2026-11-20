@@ -1,0 +1,22 @@
+[
+  [
+    109831,
+    109831,
+    "var chineseOrder = PGL.language == 'zh' ? new Intl.Collator('zh-CN') : null;\n  "
+  ],
+  [
+    109910,
+    109910,
+    "\n    if (chineseOrder) return chineseOrder.compare(a.name, b.name);"
+  ],
+  [
+    110003,
+    110003,
+    "zh') {\n    pokemon_indices = [];\n    $.each(PGL.Report.sortedPokemons, function (index, pokemon) {\n      if (index % 50 === 0) pokemon_indices.push({label:pokemon.name.slice(0, 2), index:index});\n    });\n  } else if (PGL.language == '"
+  ],
+  [
+    111576,
+    111576,
+    "if (!chineseOrder) "
+  ]
+]

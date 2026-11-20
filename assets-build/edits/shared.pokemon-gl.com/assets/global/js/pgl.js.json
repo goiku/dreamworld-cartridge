@@ -1,0 +1,42 @@
+[
+  [
+    2544,
+    3237,
+    ""
+  ],
+  [
+    16501,
+    16501,
+    ", zh:8"
+  ],
+  [
+    16863,
+    16863,
+    ", zh:'YY/MM/DD'"
+  ],
+  [
+    17274,
+    17274,
+    ", zh:'UTC+8'"
+  ],
+  [
+    17836,
+    17836,
+    ", zh:','"
+  ],
+  [
+    17924,
+    17924,
+    ":'.', zh"
+  ],
+  [
+    33292,
+    33318,
+    "var code = "
+  ],
+  [
+    33338,
+    33338,
+    ";\n      var strings = PGL.Text.data[sid];\n      return code == 'zh' && strings[code] === undefined ? strings.ja : strings[code"
+  ]
+]

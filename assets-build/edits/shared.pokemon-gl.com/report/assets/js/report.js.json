@@ -1,0 +1,117 @@
+[
+  [
+    23097,
+    23097,
+    "var place1 = PGL.Report.areasByGTS[trade.trade1.country_id], place2 = PGL.Report.areasByGTS[trade.trade2.country_id];\n          "
+  ],
+  [
+    23116,
+    23146,
+    "place1"
+  ],
+  [
+    23150,
+    23180,
+    "place1.coords"
+  ],
+  [
+    23184,
+    23184,
+    "place2 && place2.coords && "
+  ],
+  [
+    23400,
+    23400,
+    "\n        if (!data.trade_list.length) {\n          $('.gts-top-trade-deposit').hide();\n          return;\n        }"
+  ],
+  [
+    31350,
+    31350,
+    " || pokemon[PGL.language]"
+  ],
+  [
+    31885,
+    32082,
+    ""
+  ],
+  [
+    32086,
+    32086,
+    "'—');\n          target.find('.pokemon .nickname .value').html("
+  ],
+  [
+    32090,
+    32185,
+    ""
+  ],
+  [
+    32225,
+    32404,
+    "nickname"
+  ],
+  [
+    32411,
+    32411,
+    ")"
+  ],
+  [
+    32451,
+    32463,
+    "pokemon .item"
+  ],
+  [
+    32478,
+    32499,
+    ""
+  ],
+  [
+    32507,
+    32517,
+    "pokeitem"
+  ],
+  [
+    32521,
+    32521,
+    "PGL.Text.get('report.gts.trade.item.empty'));\n          target.find('.user .name .value').html(PGL.Utils.renderDSFont('ds-font-6', "
+  ],
+  [
+    32529,
+    32529,
+    "player_name || ''));\n          target.find('.user .area .value:eq(0)').text(deposit.country_name).squeezeText();\n          target.find('.user .area .value:eq(1)').text(deposit.area_name || '').squeezeText();\n          var tradedAt = deposit.trade_date || deposit."
+  ],
+  [
+    32538,
+    32538,
+    ";\n          target.find('.deposited-at .value').text(tradedAt ? PGL.Utils.formatTime(tradedAt"
+  ],
+  [
+    32557,
+    32557,
+    "tzoffset:9, "
+  ],
+  [
+    32573,
+    32573,
+    " : '—'"
+  ],
+  [
+    41723,
+    41723,
+    "/^(ja|zh)$/.test("
+  ],
+  [
+    41735,
+    41743,
+    ")"
+  ],
+  [
+    63790,
+    63790,
+    "/^(ja|zh)$/.test("
+  ],
+  [
+    63802,
+    63810,
+    ")"
+  ]
+]

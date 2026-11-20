@@ -1,0 +1,55 @@
+/* Chinese controls use real text so the Japanese labels baked into navigation sprites stay covered. */
+html[lang=zh-CN] body, html[lang=zh-CN] button, html[lang=zh-CN] input, html[lang=zh-CN] select {font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif}
+html[lang=zh-CN] #head-menu li a, html[lang=zh-CN] #header-rom-change a, html[lang=zh-CN] #header-logout a, html[lang=zh-CN] #header-back-to-top a {
+  display: grid; align-content: center; justify-content: center; box-sizing: border-box; padding: 0 5px;
+  text-indent: 0; text-align: center; background: #f9faf4 !important; color: #252720; text-decoration: none;
+  border: 1px solid #c8c9a9; border-bottom: 5px solid #b1b26f; font-size: 14px; font-weight: 650; line-height: 1.4;
+}
+html[lang=zh-CN] #head-menu li.selected a, html[lang=zh-CN] #head-menu li a:hover {background:#525835 !important;color:white}
+html[lang=zh-CN] #header-rom-change a, html[lang=zh-CN] #header-logout a, html[lang=zh-CN] #header-back-to-top a {height:43px; background:#dce0d1 !important;border-bottom:0;font-size:12px}
+html[lang=zh-CN] #login-control a[class^="login-menu-"], html[lang=zh-CN] #login-control .member-info-rom a, html[lang=zh-CN] #login-control .member-info-pdw-wakeup,
+html[lang=zh-CN] #right-buttons .login-menu-logout a, html[lang=zh-CN] .dialog-buttons a, html[lang=zh-CN] a.side-button,
+html[lang=zh-CN] .zh-image-button, html[lang=zh-CN] .zh-image-text {
+  display:inline-grid; align-items:center; justify-content:center; text-indent:0!important; background:#f3f5e9!important; color:#242721!important;
+  border:1px solid #a1a48b; border-radius:3px; text-align:center; font-size:13px; line-height:1.35; text-decoration:none;
+  box-sizing:border-box; vertical-align:middle; overflow:visible;
+}
+html[lang=zh-CN] .zh-image-text {background:transparent!important; border:0; font-weight:650}
+html[lang=zh-CN] .dialog-buttons a {min-width:78px;min-height:28px;cursor:pointer}
+html[lang=zh-CN] #information li .content-link h2 {
+  position:absolute; box-sizing:border-box; left:10px;right:10px;top:17px;display:grid;align-content:center;min-height:58px;
+  margin:0;padding:6px;background:#354f49;color:white;font-size:18px;line-height:1.3;text-align:center; text-indent:0; border-radius:4px;
+}
+html[lang=zh-CN] #information li #pdw h2 {background:#654b78}
+html[lang=zh-CN] #information li #wifi h2 {background:#3e617d}
+html[lang=zh-CN] #information li #campaign h2 {background:#776438}
+html[lang=zh-CN] #information li .content-link .caption {background:rgba(27,36,35,.92);color:#fff;padding:4px;line-height:1.45}
+.zh-account {margin:0;min-height:100vh;background:#e7eadf;color:#272a22}
+.zh-registration {background:#eef0e7;overflow:auto;padding:1.5rem;box-sizing:border-box}
+.zh-card {box-sizing:border-box;max-width:36rem;margin:2rem auto;padding:1.6rem 2rem;background:#fff;color:#282c24;border:1px solid #bac3a9;border-radius:.4rem;line-height:1.65;text-align:left;font-size:15px}
+.zh-card h1 {margin:.5rem 0 1rem;font-size:1.7rem;color:#454f30}
+.zh-card h2,.zh-card legend {font-weight:650;font-size:1.1rem;color:#454f30}
+.zh-card fieldset {margin:1rem 0;border:1px solid #d5d8cd;padding:0 1rem .9rem}
+.zh-card label,.zh-card dt {display:block;font-weight:600;margin:.6em 0 .2em}
+.zh-card input,.zh-card select {display:block;width:100%;padding:.4em .55em;font-size:1rem;border:1px solid #959e83;border-radius:.2em;box-sizing:border-box}
+.zh-card button,.zh-card .zh-action {display:inline-block;border:0;border-radius:.2em;padding:.45em 1em;background:#55613b;color:white;cursor:pointer;font-size:1rem}
+.zh-card a {color:#3f5832}
+.zh-card ol {padding-left:1.4em}
+.zh-card dd {min-height:1.3em;margin:0 0 .8em}
+.zh-card [role=alert],.zh-card .error {color:#a3211e}
+html[lang=zh-CN] #tabs a.tab-link,html[lang=zh-CN] a.soft-friendlist-select,html[lang=zh-CN] a.pdw-friendlist-select,
+html[lang=zh-CN] #avatar-change-button,html[lang=zh-CN] #gts-ranking-selector a {
+ display:inline-grid!important;align-content:center;justify-content:center;text-align:center;box-sizing:border-box;text-indent:0!important;
+ background:#42453d!important;color:white!important;border:1px solid #aaa;border-bottom:3px solid #bcc092;
+ font-size:13px!important;line-height:1.4!important;cursor:pointer;text-decoration:none;
+}
+html[lang=zh-CN] #tabs .selected,html[lang=zh-CN] #soft-friendlist-select .selected,html[lang=zh-CN] #pdw-friendlist-select .selected {background:white!important;color:#333!important}
+html[lang=zh-CN] #information {position:absolute!important;left:285px!important;top:140px!important;right:24px!important;width:auto!important}
+html[lang=zh-CN] #information>ul {display:grid;grid-template-columns:repeat(auto-fit,minmax(162px,1fr));gap:10px;position:static!important;padding:0;margin:0}
+html[lang=zh-CN] #information>ul>li {position:relative!important;top:auto!important;left:auto!important;transform:none!important;margin:0!important;width:auto!important}
+html[lang=zh-CN] #information li .content-link {width:auto!important;height:174px!important;box-sizing:border-box;left:0!important;top:0!important;border:1px solid #babdab;background:#f6f7ef!important;overflow:hidden;border-radius:5px}
+html[lang=zh-CN] #information li .content-link a {width:100%;height:100%;background:none!important}
+html[lang=zh-CN] #information li .content-link h2 {height:56px;top:8px}
+html[lang=zh-CN] #information li .content-link .ticker {margin:0;position:absolute;top:70px;left:5px;right:5px;width:auto}
+html[lang=zh-CN] #information li .content-link .caption {left:6px;right:6px;top:100px;padding:4px;background:transparent;color:#232821}
+html[lang=zh-CN] #report {top:550px}

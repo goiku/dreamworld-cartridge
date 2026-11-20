@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>注册宝可梦训练家俱乐部账号</title></head>
+<body class="zh-account"><main class="zh-card">
+<a href="/">宝可梦全球连接</a><h1>注册训练家俱乐部账号</h1>
+<p>用这个账号登录网站，再登记游戏中的同步 ID，即可连接你的存档。</p>
+<form id="account" method="post">
+<fieldset><legend>个人资料</legend>
+<label>国家或地区<select name="country" required><option value="">请选择</option><!--zh-country-options--></select></label>
+<label>出生月份<select name="birth_month" required><option value="">请选择</option><!--zh-month-options--></select></label></fieldset>
+<fieldset><legend>登录信息</legend>
+<label>用户名<input name="username" type="text" minlength="4" maxlength="15" pattern="[A-Za-z0-9]{4,15}" title="请输入 4 至 15 个英文字母或数字" required autocomplete="username"></label>
+<small>使用 4 至 15 个英文字母或数字。</small>
+<label>密码<input name="password" type="password" minlength="6" required autocomplete="new-password"></label><small>至少 6 个字符。</small>
+<label>确认密码<input name="password_confirm" type="password" minlength="6" required autocomplete="new-password"></label>
+<label>电子邮箱<input name="email" type="email" maxlength="254" required autocomplete="email"></label>
+</fieldset><fieldset><legend>隐私设置</legend>
+<label>谁能查看我的个人资料？<select name="pgl_privacy"><option value="everyone">所有人</option><option value="friends">仅好友</option><option value="nobody">仅自己</option></select></label>
+<label>谁能访问我的梦世界资料？<select name="dw_privacy"><option value="everyone">所有人</option><option value="friends">仅好友</option><option value="nobody">仅自己</option></select></label>
+</fieldset>
+<p id="alert" role="alert"></p>
+<button type="submit">创建账号</button> <a href="/login/pgl.html">已有账号，去登录</a>
+</form></main>
+<script>
+const form = document.getElementById('account');
+const confirmation = form.elements.password_confirm;
+function validatePasswords(){confirmation.setCustomValidity(confirmation.value && confirmation.value !== form.elements.password.value ? '两次输入的密码不一致。' : '');}
+form.addEventListener('input',validatePasswords);
+const result = window.SIGNUP_RESULT;
+if (result) {
+  document.getElementById('alert').textContent = result.alert;
+  Object.entries(result.values).forEach(([key,value]) => { if (form.elements[key]) form.elements[key].value = value; });
+  Object.entries(result.errors).forEach(([key,value]) => {const input=form.elements[key]; if(!input)return; input.setAttribute('aria-invalid','true'); const msg=document.createElement('span'); msg.className='field-error'; msg.textContent=value; input.after(msg);});
+}
+</script></body></html>

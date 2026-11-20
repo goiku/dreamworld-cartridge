@@ -1,0 +1,10 @@
+:root { font-family: "Malgun Gothic", system-ui, sans-serif; color: #272a1e; background: #e8e8db; }
+body { margin: 0; }
+main { max-width: 34rem; margin: 6vh auto; padding: 2rem; background: white; border-top: .35rem solid #868a52; }
+.home, a { color: #45512c; }
+h1 { font-size: 1.65rem; }
+label { display: block; margin: 1rem 0; }
+input { box-sizing: border-box; width: 100%; padding: .65rem; margin-top: .35rem; font: inherit; }
+p, dl { line-height: 1.7; }
+dd { margin: 0 0 .6rem; font-weight: bold; }
+button { color: white; background: #525936; padding: .6rem 1.3rem; border: none; font: inherit; cursor: pointer; }

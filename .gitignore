@@ -1,0 +1,14 @@
+/runtime/
+/.dreamworld-stage-*/
+__pycache__/
+.venv/
+*.pyc
+*.log
+*.sqlite*
+*.db*
+*.pem
+*.p12
+save_data/
+email_config.json
+flask_secret_key.txt
+DreamWorld-VPN-state.json
