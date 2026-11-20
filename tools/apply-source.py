@@ -49,17 +49,25 @@ def plan_component(label, destination, manifest, scratch):
         installed = file_hash(path)
         if installed == record["after"]:
             continue
+        staged = scratch / name
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        pending[name] = (path, installed)
+        # Releases with a browsable copy can update several known versions
+        # from one verified source file. Locally modified files still stop here.
+        if installed in record.get("previous", ()):
+            replacement = read(SOURCE / label / name)
+            if replacement is None or digest(replacement) != record["after"]:
+                raise ValueError(f"Release source checksum mismatch in {label}/{name}")
+            staged.write_bytes(replacement)
+            continue
         if installed == record["before"]:
             patch_name = filename
         elif name in upgrade.get("from", {}) and installed == upgrade["from"][name]:
             patch_name = upgrade["patch"]
         else:
             raise ValueError(f"Unexpected contents in {path}. Expected upstream {manifest['revision']} or the applied patch.")
-        staged = scratch / name
-        staged.parent.mkdir(parents=True, exist_ok=True)
         if installed is not None:
             staged.write_bytes(read(path))
-        pending[name] = (path, installed)
         includes[patch_name].append(f"--include={name}")
     if not pending:
         return []

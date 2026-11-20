@@ -1,3 +1,14 @@
+diff --git a/Invite-Friend.cmd b/Invite-Friend.cmd
+new file mode 100644
+index 0000000000000000000000000000000000000000..466c5011ce498f00cd58e74ea7516e0f1c348c59
+--- /dev/null
++++ b/Invite-Friend.cmd
+@@ -0,0 +1,5 @@
++@echo off
++setlocal
++cd /d "%~dp0"
++".venv\Scripts\python.exe" -m scripts.create_visit_invite
++pause
 diff --git a/Start-DreamWorld-LAN.cmd b/Start-DreamWorld-LAN.cmd
 new file mode 100644
 index 0000000000000000000000000000000000000000..449adf1fed32d8b5b7afe169010cfb49605aca6a
@@ -17,6 +28,17 @@ index 0000000000000000000000000000000000000000..104000231ad7d8ce3711e7e395c164ab
 +cd /d "%~dp0"
 +".venv\Scripts\python.exe" launch_windows.py %*
 +if errorlevel 1 pause
+diff --git a/Visit-Friend.cmd b/Visit-Friend.cmd
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6410bee02aa695c3623b5f06f87af3f20b67df1
+--- /dev/null
++++ b/Visit-Friend.cmd
+@@ -0,0 +1,5 @@
++@echo off
++setlocal
++cd /d "%~dp0"
++".venv\Scripts\python.exe" -m scripts.visit_friend %*
++pause
 diff --git a/api/gts_journal.py b/api/gts_journal.py
 index 0f820d760a91cf1a6fe81c56871951e36f97bead..0ac047e3206e7af4bb9db012feea1ae41180a375 100644
 --- a/api/gts_journal.py
@@ -1876,10 +1898,28 @@ index f63b5a4a4b433834a4a5aed344d3195be2c1af40..48a70101822dd5e64325b5e2a5ccf545
      }
      if musical_file := _MUSICAL_FILES[present_id]:
 diff --git a/api/pgl_top.py b/api/pgl_top.py
-index 00a1d08e33cf644fed2087f4247656187c6d79bd..d2c32fdd96c67b036a643dc1d24621477d69e981 100644
+index 00a1d08e33cf644fed2087f4247656187c6d79bd..39f2699f371e0c00a00366970c1db4d54751d404 100644
 --- a/api/pgl_top.py
 +++ b/api/pgl_top.py
-@@ -102,7 +102,7 @@ def _member_data(account: Account) -> dict:
+@@ -11,6 +11,7 @@ from utils.auth import log_in
+ from utils.constants import SECONDS_PER_DAY, SECONDS_PER_HOUR
+ from utils.messages import message
+ from utils.models import Account, Member
++from utils.visit_storage import GUEST_PREFIX
+ 
+ DAYS_UNTIL_ITEM_DELETION = 100
+ BERRY_DREAM_POINTS       = 20
+@@ -68,7 +69,8 @@ def init(_query: Query) -> dict:
+         session.clear()  # the account is gone, so the session is logged out
+         return {}
+ 
+-    return {**_member_data(account), "username": account["username"]}
++    display_name = session.get("visit_display_name") if session.get("visit_guest") else None
++    return {**_member_data(account), "username": display_name or account["username"]}
+ 
+ 
+ def _member_data(account: Account) -> dict:
+@@ -102,7 +104,7 @@ def _member_data(account: Account) -> dict:
      else:
          member["nextstart_remaintime"] = save_data.get_nextstart_remaintime()
  
@@ -1888,22 +1928,24 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..d2c32fdd96c67b036a643dc1d2462147
  
  
  @endpoint("pgl.top.login", methods=("POST",))  # custom API call - not original
-@@ -110,7 +110,8 @@ def login(query: Query) -> dict:
+@@ -110,7 +112,10 @@ def login(query: Query) -> dict:
      """Check a username and password and log the browser session in."""
      username = query.get("username", "")
      password = query.get("password", "")
 -
 +    # A failed account switch must not leave the previous player's cartridge active.
 +    session.clear()
++    if username.casefold().startswith(GUEST_PREFIX):
++        return {"error": message("bad_login")}
      account = accounts.get_account_by_username(username)
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54ded85bebe3
+index 0000000000000000000000000000000000000000..2726b9adfeefb8a04249c1c9f9c484ca9948fac3
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,98 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -1912,8 +1954,9 @@ index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54de
 +
 +from flask import Blueprint, Response, jsonify, render_template, request, url_for
 +
-+from config import LANG, LANGUAGE_NAMES, ROOT_DIR
++from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
 +from utils.player_dns import get_player_dns
++from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
 +
 +player_guide = Blueprint("player_guide", __name__, url_prefix="/player-guide",
 +                         template_folder="../templates", static_folder="../static", static_url_path="/assets")
@@ -1934,10 +1977,18 @@ index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54de
 +                           language_names=LANGUAGE_NAMES)
 +
 +
++@player_guide.get("/phone/")
++def phone() -> str:
++    hostname = urlsplit(request.host_url).hostname
++    direct = hostname in LOCAL_HOSTS and request.remote_addr in ("127.0.0.1", "::1")
++    address = lan_web_address() if direct or same_web_lan(request.remote_addr, hostname) else None
++    return render_template("phone_access.html", t=_messages[LANG], lang=LANG, language_names=LANGUAGE_NAMES,
++                           phone_url=f"http://{address}:{WEB_PORTS[LANG]}/" if address else None)
++
++
 +@player_guide.get("/dns.json")
 +def dns() -> Response:
-+    local_browser = urlsplit(request.host_url).hostname in {"127.0.0.1", "localhost", "::1"}
-+    response = jsonify(get_player_dns(request.remote_addr if local_browser else None))
++    response = jsonify(get_player_dns(request.remote_addr, urlsplit(request.host_url).hostname))
 +    response.cache_control.no_store = True
 +    return response
 +
@@ -1963,6 +2014,7 @@ index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54de
 +    guide_section = "console" if section == "dns" else section
 +    banner = (f'<aside class="dw-player-help" lang="{LANG}"><span>{escape(t[tip])}</span><nav>'
 +              f'<a target="_blank" rel="noopener" href="{guide_url}#dns">{escape(t["dns_title"])}</a>'
++              f'<a target="_blank" rel="noopener" href="{url_for("player_guide.phone")}">{escape(t["phone_title"])}</a>'
 +              f'<a target="_blank" rel="noopener" href="{guide_url}#{guide_section}">{escape(t["details"])}</a>'
 +              '</nav></aside>')
 +    data = response.get_data()
@@ -1993,10 +2045,10 @@ index 0000000000000000000000000000000000000000..a7cbf35f8bb2cf23a846fc0ead4d54de
 +        response.set_data(data)
 +    return response
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8eb0dd81f5 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..e05b19444ca7f12fbc63690d11f74be50270d5a9 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,17 +7,18 @@ import atexit
+@@ -7,18 +7,21 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -2011,15 +2063,18 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8e
  from api.routes import HANDLERS, Query, load_handlers
  from api.signup import signup
 -from config import get_secret_key
++from api.visit_sync import visit_sync
 +from config import LANG, LANGUAGE_NAMES, WEB_PORTS, get_secret_key, normalize_language
  from game_sync_server.entralinked.utility.db_manager import db
  from utils.account_manager import accounts
 -from utils.assets import SITE_DIR, not_found, path_inside, resolve_static, serve_file
 +from utils.assets import SITE_DIR, not_found, path_inside, resolve_static, serve_file, site_directories
  from utils.patching import SWF_PATHS, get_patched_swf
++from utils.web_network import is_web_host
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
-@@ -38,8 +39,7 @@ site = Blueprint("site", __name__)
+ NO_CACHE_HEADERS = {
+@@ -38,8 +41,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -2029,12 +2084,25 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8e
          return redirect(f"{path}/", 301)
      return None
  
-@@ -81,25 +81,75 @@ def api_post() -> Response:
+@@ -54,6 +56,12 @@ def _params(data: str) -> Query:
+ 
+ def _call_api(method: str, query: Query) -> Response:
+     api_name = query.get("p")
++    if session.get("visit_guest") and api_name in {
++        "pgl.top.login", "pgl.member.profile.init_create", "pgl.member.profile.gsid_create",
++        "pgl.member.profile.gsid_switch",
++    }:
++        return Response('{"error":"visit_account_read_only"}', status=403, mimetype="application/json",
++                        headers=NO_CACHE_HEADERS)
+     logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
+     current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
+ 
+@@ -81,25 +89,79 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
 +_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
-+                   "/report/", "/customize/", "/campaign/", "/help/"}
++                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/help/"}
 +
 +
 +def _language_page() -> str:
@@ -2060,7 +2128,11 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8e
 +    language = normalize_language(code)
 +    if language not in WEB_PORTS:
 +        return not_found(request.path)
-+    hostname = "localhost" if urlsplit(request.host_url).hostname == "localhost" else "127.0.0.1"
++    hostname = urlsplit(request.host_url).hostname
++    if not hostname or not is_web_host(hostname):
++        hostname = "127.0.0.1"
++    if ":" in hostname:
++        hostname = f"[{hostname}]"
 +    target = _language_page()
 +    return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
 +
@@ -2110,11 +2182,12 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..da9a17762f3046ecf7ce10c04c452f8e
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +171,7 @@ def create_app() -> Flask:
+@@ -121,6 +183,8 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(player_guide)
++    app.register_blueprint(visit_sync)
      app.register_blueprint(site)
  
      @app.teardown_appcontext
@@ -2276,6 +2349,157 @@ index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..445d54622b49ec6dd0e7a76ac80aea08
          "pgl.news.news_list",
      ),
      "POST": (
+diff --git a/api/visit_sync.py b/api/visit_sync.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8d53388851c195f9e76f184ee9eb8b5466891e74
+--- /dev/null
++++ b/api/visit_sync.py
+@@ -0,0 +1,145 @@
++"""Pair one visiting cartridge and open its isolated browser session."""
++import json
++import re
++import secrets
++
++from flask import Blueprint, Response, jsonify, make_response, redirect, render_template_string, request, session
++from werkzeug.exceptions import RequestEntityTooLarge
++from werkzeug.wrappers import Response as WerkzeugResponse
++
++from utils import visit_storage as storage
++
++visit_sync = Blueprint("visit_sync", __name__, url_prefix="/visit-sync")
++
++_SECRET = re.compile(r"[A-Za-z0-9_-]{20,128}")
++_PAIR_TOKEN = re.compile(r"[A-Za-z0-9_-]{43}")
++_REVISION = re.compile(r"[0-9a-f]{64}")
++
++
++def _bearer() -> str:
++    scheme, _, value = request.headers.get("Authorization", "").partition(" ")
++    if scheme.lower() != "bearer" or not _SECRET.fullmatch(value):
++        raise storage.VisitAuthError()
++    return value
++
++
++def _body(*fields: str) -> dict:
++    request.max_content_length = storage.MAX_SNAPSHOT_BYTES + 4096
++    data = request.get_json(silent=True)
++    if not isinstance(data, dict) or set(data) != set(fields):
++        raise storage.VisitInvalid()
++    return data
++
++
++def _snapshot_response(result: dict, *, conditional: bool = False) -> Response:
++    revision = result["revision"]
++    if conditional and request.if_none_match.contains_weak(revision):
++        response = make_response("", 304)
++    else:
++        payload = json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
++        response = Response(payload, mimetype="application/json")
++    response.set_etag(revision)
++    return response
++
++
++@visit_sync.after_request
++def private_response(response: Response) -> Response:
++    response.headers["Cache-Control"] = "no-store"
++    response.headers["Referrer-Policy"] = "no-referrer"
++    response.headers["X-Content-Type-Options"] = "nosniff"
++    response.headers["X-Frame-Options"] = "DENY"
++    return response
++
++
++@visit_sync.errorhandler(storage.VisitAuthError)
++def unauthorized(_exc: Exception) -> tuple[Response, int]:
++    return jsonify(error="unauthorized"), 401
++
++
++@visit_sync.errorhandler(storage.VisitInvalid)
++def invalid_request(_exc: Exception) -> tuple[Response, int]:
++    return jsonify(error="invalid_request"), 400
++
++
++@visit_sync.errorhandler(storage.VisitConflict)
++def conflict(_exc: Exception) -> tuple[Response, int]:
++    return jsonify(error="conflict"), 409
++
++
++@visit_sync.errorhandler(RequestEntityTooLarge)
++def too_large(_exc: Exception) -> tuple[Response, int]:
++    return jsonify(error="too_large"), 413
++
++
++@visit_sync.post("/api/redeem")
++def redeem() -> Response:
++    invite = _bearer()
++    data = _body("token", "snapshot")
++    token = data["token"]
++    if not isinstance(token, str) or not _PAIR_TOKEN.fullmatch(token):
++        raise storage.VisitInvalid()
++    return _snapshot_response(storage.redeem(invite, data["snapshot"], token))
++
++
++@visit_sync.get("/api/snapshot")
++def read_snapshot() -> Response:
++    return _snapshot_response(storage.read_snapshot(_bearer()), conditional=True)
++
++
++@visit_sync.put("/api/snapshot")
++def write_snapshot() -> Response:
++    token = _bearer()
++    data = _body("revision", "snapshot")
++    revision = data["revision"]
++    if not isinstance(revision, str) or not _REVISION.fullmatch(revision):
++        raise storage.VisitInvalid()
++    return _snapshot_response(storage.replace_snapshot(token, revision, data["snapshot"]))
++
++
++@visit_sync.post("/api/ticket")
++def issue_ticket() -> Response:
++    return jsonify(ticket=storage.create_ticket(_bearer()))
++
++
++_LOGIN_PAGE = """<!doctype html>
++<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<title>Pokémon Dream World</title></head><body><main>
++<p id="message">Open your visit link from your home server. / 自分のサーバーで訪問リンクを開いてください。 / 请从自己的服务器打开访问链接。</p>
++<form method="post" action="/visit-sync/login"><input type="hidden" name="ticket"></form>
++<script nonce="{{nonce}}">
++const ticket = location.hash.slice(1);
++history.replaceState(null, "", location.pathname);
++if (/^[A-Za-z0-9_-]{20,128}$/.test(ticket)) {
++    document.getElementById("message").hidden = true;
++    const form = document.querySelector("form");
++    form.elements.ticket.value = ticket;
++    form.submit();
++}
++</script></main></body></html>"""
++
++
++@visit_sync.get("/login")
++def login_page() -> Response:
++    nonce = secrets.token_urlsafe(24)
++    response = make_response(render_template_string(_LOGIN_PAGE, nonce=nonce))
++    response.headers["Content-Security-Policy"] = (
++        f"default-src 'none'; script-src 'nonce-{nonce}'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
++    )
++    return response
++
++
++@visit_sync.post("/login")
++def ticket_login() -> WerkzeugResponse:
++    # The browser exchanges the one-use ticket at its own origin. Never read
++    # the ticket from the query string, which may be recorded in access logs.
++    origin = request.headers.get("Origin")
++    if (origin and origin != request.host_url.rstrip("/")) or request.headers.get("Sec-Fetch-Site") == "cross-site":
++        raise storage.VisitAuthError()
++    request.max_content_length = 2048
++    ticket = request.form.get("ticket", "")
++    if not _SECRET.fullmatch(ticket):
++        raise storage.VisitAuthError()
++    username, gscd, display_name = storage.consume_ticket(ticket)
++    session.clear()
++    session.update(username=username, gscd=gscd, visit_guest=True, visit_display_name=display_name)
++    return redirect("/pdw/", 303)
 diff --git a/config.py b/config.py
 index 98f87de1b673f1d2b0eb38dd0ea1f547cd26060c..3d07fdb8dc742301cfd829d30f329aeb6211be30 100644
 --- a/config.py
@@ -2335,10 +2559,10 @@ index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a85
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced572dcb6511
+index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7686a0b41
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,234 @@
+@@ -0,0 +1,298 @@
 +{
 +  "en": {
 +    "title": "Player guide",
@@ -2367,7 +2591,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "Sign in with the account you created on this server.",
 +    "register_tip": "Use the Game Sync ID shown by your own save.",
 +    "dream_tip": "Choose a partner at the Tree of Dreams before ending your visit.",
-+    "details": "Open player guide"
++    "details": "Open player guide",
++    "phone_url": "On another device connected to the same Wi-Fi, open",
++    "phone_title": "Phone web address",
++    "phone_play_title": "Continue on your phone",
++    "phone_play": "Once Game Sync finishes tucking in your Pokémon, your DS can go offline. Connect your phone to the same Wi-Fi as the server PC and sign in to the account linked to that cartridge. Reconnect the DS to Game Sync when you are ready to wake your Pokémon and bring your new friend back.",
++    "phone_unavailable": "Start the server PC in LAN mode and open Phone web address on its home page.",
++    "phone_game": "Enter Dream World",
++    "visit_title": "Visit a friend with your own save",
++    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you."
 +  },
 +  "ja": {
 +    "title": "遊び方ガイド",
@@ -2396,7 +2628,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "このサーバーで作成した自分のアカウントでログインしてください。",
 +    "register_tip": "自分のセーブデータに表示されたゲームシンクIDコードを入力してください。",
 +    "dream_tip": "終了する前に、ゆめの木で連れて帰る仲間を選びましょう。",
-+    "details": "遊び方を見る"
++    "details": "遊び方を見る",
++    "phone_url": "同じWi-Fiにつないだスマートフォンやタブレットでは、こちらを開いてください。",
++    "phone_title": "スマホ用のURL",
++    "phone_play_title": "スマホで続きを遊ぶ",
++    "phone_play": "ゲームシンクでポケモンを寝かせ終えたら、DSはオフラインでも大丈夫です。スマートフォンをサーバーのPCと同じWi-Fiにつなぎ、このゲームカードを登録したアカウントでログインしてください。仲間をゲームに連れ帰るときは、DSをゲームシンクに接続して起こします。",
++    "phone_unavailable": "サーバーのPCでLANモードを起動し、ホームページの「スマホ用のURL」を開いてください。",
++    "phone_game": "ドリームワールドへ",
++    "visit_title": "自分のデータで友だちのサーバーへ",
++    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。"
 +  },
 +  "zh": {
 +    "title": "游玩指南",
@@ -2425,7 +2665,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "请用你在这个服务器注册的账号登录。",
 +    "register_tip": "请填写自己这份存档的 Game Sync ID（游戏同步 ID）。",
 +    "dream_tip": "结束梦世界前，先在梦之树选好要带回卡带的伙伴。",
-+    "details": "查看游玩指南"
++    "details": "查看游玩指南",
++    "phone_url": "手机或平板连上同一 Wi-Fi 后，在浏览器打开这个网址：",
++    "phone_title": "手机访问网址",
++    "phone_play_title": "用手机继续游玩",
++    "phone_play": "宝可梦在掌机上完成入睡同步后，掌机可以断网。让手机连上开服电脑的 Wi-Fi，用绑定这张卡的账号登录即可。要把伙伴带回卡带时，再让掌机连接游戏同步服务并唤醒。",
++    "phone_unavailable": "请在开服电脑上以局域网模式启动梦世界，打开电脑首页的「手机访问网址」。",
++    "phone_game": "进入梦世界",
++    "visit_title": "用自己的存档去朋友那里玩",
++    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。"
 +  },
 +  "fr": {
 +    "title": "Guide de jeu",
@@ -2454,7 +2702,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "Connectez-vous avec le compte créé sur ce serveur.",
 +    "register_tip": "Saisissez l’ID de Synchro-Jeu de votre sauvegarde.",
 +    "dream_tip": "Choisissez votre partenaire à l’Arbre des Rêves avant de terminer la visite.",
-+    "details": "Ouvrir le guide"
++    "details": "Ouvrir le guide",
++    "phone_url": "Sur un téléphone connecté au même Wi-Fi, ouvrez cette adresse :",
++    "phone_title": "Adresse pour mobile",
++    "phone_play_title": "Continuer sur mobile",
++    "phone_play": "Une fois le Pokémon endormi par Synchro-Jeu, la DS peut se déconnecter. Connectez le téléphone au Wi-Fi du PC serveur et utilisez le compte associé à la cartouche. Reconnectez la DS pour réveiller le Pokémon et ramener votre nouvel ami.",
++    "phone_unavailable": "Sur le PC serveur, démarrez le mode réseau local et ouvrez Adresse pour mobile sur la page d’accueil.",
++    "phone_game": "Entrer dans le Dream World",
++    "visit_title": "Jouer chez un ami avec sa sauvegarde",
++    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami."
 +  },
 +  "it": {
 +    "title": "Guida per giocare",
@@ -2483,7 +2739,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "Accedi con il tuo account su questo server.",
 +    "register_tip": "Inserisci l’ID Sincrogioco del tuo salvataggio.",
 +    "dream_tip": "Scegli un compagno all’Albero dei Sogni prima di terminare la visita.",
-+    "details": "Apri la guida"
++    "details": "Apri la guida",
++    "phone_url": "Su un telefono collegato alla stessa rete Wi-Fi, apri questo indirizzo:",
++    "phone_title": "Indirizzo per il telefono",
++    "phone_play_title": "Continua sul telefono",
++    "phone_play": "Dopo aver addormentato il Pokémon con il Sincrogioco, puoi scollegare il DS. Collega il telefono al Wi-Fi del PC che ospita il server e accedi con l’account associato alla scheda di gioco. Ricollega il DS per svegliare il Pokémon e riportare con te il tuo nuovo amico.",
++    "phone_unavailable": "Avvia il server in modalità LAN sul PC e apri Indirizzo per il telefono nella pagina iniziale.",
++    "phone_game": "Entra nel Dream World",
++    "visit_title": "Visita un amico con il tuo salvataggio",
++    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli."
 +  },
 +  "de": {
 +    "title": "Spielanleitung",
@@ -2512,7 +2776,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "Melde dich mit deinem eigenen Konto auf diesem Server an.",
 +    "register_tip": "Gib die Spielsynchro-ID deines eigenen Spielstands ein.",
 +    "dream_tip": "Wähle am Traumbaum einen Partner aus, bevor du deinen Besuch beendest.",
-+    "details": "Anleitung öffnen"
++    "details": "Anleitung öffnen",
++    "phone_url": "Öffne auf einem Gerät im selben WLAN diese Adresse:",
++    "phone_title": "Adresse fürs Smartphone",
++    "phone_play_title": "Auf dem Smartphone weiterspielen",
++    "phone_play": "Sobald dein Pokémon mit der Spielsynchro eingeschlafen ist, kann dein DS offline gehen. Verbinde das Smartphone mit dem WLAN des Server-PCs und melde dich mit dem Konto an, das mit deiner Spielkarte verknüpft ist. Verbinde den DS erneut, um dein Pokémon zu wecken und deinen neuen Freund ins Spiel zu holen.",
++    "phone_unavailable": "Starte den Server auf dem PC im LAN-Modus und öffne auf der Startseite „Adresse fürs Smartphone“.",
++    "phone_game": "Zur Traumwelt",
++    "visit_title": "Mit dem eigenen Spielstand Freunde besuchen",
++    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen."
 +  },
 +  "es": {
 +    "title": "Guía de juego",
@@ -2541,7 +2813,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "Inicia sesión con la cuenta que creaste en este servidor.",
 +    "register_tip": "Introduce el ID de Sincronía del Juego de tu propia partida.",
 +    "dream_tip": "Elige un compañero en el Árbol de los Sueños antes de terminar la visita.",
-+    "details": "Abrir la guía"
++    "details": "Abrir la guía",
++    "phone_url": "En un dispositivo conectado a la misma red wifi, abre esta dirección:",
++    "phone_title": "Dirección para el móvil",
++    "phone_play_title": "Seguir jugando en el móvil",
++    "phone_play": "Cuando termines de dormir a tu Pokémon con la Sincronización de Juego, puedes desconectar la DS. Conecta el móvil a la misma red wifi que el ordenador del servidor e inicia sesión con la cuenta vinculada al cartucho. Vuelve a conectar la DS para despertar a tu Pokémon y llevar a tu nuevo amigo al juego.",
++    "phone_unavailable": "Inicia el servidor en modo LAN en el ordenador y abre Dirección para el móvil en su página de inicio.",
++    "phone_game": "Entrar en Dream World",
++    "visit_title": "Visitar a un amigo con tu partida",
++    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles."
 +  },
 +  "ko": {
 +    "title": "플레이 안내",
@@ -2570,7 +2850,15 @@ index 0000000000000000000000000000000000000000..dec12b12bdbe59440ee74b0d3d0ced57
 +    "login_tip": "이 서버에서 만든 본인 계정으로 로그인하세요.",
 +    "register_tip": "내 저장 데이터에 표시되는 게임싱크 ID를 입력하세요.",
 +    "dream_tip": "방문을 마치기 전에 꿈의 나무에서 데려갈 친구를 고르세요.",
-+    "details": "플레이 안내 보기"
++    "details": "플레이 안내 보기",
++    "phone_url": "같은 Wi-Fi에 연결된 휴대폰이나 태블릿에서 이 주소를 여세요.",
++    "phone_title": "휴대폰 접속 주소",
++    "phone_play_title": "휴대폰에서 이어서 플레이하기",
++    "phone_play": "게임싱크로 포켓몬을 재운 뒤에는 DS를 네트워크에서 분리해도 됩니다. 휴대폰을 서버 PC와 같은 Wi-Fi에 연결하고 게임 카드에 연결한 계정으로 로그인하세요. 새 친구를 데려올 때 DS를 게임싱크에 다시 연결해 포켓몬을 깨우세요.",
++    "phone_unavailable": "서버 PC에서 LAN 모드로 실행한 뒤 홈페이지의 휴대폰 접속 주소를 여세요.",
++    "phone_game": "드림월드 입장",
++    "visit_title": "내 저장 데이터로 친구 서버 방문하기",
++    "visit": "Tailscale로 두 PC를 연결하고 안내에 따라 중계 프로그램을 실행하세요. 호스트는 Invite-Friend.cmd를 열어 발급한 일회용 초대 코드를 방문자에게 개인적으로 보내세요. 방문자는 자기 PC에서 Visit-Friend.cmd를 열고 자기 계정으로 로그인하세요. 플레이 중에는 동기화 창을 열어 두고 최종 동기화가 끝난 뒤 자기 서버에서 포켓몬을 깨우세요. 반대로 방문할 때는 역할을 바꾸세요."
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -5686,29 +5974,40 @@ index 0000000000000000000000000000000000000000..9cb0d5b25fead09c3629c2a0cad42dbe
 +}
 diff --git a/launch_windows.py b/launch_windows.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..62b5df59f434203440f9cdf1c24ed6c5afd82a84
+index 0000000000000000000000000000000000000000..6f3260d8c549f685a75ef6e8e5dadad28000060c
 --- /dev/null
 +++ b/launch_windows.py
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,131 @@
 +"""Run the two Windows services together from one console."""
 +
 +import argparse
 +import ipaddress
 +import os
-+from pathlib import Path
++import socket
 +import subprocess
 +import sys
++import tempfile
 +import time
++from pathlib import Path
 +
-+from game_sync_server.entralinked.app import get_local_address
 +from config import WEB_PORTS, EmailNotConfiguredError, get_email_config, get_secret_key
++from game_sync_server.entralinked.app import get_local_address
++from utils.web_network import choose_web_lan, publish_web_lan
 +
 +
-+def main():
++def _local_ipv4_addresses() -> frozenset[str]:
++    try:
++        return frozenset(socket.gethostbyname_ex(socket.gethostname())[2])
++    except OSError:
++        return frozenset()
++
++
++def main() -> int:
 +    parser = argparse.ArgumentParser()
 +    network = parser.add_mutually_exclusive_group()
 +    network.add_argument("--lan", action="store_true")
 +    network.add_argument("--watch-wifi", metavar="PROFILE", help="Enable DS access when the PC joins this Wi-Fi")
++    parser.add_argument("--web-lan", metavar="ADDRESS", help="Serve the website on this physical private LAN address")
 +    args = parser.parse_args()
 +    if args.lan and os.environ.get("DW_WIFI_PROFILE"):
 +        args.watch_wifi = os.environ["DW_WIFI_PROFILE"]
@@ -5729,9 +6028,25 @@ index 0000000000000000000000000000000000000000..62b5df59f434203440f9cdf1c24ed6c5
 +        pass  # The server operator can activate new accounts from the local console.
 +
 +    env = dict(os.environ, DW_GAME_BIND=address, PYTHONUNBUFFERED="1")
-+    directory = Path(__file__).resolve().parent
-+    processes = {}
++    explicit_web = args.web_lan or env.get("DW_WEB_LAN")
 +    try:
++        lan = choose_web_lan(explicit_web, address if args.lan else None, bool(args.watch_wifi))
++    except ValueError as exc:
++        parser.error(str(exc))
++    if lan:
++        env["DW_WEB_LAN"] = lan
++    else:
++        env.pop("DW_WEB_LAN", None)
++    directory = Path(__file__).resolve().parent
++    processes: dict[str | None, subprocess.Popen] = {}
++    adaptive = os.name == "nt" and not explicit_web and (args.lan or args.watch_wifi)
++    state_dir = tempfile.TemporaryDirectory(prefix="dreamworld-web-") if adaptive else None
++    state_file = Path(state_dir.name) / "lan" if state_dir else None
++    env.pop("DW_WEB_LAN_STATE", None)
++    try:
++        if state_file:
++            publish_web_lan(state_file, lan)
++            env["DW_WEB_LAN_STATE"] = str(state_file)
 +        if args.watch_wifi:
 +            print(f"DS primary DNS will be shown when the computer connects to {args.watch_wifi}.", flush=True)
 +        else:
@@ -5739,25 +6054,45 @@ index 0000000000000000000000000000000000000000..62b5df59f434203440f9cdf1c24ed6c5
 +        game_command = ["game_sync_server/server.py", "--http-port", "80", "--host", address]
 +        if args.watch_wifi:
 +            game_command.extend(("--watch-wifi", args.watch_wifi))
-+        commands = [(None, game_command)]
++        commands: list[tuple[str | None, list[str]]] = [(None, game_command)]
 +        for language, port in WEB_PORTS.items():
 +            base = "ja" if language == "zh" else language
 +            page = directory / "dreamworld_assets" / f"{base}.pokemon-gl.com" / "pdw" / "index.html"
 +            if page.is_file():
 +                print(f"Dream World ({language}): http://127.0.0.1:{port}/", flush=True)
-+                commands.append((language, ("main.py", "--lang", language, "--port", str(port))))
-+        for language, command in commands:
-+            processes[language] = subprocess.Popen(
++                if lan:
++                    print(f"Same LAN ({language}): http://{lan.split('/')[0]}:{port}/", flush=True)
++                commands.append((language, ["main.py", "--lang", language, "--port", str(port)]))
++        for service, command in commands:
++            processes[service] = subprocess.Popen(
 +                [sys.executable, *command], cwd=directory, env=env,
 +            )
-+        retry_after = {}
++        retry_after: dict[str | None, float] = {}
++        next_web_check = time.monotonic() + 3
++        next_adapter_scan = time.monotonic() + 45
++        previous_ips = _local_ipv4_addresses() if state_file else frozenset()
 +        while processes[None].poll() is None:
 +            now = time.monotonic()
-+            for language, command in commands[1:]:
-+                if processes[language].poll() is not None and now >= retry_after.get(language, 0):
-+                    retry_after[language] = now + 30
-+                    print(f"Restarting Dream World ({language}).", flush=True)
-+                    processes[language] = subprocess.Popen([sys.executable, *command], cwd=directory, env=env)
++            if state_file and now >= next_web_check:
++                local_ips = _local_ipv4_addresses()
++                if local_ips != previous_ips or now >= next_adapter_scan:
++                    current = choose_web_lan(None, get_local_address() if args.lan else None, bool(args.watch_wifi))
++                    if current != lan:
++                        try:
++                            publish_web_lan(state_file, current)
++                        except OSError as exc:
++                            print(f"Unable to update the website LAN address yet: {exc}", flush=True)
++                        else:
++                            lan = current
++                            print("Website LAN updated. Open Phone web address on this PC for the current address.", flush=True)
++                    previous_ips = local_ips
++                    next_adapter_scan = time.monotonic() + 45
++                next_web_check = time.monotonic() + 3
++            for service, command in commands[1:]:
++                if processes[service].poll() is not None and now >= retry_after.get(service, 0):
++                    retry_after[service] = now + 30
++                    print(f"Restarting Dream World ({service}).", flush=True)
++                    processes[service] = subprocess.Popen([sys.executable, *command], cwd=directory, env=env)
 +            time.sleep(0.5)
 +        return 1
 +    except KeyboardInterrupt:
@@ -5768,22 +6103,31 @@ index 0000000000000000000000000000000000000000..62b5df59f434203440f9cdf1c24ed6c5
 +                process.terminate()
 +        for process in processes.values():
 +            process.wait()
++        if state_dir:
++            state_dir.cleanup()
 +
 +
 +if __name__ == "__main__":
 +    sys.exit(main())
 diff --git a/main.py b/main.py
-index d8bb57cbcf07b661358f3005b73860f0f97ab0b5..a59d41145832d146b94b21384b9adb6f54c8eb7c 100644
+index d8bb57cbcf07b661358f3005b73860f0f97ab0b5..e7fa304709cc57e54106a02ac80ea41d4216c42b 100644
 --- a/main.py
 +++ b/main.py
-@@ -1,5 +1,5 @@
+@@ -1,11 +1,12 @@
  #!/usr/bin/env python3
 -"""Starts the Dream World server with `uv run main.py [--lang en] [--debug]`.
 +"""Starts the Dream World server with `uv run main.py [--lang en] [--port 8080] [--debug]`.
  
  config.py reads the site language from $DW_LANG when it's first imported.
  """
-@@ -17,8 +17,9 @@ def build_parser() -> argparse.ArgumentParser:
+ import argparse
+ import logging
+ import os
++from pathlib import Path
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -17,8 +18,10 @@ def build_parser() -> argparse.ArgumentParser:
      """Build the command-line options."""
      parser = argparse.ArgumentParser(description="Dream World HTTP server")
      parser.add_argument("--debug", action="store_true", help="debug logging")
@@ -5791,10 +6135,11 @@ index d8bb57cbcf07b661358f3005b73860f0f97ab0b5..a59d41145832d146b94b21384b9adb6f
 +    parser.add_argument("--lang", help="site language (ja, en, fr, it, de, es, ko, zh); "
                                         "defaults to $DW_LANG, else en")
 +    parser.add_argument("--port", type=int, default=PORT, help="local HTTP port (default 8080)")
++    parser.add_argument("--web-lan", metavar="ADDRESS", help="Also serve this language on a private LAN adapter")
      return parser
  
  
-@@ -39,9 +40,9 @@ def main() -> None:
+@@ -39,9 +42,9 @@ def main() -> None:
      # a page load asks for dozens of files at once, so waitress queues some of them
      logging.getLogger("waitress.queue").setLevel(logging.ERROR)
  
@@ -5806,15 +6151,35 @@ index d8bb57cbcf07b661358f3005b73860f0f97ab0b5..a59d41145832d146b94b21384b9adb6f
      except EmailNotConfiguredError as e:
          logger.info("Activation emails are off: %s", e)
  
-@@ -53,7 +54,7 @@ def main() -> None:
+@@ -49,12 +52,26 @@ def main() -> None:
+ 
+     from api.server import create_app
+     from utils import patching
++    from utils.web_network import choose_web_lan, restrict_web_clients, serve_changing_lan, web_listeners
+ 
++    if args.web_lan:
++        try:
++            lan = choose_web_lan(args.web_lan, None, False)
++        except ValueError as exc:
++            parser.error(str(exc))
++        if lan:
++            os.environ["DW_WEB_LAN"] = lan
      patching.prewarm()
      app = create_app()
++    app.before_request(restrict_web_clients)
      app.logger.info("Server started!%s", " (debug mode)" if args.debug else "")
 -    serve(app, host="0.0.0.0", port=PORT, threads=SERVER_THREADS,
-+    serve(app, host="127.0.0.1", port=args.port, threads=SERVER_THREADS,
-           trusted_proxy="127.0.0.1", trusted_proxy_headers={"x-forwarded-proto"}, clear_untrusted_proxy_headers=True)
+-          trusted_proxy="127.0.0.1", trusted_proxy_headers={"x-forwarded-proto"}, clear_untrusted_proxy_headers=True)
++    options = dict(threads=SERVER_THREADS, trusted_proxy="127.0.0.1",
++                   trusted_proxy_headers={"x-forwarded-proto"}, clear_untrusted_proxy_headers=True)
++    state = os.environ.get("DW_WEB_LAN_STATE")
++    if state and not args.web_lan:
++        serve_changing_lan(app, args.port, Path(state), **options)
++    else:
++        serve(app, listen=web_listeners(args.port), **options)
  
  
+ if __name__ == "__main__":
 diff --git a/raw_text/de/country.txt b/raw_text/de/country.txt
 index 349906c562e901bfef1b9a62865333c2c89216b4..13f4960a5a4424ab2441f39216d1702e871b9a6b 100644
 --- a/raw_text/de/country.txt
@@ -10536,6 +10901,17 @@ index 0000000000000000000000000000000000000000..eedd4584cc13bb76d74327887fce9053
 +
 +if __name__ == "__main__":
 +    main()
+diff --git a/scripts/create_visit_invite.py b/scripts/create_visit_invite.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..424c251ef4cdccb1f156056ceecd5cdbc46009bb
+--- /dev/null
++++ b/scripts/create_visit_invite.py
+@@ -0,0 +1,5 @@
++"""Print one private invitation for a friend to pair a visiting cartridge."""
++from utils.visit_storage import create_invite
++
++if __name__ == "__main__":
++    print(create_invite())
 diff --git a/scripts/select_game_network.ps1 b/scripts/select_game_network.ps1
 new file mode 100644
 index 0000000000000000000000000000000000000000..519a452a75f27ba0b2ba48e35a7f51abefb9ea88
@@ -10654,12 +11030,297 @@ index 0000000000000000000000000000000000000000..99f83ee9e34aea95f959440494953f12
 +        Start-Sleep -Seconds 3
 +    }
 +}
+diff --git a/scripts/visit_friend.py b/scripts/visit_friend.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9d4b4fc7804bf6343f29568a8f20388f433f6a7
+--- /dev/null
++++ b/scripts/visit_friend.py
+@@ -0,0 +1,279 @@
++"""Use a home Dream World account at a friend's Tailscale host and bring its changes home."""
++import argparse
++import getpass
++import hashlib
++import http.client
++import ipaddress
++import json
++import os
++import re
++import secrets
++import sqlite3
++import sys
++import time
++import webbrowser
++from collections.abc import Callable, Iterator
++from contextlib import contextmanager
++from pathlib import Path
++
++from werkzeug.security import check_password_hash
++
++from config import SAVE_DIR, WEB_PORTS
++from utils import visit_storage as storage
++from utils.account_manager import accounts
++
++
++class VisitProblem(Exception):
++    """An error the player can act on."""
++
++
++class Offline(VisitProblem):
++    """The same request can be retried after the network recovers."""
++
++
++class Conflict(VisitProblem):
++    """Both copies were changed since the last successful synchronization."""
++
++
++class Peer:
++    """Connect directly to the approved numeric Tailscale address, with no redirects or proxy."""
++
++    def __init__(self, address: str, port: int = 8088) -> None:
++        self.address, self.port = address, port
++
++    def request(self, action: str, token: str, data: dict | None = None, *, revision: str | None = None,
++                method: str | None = None) -> dict | None:
++        conn = http.client.HTTPConnection(self.address, self.port, timeout=12)
++        headers = {"Host": f"127.0.0.1:{self.port}", "Authorization": f"Bearer {token}"}
++        body = None
++        if data is not None:
++            body = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode()
++            headers["Content-Type"] = "application/json"
++        if revision:
++            headers["If-None-Match"] = f'"{revision}"'
++        try:
++            conn.request(method or ("GET" if body is None else "POST"), "/visit-sync/api/" + action,
++                         body=body, headers=headers)
++            resp = conn.getresponse()
++            if resp.status == 304 and action == "snapshot" and revision:
++                return None
++            if resp.status == 401:
++                raise PermissionError("Pairing or invitation not accepted / 配对或邀请码无效")
++            if resp.status == 409:
++                raise Conflict("Record changed or cannot be imported safely / 记录已改变或暂不能安全导入")
++            if resp.status >= 500:
++                raise Offline(f"Host temporarily unavailable (HTTP {resp.status})")
++            if resp.status != 200 and resp.status != 201:
++                raise VisitProblem(f"Host returned HTTP {resp.status}. Check both installations are updated.")
++            limit = 2 * 1024 * 1024 + 8192
++            payload = resp.read(limit + 1)
++            if len(payload) > limit:
++                raise VisitProblem("Snapshot exceeds the supported size.")
++            result = json.loads(payload)
++            if not isinstance(result, dict):
++                raise VisitProblem("Invalid response from host.")
++            return result
++        except (OSError, http.client.HTTPException) as exc:
++            if isinstance(exc, PermissionError):
++                raise
++            raise Offline("Host unreachable / 暂时联系不上房主，等待重连") from exc
++        finally:
++            conn.close()
++
++
++class LinkStore:
++    """Private, per-home metadata. Bind each secret to a host, home account and cartridge."""
++
++    def __init__(self, directory: Path) -> None:
++        self.directory = Path(directory)
++        self.directory.mkdir(parents=True, exist_ok=True)
++        self.db = sqlite3.connect(self.directory / "visit-links.sqlite3", timeout=10)
++        self.db.row_factory = sqlite3.Row
++        self.db.execute("""CREATE TABLE IF NOT EXISTS links (
++            host TEXT, username TEXT, card TEXT, token TEXT NOT NULL, base TEXT NOT NULL,
++            paired INTEGER NOT NULL, PRIMARY KEY(host,username,card))""")
++
++    def lookup(self, key: tuple[str, str, str]) -> sqlite3.Row:
++        row = self.db.execute("SELECT * FROM links WHERE host=? AND username=? AND card=?", key).fetchone()
++        if row is None:
++            raise VisitProblem("No saved pairing for this host and cartridge.")
++        return row
++
++    def prepare(self, key: tuple[str, str, str], base: str) -> sqlite3.Row:
++        with self.db:
++            self.db.execute("INSERT OR IGNORE INTO links VALUES (?,?,?,?,?,0)",
++                            (*key, secrets.token_urlsafe(32), base))
++        return self.lookup(key)
++
++    def mark(self, key: tuple[str, str, str], revision: str) -> None:
++        with self.db:
++            self.db.execute("UPDATE links SET base=?,paired=1 WHERE host=? AND username=? AND card=?",
++                            (revision, *key))
++
++    def preserve(self, key: tuple[str, str, str], home: dict, host: dict) -> Path:
++        # Conflict resolution is explicit; retain both complete player snapshots locally before either write.
++        path = self.directory / ("visit-conflict-" + secrets.token_hex(8) + ".json")
++        with path.open("x", encoding="utf-8") as f:
++            json.dump({"host_address": key[0], "home": home, "host": host}, f, ensure_ascii=False)
++            f.flush()
++            os.fsync(f.fileno())
++        return path
++
++
++@contextmanager
++def card_lock(directory: Path, username: str, card: str) -> Iterator[None]:
++    name = hashlib.sha256((username + "\0" + card).encode()).hexdigest()
++    with (Path(directory) / ("visit-" + name + ".lock")).open("a+b") as handle:
++        handle.seek(0, 2)
++        if handle.tell() == 0:
++            handle.write(b"0")
++            handle.flush()
++        handle.seek(0)
++        try:
++            if sys.platform == "win32":
++                import msvcrt
++                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
++            else:
++                import fcntl
++                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        except OSError as exc:
++            raise VisitProblem("This cartridge already has a sync window open / 这张卡已有同步窗口") from exc
++        yield
++
++
++def checked_snapshot(result: dict | None) -> dict:
++    if (not isinstance(result, dict) or not isinstance(result.get("snapshot"), dict)
++            or storage.snapshot_revision(result["snapshot"]) != result.get("revision")):
++        raise VisitProblem("Host returned an invalid player record.")
++    return result
++
++
++def sync_once(peer: Peer, links: LinkStore, key: tuple[str, str, str], *, resolve: str | None = None) -> str:
++    _, username, card = key
++    link = links.lookup(key)
++    token, base = link["token"], link["base"]
++    home = storage.export_local(username, card)
++    fetched = peer.request("snapshot", token, revision=base)
++    remote = checked_snapshot(fetched) if fetched is not None else None
++    remote_rev = remote["revision"] if remote is not None else base
++    local_rev = home["revision"]
++    if local_rev == remote_rev:
++        if base != local_rev or not link["paired"]:
++            links.mark(key, local_rev)
++        return "current"
++    if remote_rev != base and local_rev != base:
++        if resolve is None:
++            raise Conflict("Both copies changed / 两边都有新进度，本次同步已暂停")
++        assert remote is not None
++        path = links.preserve(key, home, remote)
++        print(f"Both snapshots saved / 两份记录已备份：{path}", flush=True)
++    if local_rev == base or (remote_rev != base and resolve == "host"):
++        assert remote is not None
++        updated = storage.apply_local(username, card, local_rev, remote["snapshot"])
++        if updated["revision"] != remote_rev:
++            raise VisitProblem("Home did not confirm the expected revision.")
++        direction = "home"
++    else:
++        updated = checked_snapshot(peer.request("snapshot", token, {"revision": remote_rev, "snapshot": home["snapshot"]},
++                                                method="PUT"))
++        if updated["revision"] != local_rev:
++            raise VisitProblem("Host did not confirm the expected revision.")
++        direction = "host"
++    links.mark(key, updated["revision"])
++    return direction
++
++
++def pair(peer: Peer, links: LinkStore, key: tuple[str, str, str], get_invite: Callable[[], str]) -> None:
++    local = storage.export_local(key[1], key[2])
++    link = links.prepare(key, local["revision"])
++    if link["paired"]:
++        return
++    try:
++        # Recover a completed redemption even when the network lost its reply.
++        checked_snapshot(peer.request("snapshot", link["token"]))
++    except PermissionError:
++        invite = get_invite().strip()
++        if not invite:
++            raise VisitProblem("An invitation from the current host is required.") from None
++        # If the home save changed after an earlier failed attempt, checkpoint the revision
++        # actually offered. A committed redemption was already discovered by the GET above.
++        with links.db:
++            links.db.execute("UPDATE links SET base=? WHERE host=? AND username=? AND card=? AND paired=0",
++                             (local["revision"], *key))
++        checked_snapshot(peer.request("redeem", invite, {"token": link["token"], "snapshot": local["snapshot"]}))
++
++
++def run(args: argparse.Namespace) -> None:
++    address = ipaddress.IPv4Address(args.host or input("Host Tailscale IP / 房主的 Tailscale 地址：").strip())
++    if address not in ipaddress.IPv4Network("100.64.0.0/10"):
++        raise VisitProblem("Enter the host PC's Tailscale IPv4 address (100.64–100.127).")
++    name = args.user or input("Home username / 自己本地的账号：").strip()
++    account = accounts.get_account_by_username(name)
++    password = getpass.getpass("Home password (local check only) / 本地账号密码：")
++    if (not account or not account["activated"] or account["username"].startswith(storage.GUEST_PREFIX)
++            or not check_password_hash(account["password_hash"], password)):
++        raise VisitProblem("Home account or password not accepted / 本地账号或密码有误，或账号尚未激活")
++    username = account["username"]
++    card = args.card or account["active_gscd"]
++    if not card or accounts.get_gscd_owner(card) != username:
++        raise VisitProblem("Link your own cartridge on your home server first / 请先在自己服绑定卡带")
++    key = (str(address), username, card)
++    peer = Peer(str(address), WEB_PORTS[args.lang])
++    links = LinkStore(SAVE_DIR)
++    try:
++        with card_lock(SAVE_DIR, username, card):
++            pair(peer, links, key, lambda: getpass.getpass("Host invite / 房主给的一次性邀请码："))
++            result = sync_once(peer, links, key, resolve=args.resolve)
++            print(f"Synced / 已同步 ({result})", flush=True)
++            if args.once:
++                return
++            ticket = peer.request("ticket", links.lookup(key)["token"], {})
++            code = ticket.get("ticket", "") if ticket else ""
++            if not isinstance(code, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{22,128}", code):
++                raise VisitProblem("Invalid sign-in ticket.")
++            url = f"http://127.0.0.1:{WEB_PORTS[args.lang]}/visit-sync/login#{code}"
++            if not webbrowser.open(url):
++                print(f"Open privately on this PC / 请在本机浏览器打开：{url}")
++            print("Keep this window open. Finish the Dream World visit and close the game tab before Ctrl+C.\n"
++                  "游玩时保持窗口打开；在网页结束梦世界并关闭游戏标签页，再按 Ctrl+C 完成最后一次同步。", flush=True)
++            try:
++                disconnected = False
++                while True:
++                    time.sleep(12)
++                    try:
++                        direction = sync_once(peer, links, key)
++                        if disconnected or direction != "current":
++                            print(f"Synced / 已同步 ({direction})", flush=True)
++                        disconnected = False
++                    except Offline as exc:
++                        if not disconnected:
++                            print(exc, flush=True)
++                        disconnected = True
++            except KeyboardInterrupt:
++                sync_once(peer, links, key)
++                print("Final sync complete / 最终同步已完成。", flush=True)
++    finally:
++        links.db.close()
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--host", help="Tailscale IPv4 of the friend hosting this visit")
++    parser.add_argument("--user", help="Your own home account")
++    parser.add_argument("--card", help="One of your linked Game Sync IDs (default: active cartridge)")
++    parser.add_argument("--lang", choices=WEB_PORTS, default="zh", help="Language of the visiting browser")
++    parser.add_argument("--once", action="store_true", help="Synchronize once without opening the browser")
++    parser.add_argument("--resolve", choices=("home", "host"),
++                        help="If both changed, back up both and keep the chosen copy (with --once only)")
++    args = parser.parse_args()
++    if args.resolve and not args.once:
++        parser.error("--resolve requires --once")
++    try:
++        run(args)
++    except (VisitProblem, storage.VisitError, PermissionError, ValueError, sqlite3.Error, OSError,
++            KeyboardInterrupt, EOFError) as exc:
++        parser.exit(1, f"Sync stopped / 同步已停止。{exc}\nReconnect and run again before playing locally.\n")
++
++
++if __name__ == "__main__":
++    main()
 diff --git a/static/player-guide.css b/static/player-guide.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..e65fe8291aabc1e91a763f1307c490cb44c8f2a3
+index 0000000000000000000000000000000000000000..c4f05b3bfe36b7e726848d4773a21cbd269a5400
 --- /dev/null
 +++ b/static/player-guide.css
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,46 @@
 +.dw-player-help {
 +  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
 +  gap: 6px 18px; padding: 9px 16px; margin: 0 auto; width: 100%; max-width: 1003px;
@@ -10698,6 +11359,7 @@ index 0000000000000000000000000000000000000000..e65fe8291aabc1e91a763f1307c490cb
 +.guide-main section { scroll-margin: 12px; padding: 22px 0; border-bottom: 1px solid #c3cbbc; }
 +.guide-main .dns-card { background: #fff; padding: 20px; border: 1px solid #b2c5b9; border-inline-start: 4px solid #386453; border-radius: 3px; }
 +.dns-card output { display: block; margin-bottom: 15px; font: 700 1.65rem ui-monospace, monospace; color: #16483a; }
++.phone-address { font: 650 clamp(1rem, 4vw, 1.5rem)/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
 +.guide-actions button, .guide-actions a { font: inherit; cursor: pointer; border: 1px solid #567466; background: white; color: #214b3b; border-radius: 4px; padding: 5px 13px; }
 +.guide-actions button:first-child { background: #315c4b; color: white; }
 +.guide-actions button:disabled { opacity: .65; cursor: wait; }
@@ -10760,12 +11422,44 @@ index 0000000000000000000000000000000000000000..2557f8093f6763fb66f3e633cb1817a4
 +  refresh.addEventListener("click", check);
 +  check();
 +})();
+diff --git a/templates/phone_access.html b/templates/phone_access.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c53969834
+--- /dev/null
++++ b/templates/phone_access.html
+@@ -0,0 +1,26 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head>
++  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>{{ t.phone_title }} · Pokémon Dream World</title>
++  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
++</head>
++<body class="dw-guide">
++  <header class="guide-header">
++    <a href="/">Pokémon Global Link</a>
++    <details class="guide-languages"><summary>{{ language_names[lang] }}</summary>
++      <nav>{% for code, name in language_names.items() %}<a lang="{{ code }}" href="/languages/{{ code }}/?page=/player-guide/phone/" {% if code == lang %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</nav>
++    </details>
++  </header>
++  <main class="guide-main">
++    <h1>{{ t.phone_title }}</h1>
++    <section class="dns-card">
++      {% if phone_url %}<p>{{ t.phone_url }}</p><a class="phone-address" href="{{ phone_url }}">{{ phone_url }}</a>
++      {% else %}<p>{{ t.phone_unavailable }}</p>{% endif %}
++    </section>
++    <section><h2>{{ t.phone_play_title }}</h2><p>{{ t.phone_play }}</p>
++      <div class="guide-actions"><a href="/">{{ t.open_login }}</a><a href="/pdw/">{{ t.phone_game }}</a></div>
++    </section>
++  </main>
++</body>
++</html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..f88c0b592373913c87d11c5c3cd5296658972e05
+index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f8462016b82
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,57 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -10786,7 +11480,7 @@ index 0000000000000000000000000000000000000000..f88c0b592373913c87d11c5c3cd52966
 +  <main class="guide-main">
 +    <h1>{{ t.title }}</h1>
 +    <nav class="guide-nav" aria-label="{{ t.title }}">
-+      <a href="#dns">{{ t.dns_title }}</a><a href="#console">{{ t.console_title }}</a>
++      <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
 +      <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
 +    </nav>
 +    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
@@ -10801,6 +11495,7 @@ index 0000000000000000000000000000000000000000..f88c0b592373913c87d11c5c3cd52966
 +        <button id="copy-dns" type="button" hidden data-copy="{{ t.copy }}" data-copied="{{ t.copied }}">{{ t.copy }}</button>
 +      </div>
 +      <noscript><a href="{{ url_for('player_guide.dns') }}">{{ t.dns_title }}</a></noscript>
++      <p class="guide-note"><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a></p>
 +    </section>
 +    <section id="console">
 +      <h2>{{ t.console_title }}</h2>
@@ -10813,12 +11508,276 @@ index 0000000000000000000000000000000000000000..f88c0b592373913c87d11c5c3cd52966
 +      <h2>{{ t.account_title }}</h2><p>{{ t.account }}</p>
 +      <div class="guide-actions"><a href="{{ url_for('signup.trainer_club_signup', locale=lang) }}">{{ t.open_signup }}</a>
 +      <a href="/login/pgl.html">{{ t.open_login }}</a></div>
++      <details class="console-model"><summary>{{ t.visit_title }}</summary><p>{{ t.visit }}</p>
++        <p><a href="https://github.com/goiku/dreamworld-cartridge/blob/main/{{ 'docs/README.zh-CN.md' if lang == 'zh' else ('docs/README.ja.md' if lang == 'ja' else 'README.md') }}">{{ t.details }} (GitHub)</a></p>
++      </details>
 +    </section>
 +    <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
 +    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
 +  </main>
 +</body>
 +</html>
+diff --git a/tests/test_visit_storage.py b/tests/test_visit_storage.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7f0d17a01b8f5f35202a33452c80485063b2ae5
+--- /dev/null
++++ b/tests/test_visit_storage.py
+@@ -0,0 +1,180 @@
++"""Two temporary servers with colliding account names and member IDs."""
++import copy
++import json
++import secrets
++from concurrent.futures import ThreadPoolExecutor
++from contextlib import contextmanager
++from threading import Barrier
++from unittest.mock import patch
++
++import pytest
++from werkzeug.security import check_password_hash
++
++from game_sync_server.entralinked.model.player.player import Player, new_player_data
++from game_sync_server.entralinked.utility.db_manager import DBManager
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from utils import visit_storage as visits
++from utils.account_manager import AccountManager
++
++
++class Server:
++    def __init__(self, path):
++        self.db = DBManager(path)
++        self.accounts = AccountManager(path)
++
++    @contextmanager
++    def active(self):
++        with patch.object(visits, "db", self.db), patch.object(visits, "accounts", self.accounts):
++            yield
++
++    def resident(self, gsid):
++        code = gsid_to_gscd(gsid)
++        username = "Trainer"
++        self.accounts.create_account(username, "private-login", "local@example.invalid", 1, 2,
++                                     "everyone", "friends", "private-activation")
++        self.accounts.activate_account("private-activation")
++        self.accounts.link_gscd(username, code)
++        self.db.write_gscd(code)
++        profile = new_player_data(self.db.next_id("member_id")[0], self.db.next_id("my_interior_id", 2))
++        player = Player(code, rom_id=20, langcode=1)
++        profile["member"].update(player.member_fields(), pgl_name=username)
++        profile["token"] = "private-session"
++        sync = dict(player.game_sync_data(), upload_digest="private-upload", last_wake_id=42)
++        self.db.write_full_state(code, profile, sync, None)
++        return code
++
++    def close(self):
++        self.db.close()
++        self.accounts.close()
++
++
++@pytest.fixture
++def servers(tmp_path):
++    home, host = Server(tmp_path / "home.sqlite"), Server(tmp_path / "host.sqlite")
++    try:
++        yield home, host
++    finally:
++        home.close()
++        host.close()
++
++
++def test_roundtrip_and_retry(servers):
++    home, host = servers
++    code = home.resident(1)
++    resident = host.resident(2)
++    with home.active():
++        home.db.update(code, "share_data", lambda data: data["share_list"].append({
++            "material_id": 7, "old_member_savedata_id": 1, "item_id": 149, "x": 0, "y": 0}))
++        original = visits.export_local("Trainer", code)
++        assert visits.snapshot_revision(original["snapshot"]) == original["revision"]
++        wire = json.dumps(original)
++        assert all(word not in wire for word in ("local@example", "private-", "last_wake_id", "upload_digest"))
++        with pytest.raises(visits.VisitAuthError):
++            visits.export_local("Other", code)
++    with host.active():
++        before = visits.export_local("Trainer", resident)
++        invite = visits.create_invite()
++        token = secrets.token_urlsafe(32)
++        registered = visits.redeem(invite, original["snapshot"], token)
++        assert registered["revision"] == original["revision"]
++        assert visits.redeem(invite, original["snapshot"], token) == registered
++        with pytest.raises(visits.VisitAuthError):
++            visits.redeem(invite, original["snapshot"], secrets.token_urlsafe(32))
++        ticket = visits.create_ticket(token)
++        alias, selected, display_name = visits.consume_ticket(ticket)
++        assert alias.startswith(visits.GUEST_PREFIX) and selected == code and display_name == "Trainer"
++        with pytest.raises(visits.VisitAuthError):
++            visits.consume_ticket(ticket)
++        guest_account = host.accounts.get_account_by_username(alias)
++        assert not guest_account["activated"] and not guest_account["email"] and not guest_account["activation_token"]
++        assert not check_password_hash(guest_account["password_hash"], "private-login")
++        assert not host.accounts.link_gscd(alias, gsid_to_gscd(19))
++        with pytest.raises(visits.VisitAuthError):
++            visits.export_local(alias, code)
++        member_id = host.db.read(code, "player_data")["member"]["member_savedata_id"]
++        assert member_id != host.db.read(resident, "player_data")["member"]["member_savedata_id"]
++        assert host.db.read(code, "share_data")["share_list"][0]["old_member_savedata_id"] == member_id
++        host.db.update(code, "game_sync", lambda sync: sync["encounters"].append(
++            {"species": 173, "form": 0, "move": 1, "gender": 0, "animation": 0}))
++        host.db.update(code, "player_data", lambda state: state.update(dream_board=[{"id": 3, "selected": True}]))
++        edited = visits.read_snapshot(token)
++        assert edited["revision"] != original["revision"]
++        assert visits.export_local("Trainer", resident) == before
++        with pytest.raises(visits.VisitConflict):
++            visits.replace_snapshot(token, original["revision"], original["snapshot"])
++        with pytest.raises(visits.VisitConflict):
++            visits.replace_snapshot(token, edited["revision"], before["snapshot"])
++    with home.active():
++        assert visits.apply_local("Trainer", code, original["revision"], edited["snapshot"]) == edited
++        assert visits.apply_local("Trainer", code, original["revision"], edited["snapshot"]) == edited
++        assert visits.export_local("Trainer", code) == edited
++        assert home.db.read(code, "game_sync")["last_wake_id"] == 42
++        assert home.db.read(code, "game_sync")["encounters"][0]["species"] == 173
++        assert home.db.read(code, "player_data")["token"] == "private-session"
++        assert home.db.read(code, "player_data")["member"]["member_savedata_id"] == 1
++        assert home.db.read(code, "share_data")["share_list"][0]["old_member_savedata_id"] == 1
++        assert home.db.next_id("dream_encounter_id")[0] == 4
++
++
++def test_atomic_collisions_and_wake(servers):
++    home, host = servers
++    code = home.resident(5)
++    duplicate = host.resident(5)
++    assert duplicate == code
++    with home.active():
++        original = visits.export_local("Trainer", code)
++        other = visits.export_local("Trainer", home.resident(6))
++    with host.active():
++        invite, token = visits.create_invite(), secrets.token_urlsafe(32)
++        with pytest.raises(visits.VisitConflict):
++            visits.redeem(invite, original["snapshot"], token)
++        assert visits.export_local("Trainer", code) == original
++        invalid = copy.deepcopy(other["snapshot"])
++        invalid["save"]["share_data"]["share_list"] = [{"material_id": -1}]
++        with pytest.raises(visits.VisitInvalid):
++            visits.redeem(invite, invalid, token)
++        assert host.accounts.count_accounts() == 1
++        assert not host.db.gscd_exists(other["snapshot"]["gscd"])
++        assert visits.redeem(invite, other["snapshot"], token)["revision"] == other["revision"]
++    with home.active():
++        home.db.update(code, "game_sync", lambda state: state.update(pending_wake={"payload": "private"}))
++        with pytest.raises(visits.VisitConflict):
++            visits.export_local("Trainer", code)
++        with pytest.raises(visits.VisitConflict):
++            visits.apply_local("Trainer", code, original["revision"], original["snapshot"])
++        assert home.db.read(code, "game_sync")["pending_wake"] == {"payload": "private"}
++
++
++def test_simultaneous_cas_and_ticket_expiry(servers):
++    home, host = servers
++    with home.active():
++        code = home.resident(9)
++        original = visits.export_local("Trainer", code)
++    with host.active():
++        with patch.object(visits.time, "time", return_value=100):
++            expired = visits.create_invite()
++        token = secrets.token_urlsafe(32)
++        with pytest.raises(visits.VisitAuthError):
++            visits.redeem(expired, original["snapshot"], token)
++        visits.redeem(visits.create_invite(), original["snapshot"], token)
++        with patch.object(visits.time, "time", return_value=100):
++            expired_ticket = visits.create_ticket(token)
++        with pytest.raises(visits.VisitAuthError):
++            visits.consume_ticket(expired_ticket)
++        barrier = Barrier(2)
++
++        def edit(points):
++            snapshot = copy.deepcopy(original["snapshot"])
++            snapshot["save"]["player_data"]["member"]["point"] = points
++            barrier.wait(timeout=5)
++            try:
++                return visits.replace_snapshot(token, original["revision"], snapshot)["revision"]
++            except visits.VisitConflict:
++                return None
++            finally:
++                host.close()
++
++        with ThreadPoolExecutor(max_workers=2) as pool:
++            results = list(pool.map(edit, (100, 200)))
++        assert results.count(None) == 1
++        assert visits.read_snapshot(token)["revision"] in results
+diff --git a/tests/test_web_network.py b/tests/test_web_network.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc78d2877e52de37e4d30c6c3f5e3bde1769ce75
+--- /dev/null
++++ b/tests/test_web_network.py
+@@ -0,0 +1,69 @@
++"""Exercise a running website through address changes using only loopback sockets."""
++import ipaddress
++import socket
++import threading
++import time
++from urllib.error import URLError
++from urllib.request import ProxyHandler, build_opener
++
++import pytest
++from flask import Flask
++from waitress import wasyncore
++
++from utils import web_network as network
++
++
++def test_switch_lan_keeps_loopback_server(tmp_path, monkeypatch):
++    app = Flask(__name__)
++    app.add_url_rule("/", view_func=lambda: network.lan_web_address() or "offline")
++    state = tmp_path / "lan"
++    first, second = "127.0.0.2", "127.0.0.3"
++    network.publish_web_lan(state, first + "/8")
++    monkeypatch.setattr(network, "_private_interface", ipaddress.IPv4Interface)
++    monkeypatch.delenv("DW_WEB_LAN", raising=False)
++    io_loop, stop = wasyncore.loop, threading.Event()
++
++    def run_loop(**kwargs):
++        if stop.is_set():
++            raise KeyboardInterrupt
++        io_loop(**kwargs)
++
++    monkeypatch.setattr(wasyncore, "loop", run_loop)
++    with socket.socket() as probe:
++        probe.bind(("127.0.0.1", 0))
++        port = probe.getsockname()[1]
++    server = threading.Thread(target=network.serve_changing_lan, args=(app, port, state), kwargs={"threads": 2})
++    http = build_opener(ProxyHandler({}))
++
++    def get(address):
++        with http.open(f"http://{address}:{port}/", timeout=0.5) as result:
++            return result.read().decode()
++
++    def wait_for(address, text):
++        start = time.monotonic()
++        while time.monotonic() - start < 10:
++            try:
++                if get(address) == text:
++                    return
++            except OSError:
++                pass
++            time.sleep(0.05)
++        pytest.fail(f"Website at {address} did not advertise {text}.")
++
++    server.start()
++    try:
++        wait_for(first, first)
++        assert get("127.0.0.1") == first
++        network.publish_web_lan(state, second + "/8")
++        wait_for(second, second)
++        assert get("127.0.0.1") == second
++        with pytest.raises((URLError, OSError)):
++            get(first)
++        network.publish_web_lan(state, None)
++        wait_for("127.0.0.1", "offline")
++        network.publish_web_lan(state, first + "/8")
++        wait_for(first, first)
++    finally:
++        stop.set()
++        server.join(timeout=5)
++    assert not server.is_alive()
 diff --git a/utils/account_manager.py b/utils/account_manager.py
 index ce8a908319d323d20284ec73bc043b4f7b1c38b4..fd88eb004882a6675dea49572a0b1a0ed9777d38 100644
 --- a/utils/account_manager.py
@@ -11284,11 +12243,14 @@ index fca439a45b0601cb75041a25f012f761210c92f3..445c15a13c59fc380469e46670b2f723
  
  class EntralinkItem(TypedDict):
 diff --git a/utils/patching/substitutions.py b/utils/patching/substitutions.py
-index 0decf632e77356b9d4476bcc8080404bde99b3b4..a67c45503116941aa47d916ea22b04d5d422b263 100644
+index 0decf632e77356b9d4476bcc8080404bde99b3b4..e19eb291ba4032daee0e843ce98608a058898614 100644
 --- a/utils/patching/substitutions.py
 +++ b/utils/patching/substitutions.py
-@@ -4,7 +4,7 @@ They are applied each time a file is served (utils/assets.py).
+@@ -2,9 +2,10 @@
+ 
+ They are applied each time a file is served (utils/assets.py).
  """
++import re
  from dataclasses import dataclass
  
 -from config import LANG
@@ -11296,7 +12258,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..a67c45503116941aa47d916ea22b04d5
  
  
  @dataclass(frozen=True)
-@@ -18,7 +18,7 @@ class Substitution:
+@@ -18,7 +19,7 @@ class Substitution:
  # point the SWF embed at the local language host instead of window.location
  _SWF_EMBED_PATCHES = Substitution(
          b"lang:window.location",
@@ -11305,7 +12267,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..a67c45503116941aa47d916ea22b04d5
      )
  
  # patch for Ruffle breaking the volume slider
-@@ -70,6 +70,9 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
+@@ -70,6 +71,9 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
  # substitutions applied to every patchable file
  _GLOBAL_SUBS: tuple[Substitution, ...] = (
      Substitution(b"http://cdn2.pokemon-gl.com", b""),
@@ -11315,10 +12277,16 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..a67c45503116941aa47d916ea22b04d5
      Substitution(f"http://gus.pokemon.com/{LANG}".encode(), f"/pgl-363/{LANG}".encode()),
      Substitution(b"https://assets.pokemon.com", b"/assets.pokemon.com"),
      Substitution(b"https://www.pokemon.com", b"/www.pokemon.com"),
-@@ -86,4 +89,6 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
+@@ -86,4 +90,12 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
      """Apply global substitutions, then file-specific ones."""
      for sub in (*_GLOBAL_SUBS, *JS_PATCHES.get(filename, ())):
          data = data.replace(sub.old, sub.new)
++    if filename == "top.js":
++        # Both the original and restored home pages select a login host before
++        # building this widget. All locales now authenticate on the page's origin.
++        data = re.sub(rb"var loginUrl;\s+if\b.*?(?=\$\('#login-control \.member-info'\)\.empty\(\);)",
++                      b"var loginUrl = {check: '/pglcheck', form: '/login/pgl.html'};\n      ",
++                      data, count=1, flags=re.DOTALL)
 +    if LANG == "zh" and filename == "theme.js":
 +        data = data.replace(b"theme.language = getLanguage();", b"theme.language = 'zh';")
      return data
@@ -11431,10 +12399,10 @@ index 8826c25c7362d58bfd58c36eadde6483f78f3404..c612eeb5019d349ca15f29061b220c4e
          # and that copy has no shiny field. AVM2 class objects are dynamic, so setting
 diff --git a/utils/player_dns.py b/utils/player_dns.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e95241db04530857b55e910efb54a6a8cb11122b
+index 0000000000000000000000000000000000000000..b100bf9802447a9b85cadec69d6e48b3ece1dd37
 --- /dev/null
 +++ b/utils/player_dns.py
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,61 @@
 +"""Find the DS-facing DNS listener on the computer showing the local guide."""
 +import ipaddress
 +import os
@@ -11442,6 +12410,8 @@ index 0000000000000000000000000000000000000000..e95241db04530857b55e910efb54a6a8
 +from contextlib import suppress
 +
 +from dnslib import QTYPE, DNSError, DNSRecord
++
++from utils.web_network import LOCAL_HOSTS, same_web_lan
 +
 +PRIVATE_LAN = tuple(ipaddress.IPv4Network(prefix) for prefix in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 +STATUS_NAME = "guide-status.dreamworld.invalid."
@@ -11481,10 +12451,14 @@ index 0000000000000000000000000000000000000000..e95241db04530857b55e910efb54a6a8
 +        return False
 +
 +
-+def get_player_dns(peer: str | None) -> dict[str, str | None]:
++def get_player_dns(peer: str | None, web_host: str | None = "localhost") -> dict[str, str | None]:
++    if web_host and same_web_lan(peer, web_host):
++        if _is_serving(web_host):
++            return {"status": "ready", "address": web_host}
++        return {"status": "offline", "address": None}
 +    # A hub relays its guests' web traffic from distinct 127.64/10 aliases. Only a
 +    # direct local browser can use this computer's LAN address; gateways answer locally.
-+    if peer not in ("127.0.0.1", "::1"):
++    if peer not in ("127.0.0.1", "::1") or web_host not in LOCAL_HOSTS:
 +        return {"status": "ambiguous", "address": None}
 +    active = [ip for ip in _candidates() if _is_serving(ip)]
 +    if len(active) == 1:
@@ -11629,6 +12603,385 @@ index 05b45e02916972c856fd4e28b7f23d74dcc6551b..fa72cc32df372e5b123908f275e898ef
 -        "lang":          f"{LANG}.",
 +        "lang":          f"{ASSET_LANG}.",
      }
+diff --git a/utils/visit_storage.py b/utils/visit_storage.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..2e19f07f9876bacee1ee4e661202b34befaefdf6
+--- /dev/null
++++ b/utils/visit_storage.py
+@@ -0,0 +1,373 @@
++"""Pair one owned Game Sync cartridge with an isolated visitor on a second server."""
++import hashlib
++import json
++import re
++import secrets
++import sqlite3
++import time
++from collections.abc import Iterator
++from contextlib import contextmanager
++
++from game_sync_server.entralinked.model.player.player import Player
++from game_sync_server.entralinked.utility import gsid_utility
++from game_sync_server.entralinked.utility.db_manager import db
++from utils.account_manager import accounts
++
++GUEST_PREFIX = "~visit~"
++MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
++INVITE_SECONDS = 30 * 60
++TICKET_SECONDS = 60
++_SECRET = re.compile(r"[A-Za-z0-9_-]{43}")
++_REVISION = re.compile(r"[0-9a-f]{64}")
++_COLUMNS = ("player_data", "sleeping_pokemon", "game_sync", "crop_data", "chest_data", "share_data")
++_PRIVACY = {"everyone", "friends", "nobody", None}
++_LOCAL_SYNC = ("upload_digest", "last_wake_id")
++_SCHEMA = (
++    """CREATE TABLE IF NOT EXISTS visit_invites (
++        digest TEXT PRIMARY KEY, expires INTEGER NOT NULL)""",
++    """CREATE TABLE IF NOT EXISTS visit_guests (
++        digest TEXT PRIMARY KEY, invitation TEXT NOT NULL UNIQUE, gscd TEXT NOT NULL UNIQUE,
++        source_username TEXT NOT NULL, guest_username TEXT NOT NULL UNIQUE)""",
++    """CREATE TABLE IF NOT EXISTS visit_tickets (
++        digest TEXT PRIMARY KEY, guest_digest TEXT NOT NULL, expires INTEGER NOT NULL)""",
++    """CREATE TRIGGER IF NOT EXISTS visit_guest_one_card BEFORE INSERT ON account_gscds
++       WHEN EXISTS (SELECT 1 FROM visit_guests WHERE guest_username=NEW.username AND gscd<>NEW.gscd)
++       BEGIN SELECT RAISE(IGNORE); END""",
++)
++
++
++class VisitError(Exception):
++    """Base class for a failed visit operation."""
++
++
++class VisitInvalid(VisitError):
++    """The supplied data cannot represent a compatible save."""
++
++
++class VisitAuthError(VisitError):
++    """The capability or account does not authorize this operation."""
++
++
++class VisitConflict(VisitError):
++    """Local ownership, an in-flight wake, or the current revision prevents this update."""
++
++
++@contextmanager
++def _transaction() -> Iterator[sqlite3.Connection]:
++    accounts.count_accounts()  # Ensure the shared account schema exists before taking the write lock.
++    with db.transaction() as conn:
++        for statement in _SCHEMA:
++            conn.execute(statement)
++        yield conn
++
++
++def _digest(secret: str) -> str:
++    if not isinstance(secret, str) or not _SECRET.fullmatch(secret):
++        raise VisitAuthError("Invalid capability.")
++    return hashlib.sha256(secret.encode("ascii")).hexdigest()
++
++
++def _canonical(value: object) -> bytes:
++    try:
++        data = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
++    except (ValueError, TypeError, RecursionError) as exc:
++        raise VisitInvalid("Invalid JSON data.") from exc
++    if len(data) > MAX_SNAPSHOT_BYTES:
++        raise VisitInvalid("This snapshot is too large.")
++    return data
++
++
++def snapshot_revision(snapshot: dict) -> str:
++    """Hash the canonical wire encoding so either peer can verify the received save."""
++    return hashlib.sha256(_canonical(snapshot)).hexdigest()
++
++
++def _result(snapshot: dict) -> dict:
++    return {"snapshot": snapshot, "revision": snapshot_revision(snapshot)}
++
++
++def _valid_card(code: object) -> bool:
++    return (isinstance(code, str) and gsid_utility.is_valid_gscd(code)
++            and gsid_utility.gsid_to_gscd(gsid_utility.gscd_to_gsid(code)) == code)
++
++
++def _guest(conn: sqlite3.Connection, digest: str) -> sqlite3.Row:
++    row = conn.execute(
++        """SELECT v.* FROM visit_guests v JOIN account_gscds l ON l.gscd=v.gscd AND l.username=v.guest_username
++           JOIN accounts a ON a.username=v.guest_username WHERE v.digest=?""", (digest,)).fetchone()
++    if row is None:
++        raise VisitAuthError("Unknown visitor.")
++    return row
++
++
++def _account(conn: sqlite3.Connection, username: str, code: str, *, home: bool) -> sqlite3.Row:
++    owner = conn.execute(
++        """SELECT a.username,a.activated,a.pgl_privacy,a.dw_privacy FROM accounts a
++           JOIN account_gscds l ON l.username=a.username WHERE l.gscd=? AND a.username=? COLLATE NOCASE""",
++        (code, username)).fetchone()
++    if owner is None or (home and (not owner["activated"] or owner["username"].startswith(GUEST_PREFIX))):
++        raise VisitAuthError("Choose a cartridge linked to your activated account.")
++    return owner
++
++
++def _load(conn: sqlite3.Connection, code: str) -> dict:
++    row = conn.execute("SELECT * FROM player_saves WHERE gscd=?", (code,)).fetchone()
++    if row is None:
++        raise VisitConflict("This cartridge has no Game Sync save.")
++    save = {key: json.loads(row[key]) if row[key] is not None else None for key in _COLUMNS}
++    member = (save.get("player_data") or {}).get("member")
++    if not member:
++        raise VisitConflict("The cartridge has not finished its first Game Sync.")
++    if member.get("wake_download_pending") or (save["game_sync"] or {}).get("pending_wake"):
++        raise VisitConflict("Wait for the NDS to finish its current wake download.")
++    return save
++
++
++def _shelf_slots(save: dict) -> list:
++    slots = (save["share_data"] or {}).get("share_list", [])
++    if not isinstance(slots, list) or not all(isinstance(slot, dict) for slot in slots):
++        raise VisitInvalid("Invalid Share Shelf.")
++    return slots
++
++
++def _snapshot(conn: sqlite3.Connection, username: str, owner: sqlite3.Row, code: str) -> dict:
++    save = _load(conn, code)
++    profile = save["player_data"]
++    member = profile["member"]
++    member.pop("member_id", None)
++    member.pop("member_savedata_id", None)
++    profile.pop("token", None)
++    sync = save["game_sync"] or {}
++    for key in _LOCAL_SYNC:
++        sync.pop(key, None)
++    # Shelf trader links use cartridge IDs on the wire. Two hosts can assign the same member number.
++    for slot in _shelf_slots(save):
++        trader_id = slot.pop("old_member_savedata_id", None)
++        if trader_id is not None:
++            row = conn.execute(
++                "SELECT gscd FROM player_saves WHERE json_extract(player_data,'$.member.member_savedata_id')=?",
++                (trader_id,)).fetchone()
++            if row:
++                slot["old_member_gscd"] = row[0]
++    return {"v": 1, "username": username, "gscd": code, "save": save,
++            "visibility": {key: owner[key] for key in ("pgl_privacy", "dw_privacy")}}
++
++
++def _validate(snapshot: dict) -> None:
++    if not isinstance(snapshot, dict) or set(snapshot) != {"v", "username", "gscd", "save", "visibility"}:
++        raise VisitInvalid("Invalid snapshot format.")
++    _canonical(snapshot)
++    code = snapshot["gscd"]
++    username = snapshot["username"]
++    save = snapshot["save"]
++    privacy = snapshot["visibility"]
++    if (type(snapshot["v"]) is not int or snapshot["v"] != 1 or not _valid_card(code)
++            or not isinstance(username, str) or not 1 <= len(username) <= 64 or username.startswith(GUEST_PREFIX)
++            or not username.isprintable() or not isinstance(save, dict) or set(save) != set(_COLUMNS)
++            or any(value is not None and not isinstance(value, dict) for value in save.values())
++            or not isinstance(privacy, dict) or set(privacy) != {"pgl_privacy", "dw_privacy"}
++            or any(value is not None and not isinstance(value, str) for value in privacy.values())
++            or any(value not in _PRIVACY for value in privacy.values())):
++        raise VisitInvalid("Invalid save, visibility, or cartridge identity.")
++    profile = save["player_data"] or {}
++    member = profile.get("member")
++    sync = save["game_sync"] or {}
++    if (not isinstance(member, dict) or "token" in profile or "member_id" in member or "member_savedata_id" in member
++            or member.get("gscd") != code or member.get("gsid") != gsid_utility.gscd_to_gsid(code)
++            or any(key in sync for key in _LOCAL_SYNC)):
++        raise VisitInvalid("Invalid cartridge profile.")
++    if member.get("wake_download_pending") or "pending_wake" in sync:
++        raise VisitConflict("Wait for the NDS to finish its current wake download.")
++    for slot in _shelf_slots(save):
++        if ("old_member_savedata_id" in slot
++                or ("old_member_gscd" in slot and not _valid_card(slot["old_member_gscd"]))):
++            raise VisitInvalid("Invalid Share Shelf player reference.")
++    try:
++        Player.from_saved(code, profile, sync, save["sleeping_pokemon"])
++    except (ValueError, TypeError, KeyError) as exc:
++        raise VisitInvalid("Invalid Game Sync data.") from exc
++
++
++def _advance_item_counters(conn: sqlite3.Connection, save: dict) -> None:
++    # The browser looks up these IDs within the selected cartridge. Reserve the imported
++    # high-water marks so the next local purchase, plot, shelf swap or wish gets a new ID.
++    profile = save["player_data"]
++    island = profile.get("dream_island", {})
++    try:
++        groups = (
++            ("my_interior_id", "my_interior_id", profile["member"].get("my_interior_list", [])),
++            ("my_croft_id", "my_croft_id", (save["crop_data"] or {}).get("croft_list", [])),
++            ("material_id", "material_id", _shelf_slots(save)),
++            ("dream_encounter_id", "id", profile.get("dream_board", []) + island.get("friends", [])),
++        )
++        for sequence, key, entries in groups:
++            ids = [entry[key] for entry in entries]
++            if sequence == "dream_encounter_id" and island.get("wished") is not None:
++                ids.append(island["wished"])
++            if any(type(value) is not int or not 1 <= value < 2**31 for value in ids):
++                raise VisitInvalid("Invalid game object ID.")
++            if ids:
++                conn.execute("""INSERT INTO id_counters(name,last_id) VALUES (?,?)
++                    ON CONFLICT(name) DO UPDATE SET last_id=max(last_id,excluded.last_id)""", (sequence, max(ids)))
++    except (TypeError, KeyError, AttributeError) as exc:
++        raise VisitInvalid("Invalid game objects.") from exc
++
++
++def _new_member_id(conn: sqlite3.Connection) -> int:
++    highest = conn.execute("""SELECT max(max(coalesce(json_extract(player_data,'$.member.member_savedata_id'),0),
++        coalesce(json_extract(player_data,'$.member.member_id'),0))) FROM player_saves""").fetchone()[0] or 0
++    return conn.execute("""INSERT INTO id_counters(name,last_id) VALUES ('member_id',?)
++        ON CONFLICT(name) DO UPDATE SET last_id=max(last_id+1,excluded.last_id) RETURNING last_id""",
++                        (highest + 1,)).fetchone()[0]
++
++
++def _write(conn: sqlite3.Connection, snapshot: dict, current: dict | None) -> None:
++    code = snapshot["gscd"]
++    save = json.loads(_canonical(snapshot["save"]))
++    profile = save["player_data"]
++    member = profile["member"]
++    if current is None:
++        member["member_id"] = member["member_savedata_id"] = _new_member_id(conn)
++        profile["token"] = None
++    else:
++        local = current["player_data"]
++        member.update({key: local["member"][key] for key in ("member_id", "member_savedata_id")})
++        if "token" in local:
++            profile["token"] = local["token"]
++        for key in _LOCAL_SYNC:
++            if key in (current["game_sync"] or {}):
++                if save["game_sync"] is None:
++                    save["game_sync"] = {}
++                save["game_sync"][key] = current["game_sync"][key]
++    for slot in _shelf_slots(save):
++        trader = slot.get("old_member_gscd")
++        if trader == code:
++            slot["old_member_savedata_id"] = member["member_savedata_id"]
++        else:
++            row = conn.execute("SELECT json_extract(player_data,'$.member.member_savedata_id') FROM player_saves "
++                               "WHERE gscd=?", (trader,)).fetchone()
++            slot["old_member_savedata_id"] = row[0] if row else None
++    _advance_item_counters(conn, save)
++    values = [json.dumps(save[key], ensure_ascii=False) if save[key] is not None else None for key in _COLUMNS]
++    conn.execute("""INSERT INTO player_saves
++        (gscd,player_data,sleeping_pokemon,game_sync,crop_data,chest_data,share_data) VALUES (?,?,?,?,?,?,?)
++        ON CONFLICT(gscd) DO UPDATE SET player_data=excluded.player_data,sleeping_pokemon=excluded.sleeping_pokemon,
++        game_sync=excluded.game_sync,crop_data=excluded.crop_data,chest_data=excluded.chest_data,
++        share_data=excluded.share_data""", (code, *values))
++
++
++def export_local(username: str, gscd: str) -> dict:
++    with _transaction() as conn:
++        owner = _account(conn, username, gscd, home=True)
++        return _result(_snapshot(conn, owner["username"], owner, gscd))
++
++
++def _replace(conn: sqlite3.Connection, username: str, owner: sqlite3.Row, code: str,
++             expected_revision: str, snapshot: dict, *, home: bool) -> dict:
++    _validate(snapshot)
++    if (snapshot["username"], snapshot["gscd"]) != (username, code):
++        raise VisitConflict("This pairing belongs to another cartridge.")
++    if not isinstance(expected_revision, str) or not _REVISION.fullmatch(expected_revision):
++        raise VisitInvalid("Invalid revision.")
++    current = _result(_snapshot(conn, username, owner, code))
++    desired = _result(snapshot)
++    if current["revision"] == desired["revision"]:
++        return current
++    if expected_revision != current["revision"]:
++        raise VisitConflict("Both copies changed. Neither copy was overwritten.")
++    if home and snapshot["visibility"] != current["snapshot"]["visibility"]:
++        raise VisitConflict("Account-wide privacy is managed on the home server.")
++    _write(conn, snapshot, _load(conn, code))
++    if not home:
++        privacy = snapshot["visibility"]
++        conn.execute("UPDATE accounts SET pgl_privacy=?,dw_privacy=? WHERE username=?",
++                     (privacy["pgl_privacy"], privacy["dw_privacy"], owner["username"]))
++    return desired
++
++
++def apply_local(username: str, gscd: str, expected_revision: str, snapshot: dict) -> dict:
++    with _transaction() as conn:
++        owner = _account(conn, username, gscd, home=True)
++        return _replace(conn, owner["username"], owner, gscd, expected_revision, snapshot, home=True)
++
++
++def create_invite() -> str:
++    secret = secrets.token_urlsafe(32)
++    with _transaction() as conn:
++        now = int(time.time())
++        conn.execute("DELETE FROM visit_invites WHERE expires<=?", (now,))
++        conn.execute("INSERT INTO visit_invites VALUES (?,?)", (_digest(secret), now + INVITE_SECONDS))
++    return secret
++
++
++def _read_guest(conn: sqlite3.Connection, guest: sqlite3.Row) -> dict:
++    owner = _account(conn, guest["guest_username"], guest["gscd"], home=False)
++    return _result(_snapshot(conn, guest["source_username"], owner, guest["gscd"]))
++
++
++def redeem(invite: str, snapshot: dict, token: str) -> dict:
++    invitation, digest = _digest(invite), _digest(token)
++    if invitation == digest:
++        raise VisitInvalid("Generate a separate pairing token.")
++    with _transaction() as conn:
++        previous = conn.execute("SELECT * FROM visit_guests WHERE invitation=?", (invitation,)).fetchone()
++        if previous:
++            if previous["digest"] != digest:
++                raise VisitAuthError("Invitation already used.")
++            _validate(snapshot)
++            if (snapshot["username"], snapshot["gscd"]) != (previous["source_username"], previous["gscd"]):
++                raise VisitConflict("This pairing belongs to another cartridge.")
++            return {"token": token, **_read_guest(conn, _guest(conn, digest))}
++        used = conn.execute("DELETE FROM visit_invites WHERE digest=? AND expires>?", (invitation, int(time.time())))
++        if not used.rowcount:
++            raise VisitAuthError("Invalid or expired invitation.")
++        _validate(snapshot)
++        code = snapshot["gscd"]
++        if conn.execute("SELECT 1 FROM player_saves WHERE gscd=? UNION ALL SELECT 1 FROM account_gscds WHERE gscd=?",
++                        (code, code)).fetchone():
++            raise VisitConflict("The receiving server already has this cartridge.")
++        if conn.execute("SELECT 1 FROM visit_guests WHERE digest=?", (digest,)).fetchone():
++            raise VisitConflict("Pairing token is already in use.")
++        alias = GUEST_PREFIX + secrets.token_hex(12)
++        if conn.execute("SELECT 1 FROM accounts WHERE username=? COLLATE NOCASE", (alias,)).fetchone():
++            raise VisitConflict("Guest name collision. Try again.")
++        privacy = snapshot["visibility"]
++        conn.execute("""INSERT INTO accounts(username,password_hash,email,registered,active_gscd,pgl_privacy,dw_privacy)
++            VALUES (?,'!','',1,?,?,?)""", (alias, code, privacy["pgl_privacy"], privacy["dw_privacy"]))
++        conn.execute("INSERT INTO account_gscds(gscd,username) VALUES (?,?)", (code, alias))
++        conn.execute("INSERT INTO visit_guests VALUES (?,?,?,?,?)", (digest, invitation, code, snapshot["username"], alias))
++        _write(conn, snapshot, None)
++        return {"token": token, **_read_guest(conn, _guest(conn, digest))}
++
++
++def read_snapshot(token: str) -> dict:
++    with _transaction() as conn:
++        return _read_guest(conn, _guest(conn, _digest(token)))
++
++
++def replace_snapshot(token: str, revision: str, snapshot: dict) -> dict:
++    with _transaction() as conn:
++        guest = _guest(conn, _digest(token))
++        owner = _account(conn, guest["guest_username"], guest["gscd"], home=False)
++        return _replace(conn, guest["source_username"], owner, guest["gscd"], revision, snapshot, home=False)
++
++
++def create_ticket(token: str) -> str:
++    digest = _digest(token)
++    secret = secrets.token_urlsafe(32)
++    with _transaction() as conn:
++        _guest(conn, digest)
++        now = int(time.time())
++        conn.execute("DELETE FROM visit_tickets WHERE expires<=?", (now,))
++        conn.execute("INSERT INTO visit_tickets VALUES (?,?,?)", (_digest(secret), digest, now + TICKET_SECONDS))
++    return secret
++
++
++def consume_ticket(ticket: str) -> tuple[str, str, str]:
++    with _transaction() as conn:
++        row = conn.execute("DELETE FROM visit_tickets WHERE digest=? AND expires>? RETURNING guest_digest",
++                           (_digest(ticket), int(time.time()))).fetchone()
++        if row is None:
++            raise VisitAuthError("Invalid or expired browser ticket.")
++        guest = _guest(conn, row[0])
++        return guest["guest_username"], guest["gscd"], guest["source_username"]
 diff --git a/utils/visits.py b/utils/visits.py
 index 4a272548f1a142bf21b9ec593c972650edae6785..fa1faafe6186d751353d2dd7dfa16bc7772c309f 100644
 --- a/utils/visits.py
@@ -11797,6 +13150,190 @@ index 4a272548f1a142bf21b9ec593c972650edae6785..fa1faafe6186d751353d2dd7dfa16bc7
  def friend_waterings_left(gscd: str | None = None) -> int:
      """How many times the player can still water other players' gardens today."""
      member = save_data.read_member(gscd)
+diff --git a/utils/web_network.py b/utils/web_network.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..0ef102be30003693408ac7d598b79d6e77c5be6c
+--- /dev/null
++++ b/utils/web_network.py
+@@ -0,0 +1,178 @@
++"""Select one attached private LAN for the website; keep the PC's loopback URL."""
++import ipaddress
++import logging
++import os
++import socket
++import subprocess
++import time
++from pathlib import Path
++
++from flask import Response, request
++
++PRIVATE_LANS = tuple(ipaddress.IPv4Network(cidr) for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
++LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
++log = logging.getLogger(__name__)
++
++# Report numeric data only. Virtual adapters (including a VPN) are excluded.
++_ADAPTERS = """
++$ErrorActionPreference = 'Stop'
++foreach ($nic in @(Get-NetAdapter -Physical | Where-Object Status -eq 'Up')) {
++    $wifi = [int]$nic.NdisPhysicalMedium -in 1,9
++    foreach ($ip in @(Get-NetIPAddress -InterfaceIndex $nic.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
++        if ($ip.AddressState -eq 'Preferred' -and !$ip.SkipAsSource) {
++            Write-Output "$($ip.IPAddress)/$($ip.PrefixLength) $([int]$wifi)"
++        }
++    }
++}
++"""
++
++
++def _private_interface(value: str) -> ipaddress.IPv4Interface:
++    interface = ipaddress.IPv4Interface(value)
++    if not any(interface.network.subnet_of(network) for network in PRIVATE_LANS):
++        raise ValueError("The web listener needs a private LAN address and subnet.")
++    return interface
++
++
++def choose_web_lan(requested: str | None, ds_address: str | None, watch_wifi: bool) -> str | None:
++    """Resolve a launcher option against the actual physical adapter and subnet."""
++    if not (requested or ds_address or watch_wifi):
++        return None
++    explicit = _private_interface(requested) if requested else None
++    if os.name != "nt":
++        if requested and "/" not in requested:
++            raise ValueError("Include the adapter's prefix length with --web-lan (for example 192.168.1.5/24).")
++        return str(explicit) if explicit else None
++    try:
++        result = subprocess.run(
++            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", _ADAPTERS],
++            capture_output=True, check=True, timeout=12, creationflags=subprocess.CREATE_NO_WINDOW,
++        )
++    except (OSError, subprocess.SubprocessError) as exc:
++        if explicit:
++            raise ValueError("Could not verify the selected LAN adapter.") from exc
++        log.warning("Could not identify the physical LAN. The website is available on this PC.")
++        return None
++    choices = []
++    for line in result.stdout.decode("ascii", errors="replace").splitlines():
++        parts = line.split()
++        if len(parts) != 2:
++            continue
++        try:
++            candidate = _private_interface(parts[0])
++        except ValueError:
++            continue
++        if explicit:
++            if candidate.ip == explicit.ip and ("/" not in (requested or "") or candidate == explicit):
++                return str(candidate)
++        elif ds_address == str(candidate.ip) or (watch_wifi and parts[1] == "1"):
++            choices.append(str(candidate))
++    if explicit:
++        raise ValueError("--web-lan must match an address on a connected physical LAN adapter.")
++    if len(choices) == 1:
++        return choices[0]
++    log.warning("No single LAN selected. Use --web-lan to choose a physical adapter. The PC website stays available.")
++    return None
++
++
++def lan_web_address() -> str | None:
++    value = os.environ.get("DW_WEB_LAN")
++    return str(_private_interface(value).ip) if value else None
++
++
++def is_web_host(host: str | None) -> bool:
++    return host in LOCAL_HOSTS or (host is not None and host == lan_web_address())
++
++
++def same_web_lan(peer: str | None, host: str | None) -> bool:
++    value = os.environ.get("DW_WEB_LAN")
++    if not peer or not value:
++        return False
++    interface = _private_interface(value)
++    try:
++        return host == str(interface.ip) and ipaddress.IPv4Address(peer) in interface.network
++    except ValueError:
++        return False
++
++
++def restrict_web_clients() -> Response | None:
++    """Preserve loopback and relay traffic. Accept LAN browsers on the configured subnet only."""
++    peer = request.remote_addr or ""
++    try:
++        if ipaddress.ip_address(peer).is_loopback:
++            return None
++    except ValueError:
++        pass
++    if same_web_lan(peer, request.host.partition(":")[0]):
++        return None
++    return Response("Local network access only.", status=403, mimetype="text/plain")
++
++
++def web_listeners(port: int) -> list[str]:
++    """Drop a stale or occupied LAN binding without taking the loopback site down."""
++    addresses = [f"127.0.0.1:{port}"]
++    address = lan_web_address()
++    if address:
++        try:
++            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as check:
++                check.bind((address, port))
++        except OSError:
++            log.warning("LAN address %s:%s is unavailable. Restart the launcher after checking your network.", address, port)
++            os.environ.pop("DW_WEB_LAN", None)
++        else:
++            addresses.append(f"{address}:{port}")
++    return addresses
++
++
++def publish_web_lan(path: Path, lan: str | None) -> None:
++    """Share one physical-adapter detection among all language servers."""
++    temporary = path.with_suffix(".new")
++    temporary.write_text(lan or "", encoding="ascii")
++    temporary.replace(path)
++
++
++def serve_changing_lan(app, port: int, state: Path, **options) -> None:
++    """Keep loopback and existing tasks running while switching the private LAN socket."""
++    from waitress import create_server, wasyncore
++
++    channels: dict = {}
++    loopback = create_server(app, map=channels, host="127.0.0.1", port=port, **options)
++    lan_server = None
++    os.environ.pop("DW_WEB_LAN", None)
++    next_check = 0.0
++    try:
++        while True:
++            if time.monotonic() >= next_check:
++                next_check = time.monotonic() + 1
++                try:
++                    value = state.read_text(encoding="ascii").strip()
++                    target = _private_interface(value) if value else None
++                except (OSError, ValueError):
++                    target = None
++                new_ip = str(target.ip) if target else None
++                if lan_server is not None and new_ip != lan_server.effective_host:
++                    os.environ.pop("DW_WEB_LAN", None)
++                    for channel in list(lan_server.active_channels.values()):
++                        channel.handle_close()
++                    lan_server.close()
++                    lan_server = None
++                if target and lan_server is None:
++                    # Bind first: failure must not leak a Waitress trigger or a dispatcher.
++                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++                    try:
++                        sock.bind((str(target.ip), port))
++                    except OSError:
++                        sock.close()
++                        next_check = time.monotonic() + 3
++                    else:
++                        lan_server = create_server(app, map=channels, sockets=[sock],
++                                                   _dispatcher=loopback.task_dispatcher, **options)
++                if lan_server is not None and target:
++                    os.environ["DW_WEB_LAN"] = str(target)
++            wasyncore.loop(timeout=0.5, map=channels, count=1)
++    except KeyboardInterrupt:
++        pass
++    finally:
++        os.environ.pop("DW_WEB_LAN", None)
++        loopback.task_dispatcher.shutdown()
++        wasyncore.close_all(channels)
 diff --git a/utils/zh_web.py b/utils/zh_web.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..41094694cfc6a19e56e83a6eaf673ad62da22672

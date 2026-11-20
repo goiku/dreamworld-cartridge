@@ -1,8 +1,12 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "d4a55446bb5117c270a37bf8a4da38792e1e6f4b984dbee0b89b6b32d2a8322f",
+    "patch_sha256": "194229182982204308bef91e0d35c4c3c425d8580feaa8f8785e1ef74a7a9e60",
     "files": {
+      "Invite-Friend.cmd": {
+        "before": null,
+        "after": "39e2001bcdec8fb50dc6d51aaf3448d2e28c3f9088878bab667a0644064bd191"
+      },
       "Start-DreamWorld-LAN.cmd": {
         "before": null,
         "after": "3a0a7463de85eac90c3f354de423c73055eaf36e6ca0fce595ac7df57368a660"
@@ -10,6 +14,10 @@
       "Start-DreamWorld.cmd": {
         "before": null,
         "after": "df32f4b1967aaa394bf5e9bd8b5980663a85177cef5ad875abaf1db1629136b8"
+      },
+      "Visit-Friend.cmd": {
+        "before": null,
+        "after": "dd8aeabdcc569d62dd63c0663dd7d2c1d3d0ab657f1d00ceec4c722eadf2ae00"
       },
       "api/gts_journal.py": {
         "before": "a4a3d2028f49250a44a374b53143817a53781e5e0e3097b65ad2489c68ed2bdc",
@@ -61,15 +69,24 @@
       },
       "api/pgl_top.py": {
         "before": "4b94b2f8e3fcd81c91bbde5b153782d475d84b9c8edd5574cb99275c08ad796f",
-        "after": "647d9fe60dbdef161b46955e0b19c29c8e399b5dd0ffe995b96066695952b70c"
+        "after": "b0a8b59851c051bf6484dc49d0f290facb16d1e1d86b611c849072f78cb4258b",
+        "previous": [
+          "647d9fe60dbdef161b46955e0b19c29c8e399b5dd0ffe995b96066695952b70c"
+        ]
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91"
+        "after": "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
+        "previous": [
+          "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91"
+        ]
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544"
+        "after": "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
+        "previous": [
+          "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544"
+        ]
       },
       "api/signup.py": {
         "before": "ceae94877540ecd6545133e286f58407cdde46940076d6d2834093793cb2c87d",
@@ -78,6 +95,10 @@
       "api/stubs.py": {
         "before": "c6677d3627119fe927509244a008580e068b61e6cc3646ea638b17da4484a3ba",
         "after": "89dacc7fb7185baf647f4e9a406e2b3307c2f719dc094c08b94d19e3006b3256"
+      },
+      "api/visit_sync.py": {
+        "before": null,
+        "after": "164b33061d3cf5260b0f9a859db673b390255fbc27920a1b1de334bac08460e1"
       },
       "config.py": {
         "before": "f8d6da3966c9d791fc1b95b350337f449ecf20cac80aa5c027085fe986cfd545",
@@ -89,7 +110,10 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898"
+        "after": "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
+        "previous": [
+          "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898"
+        ]
       },
       "json_data/pokemon.json": {
         "before": "9bb7eb49a42eec485bb8e3837f65b7635bc2ec48467789e34c1d095ad62453ae",
@@ -105,11 +129,17 @@
       },
       "launch_windows.py": {
         "before": null,
-        "after": "97e2969f5be91df9218101c0659791dbc24bcc7a510dd7e7d82bb7f7acaf85bd"
+        "after": "82fb4c3df975ab6b1f10cb2c2303cbf0edb6eb512a411d1c332535c421472302",
+        "previous": [
+          "97e2969f5be91df9218101c0659791dbc24bcc7a510dd7e7d82bb7f7acaf85bd"
+        ]
       },
       "main.py": {
         "before": "8be39929cf0db1a1a8a600496f5ad54c3d27a94e19e03b88e5a3e04998f9fc95",
-        "after": "b0562cc5bb013b0fbc0e314f0edd324a2c30050b504a5f4aeeb892ddbeeca7e4"
+        "after": "bd909bec233b369d181fa92345e51d359d3011b4fef8cacb1a5c3740758ca00a",
+        "previous": [
+          "b0562cc5bb013b0fbc0e314f0edd324a2c30050b504a5f4aeeb892ddbeeca7e4"
+        ]
       },
       "raw_text/de/country.txt": {
         "before": "be009db182983133b659094bcb5d14d97124e14d4e07978cb004fee7ebff03ce",
@@ -203,6 +233,10 @@
         "before": null,
         "after": "393fe07e85df5410ac6dab37b4030d12953ab316818a372bc9df519114972a9c"
       },
+      "scripts/create_visit_invite.py": {
+        "before": null,
+        "after": "453a905d8542dc23d35f798143aa6f87052541544e5d0bbfd4b8b9e398e036be"
+      },
       "scripts/select_game_network.ps1": {
         "before": null,
         "after": "3146eab4d44513154f43009396f6b49bca6e768b0002afdbae0e21e3af473396"
@@ -211,17 +245,39 @@
         "before": null,
         "after": "c11f5a4a78539a87387335b5230916cdcb1d9af98ac3d11c15cc2a60a809814d"
       },
+      "scripts/visit_friend.py": {
+        "before": null,
+        "after": "1c3e06889228d38315494913022dec9ac7891afffba51654d3a5c4c50435d063"
+      },
       "static/player-guide.css": {
         "before": null,
-        "after": "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c"
+        "after": "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f",
+        "previous": [
+          "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c"
+        ]
       },
       "static/player-guide.js": {
         "before": null,
         "after": "486393a829d73834397513ce8d1520c0cdf2904b724ec3abb6d4e5867842d479"
       },
+      "templates/phone_access.html": {
+        "before": null,
+        "after": "8f51f1b1c2a11c004203714f3d4cb93463aa4ff129e6431f40e70a7eba1eb587"
+      },
       "templates/player_guide.html": {
         "before": null,
-        "after": "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f"
+        "after": "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
+        "previous": [
+          "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f"
+        ]
+      },
+      "tests/test_visit_storage.py": {
+        "before": null,
+        "after": "32a06ef99e25d5f76a6f104e7fa5e81bd0d7fb3c5d16f27b5fbcfe3ebf82603e"
+      },
+      "tests/test_web_network.py": {
+        "before": null,
+        "after": "dc3abcb6bc0a446c9ea9868fa08cb177af114cfe9a549bdee0a7f32bd9315d06"
       },
       "utils/account_manager.py": {
         "before": "7be3a794b8fa6936d4b8983c520893050866e0ab3eebf363ccffc5e82102db1a",
@@ -253,7 +309,10 @@
       },
       "utils/patching/substitutions.py": {
         "before": "7222896eb22c14bd5acb91061d67f9254fbabbc6573a7c28ac459c67fa4f0168",
-        "after": "cdafd36b10b48218f7359952b0e2f3cf221d886c6bf5260eecdc5cbc04bb5957"
+        "after": "cae367ff569c4829c5d3e494f6a3084f0d7b5940b278af4370994eae9a43c2b1",
+        "previous": [
+          "cdafd36b10b48218f7359952b0e2f3cf221d886c6bf5260eecdc5cbc04bb5957"
+        ]
       },
       "utils/patching/swf_patches.py": {
         "before": "cf28ae41193a4f9b61fe578ae1fcc06f9d55140baf4c500d4072d8d5347d5db1",
@@ -261,7 +320,10 @@
       },
       "utils/player_dns.py": {
         "before": null,
-        "after": "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
+        "after": "45e4c086042d0a4623f5108568fab578acaa31e144a956b91a7acf1549ab9585",
+        "previous": [
+          "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
+        ]
       },
       "utils/profile_avatars.py": {
         "before": null,
@@ -275,9 +337,17 @@
         "before": "0886760934c9ff3485f16593f21a9424b23660c5af0685ccad034ca9ebda198e",
         "after": "002a710969dddf97064b00328bb393bc653e7dc3a4d63f36dfba0849b626cb38"
       },
+      "utils/visit_storage.py": {
+        "before": null,
+        "after": "fd774c655a0555cf4823bb0f773bd22e93aa375d0952152a7c812682b50f862d"
+      },
       "utils/visits.py": {
         "before": "f3bf287615cfc55a0ced72199d953bf28c9036dc15f5273e6ab3dc986e4a3199",
         "after": "95e5df2ef7436f6ff946e139a4a55f40b91b876a7c9d1f9f65233f1fd4e870dd"
+      },
+      "utils/web_network.py": {
+        "before": null,
+        "after": "f33aaf7272463b535081cc4e7fc865a6e6a80435476958ce0691cd7a57f18155"
       },
       "utils/zh_web.py": {
         "before": null,
@@ -290,7 +360,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "9f659ac29a81ea7e1e071c63f8cb13f1d2b1c37e6f0ce0d6b1f29e1353589202",
+      "sha256": "9eaac18c6852340d4d5d7b6053544f3b7709b7eb31de0ef99875c2a7bad5d3e0",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",

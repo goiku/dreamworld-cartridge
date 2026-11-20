@@ -4,6 +4,16 @@ English · [日本語](docs/README.ja.md) · [简体中文](docs/README.zh-CN.md
 
 A community restoration of the Generation V Dream World. Play on a computer, befriend a Pokémon on the Island of Dreams, wish for it at the tree, and catch it in the Entree Forest on your cartridge. This repository supplies the source changes and setup tools for a private server.
 
+## Play solo on your local network
+
+**Connect your DS and the PC running Dream World to the same home network.** The same Wi-Fi or hotspot works as long as its devices can communicate. Solo play requires no Tailscale account or invitation.
+
+1. **Start Dream World on your PC.** After the [first-time Windows setup](#start-the-server-on-windows), double-click `Start-DreamWorld-LAN.cmd` in the `runtime` folder. Keep its window open while you play.
+2. **Find the DNS on the Dream World website.** On that PC, open the Dream World homepage or game page and click **Find my DS DNS** above the game. If no address appears, check the LAN server and Wi-Fi connection, then click **Check again**. [Open the DNS guide on this PC](http://127.0.0.1:8080/player-guide/#dns)
+3. **Enter the displayed address on your DS.** Under **Where to enter the DNS**, select your console model. In the Wi-Fi connection the game uses, turn off automatic DNS, enter the displayed number as **Primary DNS**, then save and run the connection test. You can keep this setting for later sessions while the address stays the same.
+
+**To play on a phone or tablet**, start the LAN server and connect the phone to the PC's Wi-Fi. On the PC, click **Phone web address** on the homepage or above the game. Enter the address shown, including the port, in the phone's browser. Sign in with the account linked to your cartridge. The DS can be offline once its tuck-in sync finishes. Reconnect it when you are ready to wake the Pokémon. When the PC changes Wi-Fi in automatic LAN mode, refresh this page after the new connection is ready. It will show the new address. The mobile layout was tested in an emulated mobile browser. [Find the phone address on this PC](http://127.0.0.1:8080/player-guide/phone/)
+
 ## Cartridge test
 
 On November 20, 2026, I woke up Axew on my Japanese *Pokémon Black* cartridge. The server recorded the cartridge completing its download of Cleffa. I then caught Cleffa in the Entree Forest. Its summary on my console lists the encounter location as ハイリンクの森 (Entree Forest) and the level at encounter as 10. The Simplified Chinese website was tested separately in a browser. [Cartridge photo](docs/images/cleffa-cartridge.jpg)
@@ -27,9 +37,18 @@ uv run --frozen python launch_windows.py --lan
 
 If Windows uses the Python Launcher, use `py -3 setup.py` in place of `python setup.py`. Keep the server window open while playing. It prints the Game Sync address for your DS and a website address for each available language. The English site uses port 8080, Japanese 8081 and Simplified Chinese 8088. [English homepage on your PC](http://127.0.0.1:8080/)
 
+### Update an existing installation
+
+Finish any active Game Sync and close the server and relay windows. In the original Git checkout, open PowerShell in the folder containing `setup.py` and run the two commands below. This updates the installed source and reuses the large website mirror already on disk. Then start the server again. [Source updater](tools/apply-source.py)
+
+```powershell
+git pull --ff-only
+python tools/apply-source.py runtime
+```
+
 ## Bring your first partner home
 
-1. **Connect the cartridge.** On the local homepage, select **Find my DS DNS**. Open the instructions for your console and enter the displayed address as the primary DNS of the connection your game uses. On the C-Gear touch **Wi-Fi → Game Sync** (ゲームシンク on the Japanese cartridge). Tuck in one Pokémon and wait for confirmation. Find your save's Game Sync ID under **Game Sync Settings** on the game's main menu.
+1. **Tuck in a Pokémon.** On the C-Gear touch **Wi-Fi → Game Sync** (ゲームシンク on the Japanese cartridge). Tuck in one Pokémon and wait for confirmation. Find your save's Game Sync ID under **Game Sync Settings** on the game's main menu.
 2. **Link your save.** Open the local homepage, create an account on this server, sign in, and register your save's Game Sync ID. If registration asks for activation, the server operator can run the command below in a second PowerShell window inside `runtime`. Replace `PlayerName` with the registered username. Server operators can activate accounts locally without configuring email.
 3. **Make a friend on the website.** Enter Dream World, cross the rainbow bridge and complete an encounter's minigame. At the Tree of Dreams, offer one Berry and select the Pokémon you befriended. New players receive five Berries of one kind on their first visit.
 4. **Prepare to wake up.** Return home on the website. Use the power button in the upper right, choose to end the visit and wake your Pokémon, then check the partner shown and confirm.
@@ -72,7 +91,21 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.31
 uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32 --host 100.64.10.1 --tailscale-ip 100.64.10.2 --relay-ip 192.168.50.20
 ```
 
-After both gateways report `Battle hub confirmed the connection`, set each console's primary DNS to **its own PC's LAN address**. Each player opens the local website on their PC and uses their own account. For a friend battle or direct trade, register each other's Friend Code and enter the Pokémon Center Wi-Fi Club. For a standard GTS trade, one player deposits a Pokémon, the other searches and trades, then the first returns to collect it. To check the relay locally, run `uv run tools/DreamWorld-VPN.py self-test` in the release folder.
+After both gateways report `Battle hub confirmed the connection`, set each console's primary DNS to **its own PC's LAN address** for multiplayer. For a friend battle or direct trade, register each other's Friend Code on the shared game server and enter the Pokémon Center Wi-Fi Club. For a standard GTS trade, one player deposits a Pokémon, the other searches and trades, then the first returns to collect it. To check the relay locally, run `uv run tools/DreamWorld-VPN.py self-test` in the release folder.
+
+### Visit a friend's Dream World and take your rewards home
+
+Either PC can host. First install or update both servers. Each player needs an activated account on their **own** server with their cartridge linked. Each pairing is for one host, one home account and one cartridge. The host creates a separate visitor profile, even if a local player has the same username. Pairing stops if the host already has a save for that Game Sync ID.
+
+1. **Prepare your cartridge at home.** As the visitor, tuck a Pokémon in on your own server and wait for the DS to confirm. Close your local Dream World website and stop your LAN server with Ctrl+C. Leave the Pokémon asleep until you get home.
+2. **Send an invitation from the host PC.** Start the server and the private relay using the commands above, then double-click `runtime/Invite-Friend.cmd`. Privately send the visitor your PC's Tailscale IPv4 address and the one-use code, valid for 30 minutes. Keep the server and relay running through the visitor's final sync.
+3. **Join from the visitor PC.** Start the visitor gateway (command **3** above, with web forwarding enabled). Double-click `runtime/Visit-Friend.cmd` and enter the host's Tailscale address. Enter your own username and password on your PC, then enter the invitation code at first pairing. Your password is checked locally. The browser opens the visiting account automatically. The default website language is Simplified Chinese. To visit in English, run `.\Visit-Friend.cmd --lang en` in PowerShell inside `runtime`. Use `--lang ja` for Japanese.
+4. **Play on the host and finish on the website.** Wish for a partner, choose any items to send to the cartridge, then return home on the website and choose to prepare your Pokémon to wake up. Close the game tab. Press Ctrl+C **in the visitor's sync window** and wait for `Final sync complete`. If the connection dropped, reconnect, keep the host and gateway running, and run `uv run --frozen python -m scripts.visit_friend --once` from the visitor's `runtime` folder.
+5. **Return to your own server.** After the final sync succeeds, stop the visitor gateway and restart `Start-DreamWorld-LAN.cmd`. Check your own server's DNS and wake your Pokémon on the DS. The selected partner can be caught in the Entree Forest. The website's Treasure Chest and the items selected for cartridge delivery are recorded separately. For a visit in the other direction, swap roles and have the new host issue an invitation.
+
+If both copies have new progress, synchronization pauses. Close the visiting browser and pause play on both PCs. From the visitor's `runtime` folder, run `uv run --frozen python -m scripts.visit_friend --once --resolve host` to keep the friend's server copy, or use `--resolve home` to keep your own PC's copy. The tool writes both versions to `visit-conflict-*.json` in the visitor's save folder before applying your choice. GTS deposits and Friend Codes remain on the game server where they were registered.
+
+The integration test uses two temporary servers and synthetic cartridges. It checks visits in both directions, a browser wish, conflict recovery and the home server's wake-up download. You can run `runtime\.venv\Scripts\python.exe tools/check-visit.py runtime` from the release folder. The physical cartridge capture documented above was a separate solo test. [Two-server test](tools/check-visit.py)
 
 ## Project sources and changes
 
@@ -80,7 +113,7 @@ I’m goiku, and I performed the cartridge test myself. OpenAI Codex assisted wi
 
 After installation, you can also check the wish and cartridge download using a temporary test save. From the release folder, run `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`. A successful run prints `PASS`. [Cartridge test source](tools/check-cartridge.py)
 
-Review the changes in the [website source patch](source/web.patch) and the [Game Sync source patch](source/game-sync.patch).
+The website finds the DNS to display by checking for a reply from the local game DNS service. Browse the [website DNS lookup](source/web/utils/player_dns.py), [Game Sync DNS responder](source/game-sync/entralinked/network/dns/server.py), [player guide page](source/web/templates/player_guide.html), and [sign-in and session handling](source/web/api/pgl_top.py). The installer applies the [website source patch](source/web.patch) and the [Game Sync source patch](source/game-sync.patch).
 
 Original artwork, music and Flash minigames come from Pokémon. The restoration community preserved the website and developed the server and Game Sync support. Ruffle plays Flash content in a modern browser. [Dream World Reawakened](https://github.com/minibug1021/dreamworld-reawakened) · [game-sync-python](https://github.com/minibug1021/game-sync-python) · [Entralinked](https://github.com/kuroppoi/entralinked) · [dreamworld-assets](https://github.com/minibug1021/dreamworld-assets) · [Ruffle](https://ruffle.rs/)
 

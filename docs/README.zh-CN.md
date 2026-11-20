@@ -4,6 +4,16 @@
 
 这是第五世代梦世界的社区复原版。你可以在电脑上探索梦之岛、和宝可梦交朋友、到梦之树许愿，再用自己的卡带到连入之森亲手捕获它。本仓库提供搭建私服所需的源码改动和安装工具。
 
+## 自己一个人玩
+
+**让掌机和运行梦世界的电脑连到同一个家用网络就行。** 连同一个 Wi-Fi 或热点都可以，只要两台设备能互相访问。自己玩无需安装 Tailscale，也无需邀请别人。
+
+1. **电脑开服。** 第一次先按下方的[Windows 安装步骤](#在-windows-上启动私服)装好。以后双击 `runtime` 文件夹里的 `Start-DreamWorld-LAN.cmd`，游玩期间保持窗口打开。
+2. **在梦世界网页查 DNS。** 在这台电脑上，点梦世界首页或游戏画面上方的 **「查看我的掌机 DNS」**。页面会显示「主要 DNS」。如果没有显示地址，确认电脑已用局域网模式开服、掌机和电脑已连到同一网络，再点「重新检查」。[直接打开本机中文版 DNS 页面](http://127.0.0.1:8088/player-guide/#dns)
+3. **把网页显示的数字填进掌机。** 在网页的 **「在掌机哪里填 DNS」** 选自己的机型，照着步骤打开游戏使用的 Wi-Fi 连接，关闭「自动获取 DNS」，把刚才的数字填进「主要 DNS」，保存并测试连接。下次地址没变就不用重填。
+
+**用手机或平板玩时，**先在电脑上以局域网模式开服，让手机连上同一个 Wi-Fi。在电脑的梦世界首页或游戏画面上方点 **「手机访问网址」**，把显示的完整网址（含端口）输入手机浏览器，用绑定这张卡带的账号登录。宝可梦入睡同步完成后，掌机可以断网，到唤醒时再连回来。在自动局域网模式下，电脑换了 Wi-Fi，等新网络连好后刷新这个页面，就能查到新网址。手机页面已在模拟移动浏览器中验证。[在开服电脑上查看手机访问网址](http://127.0.0.1:8088/player-guide/phone/)
+
 ## 实机捕获记录
 
 2026 年 11 月 20 日，我在自己的日版《宝可梦 黑》卡带上唤醒了牙牙。服务器收到了卡带完成下载的回执，记录显示送出的新伙伴是皮宝宝。随后，我在连入之森亲手抓到了这只皮宝宝。它的能力页面记载，相遇地点为「ハイリンクの森」（连入之森），相遇等级为 10。简体中文网页另外经过了浏览器实测。[查看卡带实拍](images/cleffa-cartridge.jpg)
@@ -27,9 +37,18 @@ uv run --frozen python launch_windows.py --lan
 
 如果电脑使用 Windows 的 Python 启动器，可以用 `py -3 setup.py` 运行安装程序。游玩期间保持窗口开启。窗口会显示供掌机使用的 `Game Sync address`，以及各语言的网页地址。英语端口为 8080，日语为 8081，简体中文为 8088。[打开本机中文版首页](http://127.0.0.1:8088/)
 
+### 已经装过怎么更新
+
+先等掌机同步结束，关闭开服和转接窗口。如果当初用 Git 下载了本仓库，在有 `setup.py` 的文件夹打开 PowerShell，运行下面两行，然后重新开服。这次更新复用已下载的网页素材，无需重新下载大型镜像。[查看源码更新工具](../tools/apply-source.py)
+
+```powershell
+git pull --ff-only
+python tools/apply-source.py runtime
+```
+
 ## 第一次把梦世界伙伴带回卡带
 
-1. **连接卡带。** 点梦世界首页的**「查看我的掌机 DNS」**，选你的掌机型号展开设置步骤，把网页显示的地址填进游戏所用连接的「主要 DNS」。在 C-Gear 下屏点 **Wi-Fi → 游戏同步**（日文「ゲームシンク」），让一只宝可梦入睡，等游戏提示同步完成。存档的游戏同步 ID 可以在游戏主菜单的「ゲームシンク設定」里查看。
+1. **让一只宝可梦入睡。** 在 C-Gear 下屏点 **Wi-Fi → 游戏同步**（日文「ゲームシンク」），让一只宝可梦入睡，等游戏提示同步完成。存档的游戏同步 ID 可以在游戏主菜单的「ゲームシンク設定」里查看。
 2. **绑定存档。** 在电脑上打开本机网页，注册这个私服的账号并登录，再登记该存档的游戏同步 ID。如果网页提示需要激活，服主可以在 `runtime` 目录另开 PowerShell，运行下方的激活命令，把 `PlayerName` 换成玩家注册时填写的用户名。服主可以在本机激活账号，无需配置邮件服务。
 3. **在网页结交伙伴。** 进入梦世界，跨过彩虹桥，通过小游戏与遇见的宝可梦交朋友。到梦之树献出一枚树果，选择想带走的伙伴。首次进入梦世界会收到同一种树果五枚。
 4. **在网页准备唤醒。** 回到梦世界小屋，点右上角电源按钮，选「准备唤醒并结束」。核对要带走的伙伴，然后点「结束梦世界」。
@@ -72,7 +91,21 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.31
 uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32 --host 100.64.10.1 --tailscale-ip 100.64.10.2 --relay-ip 192.168.50.20
 ```
 
-两边的网关窗口都出现 `Battle hub confirmed the connection` 后，各自把掌机的主 DNS 填成**当地电脑的局域网地址**，在电脑上打开本机网页，用各自的账号登录。好友对战或直接交换需要双方登记彼此的好友代码，再进入宝可梦中心的 Wi-Fi 俱乐部。普通 GTS 交换由一人预放，一人搜索并交换，预放者再次进入即可领取。要在本机自检转接程序，可在发布包目录运行 `uv run tools/DreamWorld-VPN.py self-test`。
+两边的网关窗口都出现 `Battle hub confirmed the connection` 后，掌机联机时各自把主要 DNS 填成**当地电脑的局域网地址**。好友对战或直接交换需要双方在同一台游戏服务器上登记彼此的好友代码，再进入宝可梦中心的 Wi-Fi 俱乐部。普通 GTS 交换由一人预放，一人搜索并交换，预放者再次进入即可领取。要在本机自检转接程序，可在发布包目录运行 `uv run tools/DreamWorld-VPN.py self-test`。
+
+### 去朋友的梦世界，把收获带回自己卡带
+
+谁都可以当房主。两边先安装或更新到同一版，各自在**自己的私服**上激活账号、绑定卡带。每次配对关联一位房主、一个本地账号和一张卡。即使两人用户名相同，房主电脑也会单独建立访客身份。若房主已有这张卡的游戏同步记录，配对会停止。
+
+1. **访客先在家让宝可梦入睡。** 掌机连接自己的私服，等游戏提示入睡同步完成。关掉自己服的梦世界网页，在本地开服窗口按 Ctrl+C 停服。让宝可梦一直睡到回家。
+2. **房主发邀请。** 按上面的方法开服并启动私有中继，再双击 `runtime/Invite-Friend.cmd`。把房主电脑的 Tailscale IPv4 地址和**一次性邀请码**私下发给访客，邀请码 30 分钟内有效。房主等访客做完最后一次同步再关服。
+3. **访客从自己的电脑加入。** 在自己电脑上运行上面的第 **3** 条网关命令，保留网页转发。双击 `runtime/Visit-Friend.cmd`，按提示输入房主的 Tailscale 地址、自己私服的用户名和密码，首次配对再输入邀请码。密码只在自己电脑上核对，浏览器会自动以访客身份打开。网页默认简体中文。要选日文或英文，可在 `runtime` 目录的 PowerShell 运行 `.\Visit-Friend.cmd --lang ja` 或 `.\Visit-Friend.cmd --lang en`。
+4. **在朋友的网页上结束梦世界。** 许愿后，选好要送到卡带的道具，回到网页小屋，选「准备唤醒并结束」。关闭游戏标签页，接着在**访客的同步窗口**按 Ctrl+C。等它显示「最终同步已完成」。如果中途断网，恢复连接后保持房主服务和访客网关开启，在访客的 `runtime` 目录运行 `uv run --frozen python -m scripts.visit_friend --once` 补同步。
+5. **回自己的私服唤醒。** 最终同步成功后，关掉访客网关，重新双击 `Start-DreamWorld-LAN.cmd`。确认掌机使用自己私服的 DNS，再用游戏同步唤醒宝可梦，到连入之森捕捉许愿选中的伙伴。网页宝箱里的库存和你选定送回卡带的道具分别记录。下次想请朋友来你家，双方互换角色，由新房主生成邀请码。
+
+如果两边都产生了新进度，同步会暂停。关闭访客的游戏网页，两边暂停游玩。在访客电脑的 `runtime` 目录运行 `uv run --frozen python -m scripts.visit_friend --once --resolve host` 会保留**房主电脑上的进度**。要保留**访客自己电脑上的进度**，把最后的 `host` 换成 `home`。工具会先把两份进度备份到访客存档目录的 `visit-conflict-*.json`，然后应用你选的那一份。GTS 寄存和好友代码各自留在原来的游戏服务器上。
+
+双服自检使用两台临时服务器和模拟卡带，覆盖双方互换主客、网页许愿、进度冲突及回自己服下载唤醒数据。在发布包目录运行 `runtime\.venv\Scripts\python.exe tools/check-visit.py runtime` 即可复查。上文的皮宝宝照片来自单机开服的实体卡带捕获。[查看双服测试源码](../tools/check-visit.py)
 
 ## 来源与本次改动
 
@@ -80,7 +113,7 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32
 
 安装后，还可以用临时测试存档检查许愿和卡带下载流程。在发布包目录运行 `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`，通过时会显示 `PASS`。[查看卡带测试源码](../tools/check-cartridge.py)
 
-可直接查看[网页服务源码补丁](../source/web.patch)和[卡带游戏同步源码补丁](../source/game-sync.patch)。
+网页会向本机的游戏 DNS 服务查询，再显示掌机该填的地址。对应源码可以逐个打开：[网页 DNS 查询](../source/web/utils/player_dns.py) · [游戏 DNS 应答](../source/game-sync/entralinked/network/dns/server.py) · [站内指南页面](../source/web/templates/player_guide.html) · [玩家登录](../source/web/api/pgl_top.py)。安装程序使用[网页服务源码补丁](../source/web.patch)和[卡带游戏同步源码补丁](../source/game-sync.patch)。
 
 原版的美术、音乐和 Flash 小游戏来自宝可梦。复原社区保存了网页资源，开发了服务器和游戏同步程序。现代浏览器通过 Ruffle 运行 Flash 内容。[Dream World Reawakened](https://github.com/minibug1021/dreamworld-reawakened) · [game-sync-python](https://github.com/minibug1021/game-sync-python) · [Entralinked](https://github.com/kuroppoi/entralinked) · [dreamworld-assets](https://github.com/minibug1021/dreamworld-assets) · [Ruffle](https://ruffle.rs/)
 
