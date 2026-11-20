@@ -6,7 +6,7 @@ A community restoration of the Generation V Dream World. Play on a computer, bef
 
 ## Cartridge test
 
-On November 20, 2026, a player woke up Axew in a Japanese copy of *Pokémon Black*. The server recorded the cartridge completing its download of Cleffa. The player then caught Cleffa. Its summary on the console records an encounter at level 10 in ハイリンクの森 (Entree Forest). The Simplified Chinese website was tested separately in a browser. [Cartridge photo](docs/images/cleffa-cartridge.jpg)
+On November 20, 2026, I woke up Axew on my Japanese *Pokémon Black* cartridge. The server recorded the cartridge completing its download of Cleffa. I then caught Cleffa in the Entree Forest. Its summary on my console lists the encounter location as ハイリンクの森 (Entree Forest) and the level at encounter as 10. The Simplified Chinese website was tested separately in a browser. [Cartridge photo](docs/images/cleffa-cartridge.jpg)
 
 The upstream revision used here listed wishing at the tree and sending a new friend back as unfinished. Earlier Game Sync experiments had already enabled forest captures from downloaded encounter data. We found no earlier public demonstration of this particular restored website-to-cartridge sequence in the sources reviewed as of November 20, 2026. Its worldwide priority remains unknown. [Upstream status at the revision used here](https://github.com/minibug1021/dreamworld-reawakened/blob/77174d2f3084b83b80544161dca8ad2d325654b8/readme.md#things-that-are-not-working) · [2023 Game Sync developer report](https://github.com/mm201/pkmn-classic-framework/issues/8#issuecomment-1552963901)
 
@@ -76,7 +76,7 @@ After both gateways report `Battle hub confirmed the connection`, set each conso
 
 ## Project sources and changes
 
-goiku caught Cleffa on the physical cartridge, and OpenAI Codex assisted with the source changes, localization and tests for this restoration.
+I’m goiku, and I performed the cartridge test myself. OpenAI Codex assisted with the source changes, localization and tests for this restoration.
 
 After installation, you can also check the wish and cartridge download using a temporary test save. From the release folder, run `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`. A successful run prints `PASS`. [Cartridge test source](tools/check-cartridge.py)
 

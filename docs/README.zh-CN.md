@@ -6,7 +6,7 @@
 
 ## 实机捕获记录
 
-2026 年 11 月 20 日，一位玩家在日版《宝可梦 黑》卡带中唤醒了牙牙。服务器收到了卡带完成下载的回执，记录显示送出的新伙伴是皮宝宝。玩家随后在游戏里抓到了它。实机的能力页面记载，相遇地点为「ハイリンクの森」（连入之森），相遇等级为 10。简体中文网页另外经过了浏览器实测。[查看卡带实拍](images/cleffa-cartridge.jpg)
+2026 年 11 月 20 日，我在自己的日版《宝可梦 黑》卡带上唤醒了牙牙。服务器收到了卡带完成下载的回执，记录显示送出的新伙伴是皮宝宝。随后，我在连入之森亲手抓到了这只皮宝宝。它的能力页面记载，相遇地点为「ハイリンクの森」（连入之森），相遇等级为 10。简体中文网页另外经过了浏览器实测。[查看卡带实拍](images/cleffa-cartridge.jpg)
 
 本项目采用的上游版本把梦之树许愿和新伙伴回传列为尚未完成的功能。此前已经有开发者通过游戏同步下载遭遇数据，并在森林里捕获宝可梦。截至 2026 年 11 月 20 日，在所查公开资料中，尚未找到更早展示「复活网页结交、许愿、回传、实机捕获」全过程的记录。全球首次的归属仍无定论。[所用上游版本的功能说明](https://github.com/minibug1021/dreamworld-reawakened/blob/77174d2f3084b83b80544161dca8ad2d325654b8/readme.md#things-that-are-not-working) · [2023 年开发者的游戏同步记录](https://github.com/mm201/pkmn-classic-framework/issues/8#issuecomment-1552963901)
 
@@ -76,7 +76,7 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32
 
 ## 来源与本次改动
 
-goiku 在实体卡带上抓到了皮宝宝，OpenAI Codex 协助完成了本次复原的源码修改、汉化和测试。
+实机捕获由我（goiku）本人验证。OpenAI Codex 协助完成了本次复原的源码修改、汉化和测试。
 
 安装后，还可以用临时测试存档检查许愿和卡带下载流程。在发布包目录运行 `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`，通过时会显示 `PASS`。[查看卡带测试源码](../tools/check-cartridge.py)
 
