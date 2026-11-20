@@ -1,5 +1,8 @@
 {
   "en": {
+    "wake_title": "Your Pokémon is ready to wake up",
+    "wake_console": "On your DS, open the C-Gear, choose ONLINE (Wi-Fi on a Japanese cartridge), then Game Sync. Wake your Pokémon and stay connected until the sync finishes.",
+    "wake_skin": "View C-Gear skins",
     "title": "Player guide",
     "dns_title": "Find my DS DNS",
     "checking": "Checking the DNS service…",
@@ -37,6 +40,9 @@
     "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you."
   },
   "ja": {
+    "wake_title": "ポケモンを起こせます",
+    "wake_console": "DSのCギアで「Wi-Fi」→「ゲームシンク」を選び、ポケモンを起こしてください。ゲームシンクが終わるまで接続したままお待ちください。",
+    "wake_skin": "Cギアのスキンを確認する",
     "title": "遊び方ガイド",
     "dns_title": "DSに設定するDNSを調べる",
     "checking": "DNSを確認中…",
@@ -74,6 +80,9 @@
     "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。"
   },
   "zh": {
+    "wake_title": "宝可梦正在等待唤醒",
+    "wake_console": "在掌机的 C-Gear 下屏点「ONLINE」（日版为「Wi-Fi」）→「游戏同步」（ゲームシンク），选择唤醒宝可梦。保持联网，直到游戏提示同步完成。",
+    "wake_skin": "查看 C-Gear 壁纸",
     "title": "游玩指南",
     "dns_title": "查看我的掌机 DNS",
     "checking": "正在检查游戏 DNS…",
@@ -111,6 +120,9 @@
     "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。"
   },
   "fr": {
+    "wake_title": "Votre Pokémon peut être réveillé",
+    "wake_console": "Sur votre DS, ouvrez le C-Gear et choisissez la Synchro-Jeu dans le menu en ligne. Réveillez votre Pokémon et restez connecté jusqu’à la fin de la synchronisation.",
+    "wake_skin": "Voir les habillages du C-Gear",
     "title": "Guide de jeu",
     "dns_title": "Trouver le DNS de ma DS",
     "checking": "Vérification du DNS…",
@@ -148,6 +160,9 @@
     "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami."
   },
   "it": {
+    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
+    "wake_console": "Sul DS, apri il C-Gear e scegli il Sincrogioco dal menu online. Risveglia il tuo Pokémon e resta connesso fino al termine della sincronizzazione.",
+    "wake_skin": "Visualizza gli sfondi del C-Gear",
     "title": "Guida per giocare",
     "dns_title": "Trova il DNS per il tuo DS",
     "checking": "Controllo del DNS in corso…",
@@ -185,6 +200,9 @@
     "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli."
   },
   "de": {
+    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
+    "wake_console": "Öffne auf deinem DS das Online-Menü des C-Gears und wähle die Spielsynchro. Wecke dein Pokémon auf und bleibe verbunden, bis die Übertragung abgeschlossen ist.",
+    "wake_skin": "C-Gear-Hintergründe ansehen",
     "title": "Spielanleitung",
     "dns_title": "DNS-Adresse für meinen DS anzeigen",
     "checking": "DNS-Dienst wird geprüft…",
@@ -222,6 +240,9 @@
     "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen."
   },
   "es": {
+    "wake_title": "Tu Pokémon está listo para despertar",
+    "wake_console": "En tu DS, abre el menú en línea del C-Gear y elige la Sincronía de Juego. Despierta a tu Pokémon y mantén la conexión hasta que termine la sincronización.",
+    "wake_skin": "Ver diseños del C-Gear",
     "title": "Guía de juego",
     "dns_title": "Consultar el DNS de mi DS",
     "checking": "Comprobando el DNS…",
@@ -259,6 +280,9 @@
     "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles."
   },
   "ko": {
+    "wake_title": "포켓몬을 깨울 수 있어요",
+    "wake_console": "DS의 C기어에서 온라인 메뉴를 열고 게임싱크를 선택해 포켓몬을 깨우세요. 게임싱크가 끝날 때까지 연결을 유지하세요.",
+    "wake_skin": "C기어 스킨 보기",
     "title": "플레이 안내",
     "dns_title": "내 DS의 DNS 확인",
     "checking": "게임 DNS 확인 중…",

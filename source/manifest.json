@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "43e137d3ed1a183997b9dc5c796bb0037ab4e8aa147d861b7aaf1fce2e4bfcd4",
+    "patch_sha256": "4a3aa3a2c6bed08d2961be687301d2141e4957f107bc4a37d8a7242137f8d2ef",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -123,8 +123,9 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
+        "after": "6bdb7523954d330a145ca50c2bc81078e749753faffbd3f1f9776717e706f8c5",
         "previous": [
+          "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
           "59fff65f72d36f027cd8a2d3838cce0fd730f36075da3df1bec6c195b07f8b50",
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
@@ -177,9 +178,10 @@
       },
       "json_data/distribution_ui.json": {
         "before": null,
-        "after": "dded4c412cd5a3943a9a1d13ab8b806c0574e8d4c63b6a95232750d5d717a6cd",
+        "after": "5efc930e53093ca2daa2f744bacbbfd33d8959a987f2a7c5ef539933e4758b22",
         "previous": [
-          "96755bfb1c611b09c43fa6e4e0a60388c0a383425deb6ad05474f7932d7695f5"
+          "96755bfb1c611b09c43fa6e4e0a60388c0a383425deb6ad05474f7932d7695f5",
+          "dded4c412cd5a3943a9a1d13ab8b806c0574e8d4c63b6a95232750d5d717a6cd"
         ]
       },
       "json_data/dream_promotions.json": {
@@ -226,8 +228,9 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
+        "after": "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1",
         "previous": [
+          "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898"
         ]
       },
@@ -416,9 +419,10 @@
       },
       "static/player-guide.css": {
         "before": null,
-        "after": "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f",
+        "after": "ad3b21b636e1fd99c973ee5b12d5965ce6197a60262b27d1fcf91d95600ce185",
         "previous": [
-          "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c"
+          "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c",
+          "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f"
         ]
       },
       "static/player-guide.js": {
@@ -447,10 +451,11 @@
       },
       "templates/distributions.html": {
         "before": null,
-        "after": "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763",
+        "after": "09e9686fea5cd67962fc2e34ccc58c997c5f097bf26c729ffc3cfec2ce88def6",
         "previous": [
           "2cbaf4e2db7da50fc5a55dcfc0471ad9300b791df53ca008911d4537cdf5400a",
-          "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5"
+          "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5",
+          "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763"
         ]
       },
       "templates/island_adventure.html": {
@@ -476,15 +481,20 @@
           "47f49138f5445fab55adb04c161de2b105e63db7def66b89f35dadd0d271e461"
         ]
       },
+      "templates/pdw_wake_ready.html": {
+        "before": null,
+        "after": "e1c8142cf467dfba3e7fa63dc93cd5f802634e938c869a1a1a9d335391494382"
+      },
       "templates/phone_access.html": {
         "before": null,
         "after": "8f51f1b1c2a11c004203714f3d4cb93463aa4ff129e6431f40e70a7eba1eb587"
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
+        "after": "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
         "previous": [
-          "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f"
+          "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
+          "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f"
         ]
       },
       "templates/practice.html": {
@@ -533,6 +543,10 @@
       "tests/test_offline_islands.py": {
         "before": null,
         "after": "6fd4e9e35f1ab313cdb696df9cd8249ba87f06c52cf5d1dc7f9dbf1dff9aed54"
+      },
+      "tests/test_pdw_wake_page.py": {
+        "before": null,
+        "after": "e8a965384f36fb34f5d5c5d1bc49bca22ab9ab02c6995b6d315a9ef1609e0c39"
       },
       "tests/test_practice.py": {
         "before": null,

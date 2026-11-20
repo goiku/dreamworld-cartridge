@@ -5,6 +5,10 @@
   text-align: start; font: 14px/1.5 system-ui, sans-serif;
 }
 .dw-player-help span { flex: 1 1 280px; }
+.dw-wake-ready { box-sizing: border-box; max-width: 56rem; margin: 2rem auto; padding: 2rem; background: #fffcf0; border: 1px solid #c5c9a4; color: #293e31; font: 18px/1.6 system-ui, sans-serif; text-align: start; }
+.dw-wake-ready h1 { margin: 0; font-size: 1.55em; }
+.dw-wake-ready p { margin: .55em 0 .85em; }
+.dw-wake-ready a { color: #245841; text-decoration: underline; }
 .dw-player-help nav { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .dw-player-help nav a { color: #264c45; font: 600 14px/1.5 system-ui, sans-serif; text-decoration: underline; }
 .dw-login-help { margin: 355px 0 0; max-width: 630px; }

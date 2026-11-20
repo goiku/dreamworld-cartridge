@@ -40,6 +40,8 @@
 
 礼物卡来自固定版本的活动档案，首次选择某张卡时服务器只下载该卡的数据。游戏和网页通讯已用临时存档测试。下方的皮宝宝照片记录的是梦之树流程；这两种活动配信仍待分别用实体卡带验收。[活动档案](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205) · [梦世界活动相遇资料](https://github.com/kwsch/PKHeX/blob/master/PKHeX.Core/Legality/Encounters/Data/Gen5/Encounters5Dream.cs)
 
+网页已显示「等待唤醒」时，仍可追加梦世界活动伙伴或保存 C-Gear 壁纸。掌机开始下载时就会确定本次内容。稍后追加的伙伴和这次装不下的伙伴会留到下次唤醒。神秘礼物可直接从游戏标题画面接收。[在开服电脑上查看领取流程](http://127.0.0.1:8088/player-guide/#distributions)
+
 ### 日版配信图鉴
 
 打开 **活动配信 → 日版配信图鉴**，可查阅《黑／白》《黑2／白2》四个版本。这里有档案保存的全部 **472 张日版神秘礼物卡**和 **47 项梦世界伙伴配信**。礼物卡按原始卡文件计数，梦世界按适用游戏和招式组合计数。未登录也能看全目录。可搜中日文宝可梦名、原卡日文标题或卡号，例如搜 `#2046` 可找到自由船票。登录后，可领取的项目旁会出现 **配信到我的存档**。[在开服电脑上打开图鉴](http://127.0.0.1:8088/campaign/japan/) · [日版原始礼物卡档案](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/Wondercards/JPN)

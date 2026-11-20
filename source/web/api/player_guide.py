@@ -7,7 +7,11 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, Response, jsonify, render_template, request, url_for
 
+from api.distributions import labels as distribution_labels
+from api.pgl_pals import current_save
 from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
+from utils import save_data
+from utils.constants import PlayerStatus
 from utils.data import load_json_data
 from utils.player_dns import get_player_dns
 from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
@@ -33,7 +37,7 @@ def _friends_label() -> str:
 @player_guide.get("/")
 def guide() -> str:
     return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
-                           language_names=LANGUAGE_NAMES)
+                           language_names=LANGUAGE_NAMES, gifts=distribution_labels())
 
 
 @player_guide.get("/phone/")
@@ -50,6 +54,23 @@ def dns() -> Response:
     response = jsonify(get_player_dns(request.remote_addr, urlsplit(request.host_url).hostname))
     response.cache_control.no_store = True
     return response
+
+
+def _wake_panel(data: bytes, t: dict) -> bytes | None:
+    card = current_save()
+    if not card:
+        return None
+    member = save_data.read_member(card)
+    if member.get("play_status") != PlayerStatus.WAKE_READY and not member.get("wake_download_pending"):
+        return None
+    # Keep the archive's header, account controls and footer. The old entry movie
+    # tries to start a dreaming session again after the card has committed to waking.
+    start = data.find(b'<div id="main">')
+    end = data.find(b'<div id="footer">', start)
+    if start < 0 or end < 0:
+        return None
+    section = render_template("pdw_wake_ready.html", t=t, gifts=distribution_labels())
+    return data[:start] + section.encode("ascii", "xmlcharrefreplace") + data[end:]
 
 
 @player_guide.after_app_request
@@ -74,18 +95,22 @@ def insert_player_help(response: Response) -> Response:
     friends_link = ""
     if path in ("/", "/pdw/", "/profile/"):
         friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
-        from api.distributions import title
-        friends_link += f'<a href="/campaign/">{escape(title())}</a>'
+        friends_link += f'<a href="/campaign/">{escape(distribution_labels()["title"])}</a>'
         from api.practice import labels as practice_labels
         friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
-    tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
+    data = response.get_data()
+    visit = path == "/pdw/" and "island" in request.args
+    wake = _wake_panel(data, t) if path == "/pdw/" and not visit else None
+    if wake is not None:
+        data = wake
+        response.cache_control.no_store = True
+    tip_html = "" if visit or wake is not None else f"<span>{escape(t[tip])}</span>"
     banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
               f'{friends_link}'
               f'<a target="_blank" rel="noopener" href="{guide_url}#dns">{escape(t["dns_title"])}</a>'
               f'<a target="_blank" rel="noopener" href="{url_for("player_guide.phone")}">{escape(t["phone_title"])}</a>'
               f'<a target="_blank" rel="noopener" href="{guide_url}#{guide_section}">{escape(t["details"])}</a>'
               '</nav></aside>')
-    data = response.get_data()
     stylesheet = f'<link rel="stylesheet" href="{css}">'.encode("ascii")
     head_end = re.search(rb"</head\s*>|<main\b", data, re.I)
     if head_end:

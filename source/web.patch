@@ -3084,10 +3084,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386947861c4
+index 0000000000000000000000000000000000000000..eb044149facd87df99682f732db460378199754b
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,114 @@
+@@ -0,0 +1,139 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3097,7 +3097,11 @@ index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386
 +
 +from flask import Blueprint, Response, jsonify, render_template, request, url_for
 +
++from api.distributions import labels as distribution_labels
++from api.pgl_pals import current_save
 +from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
++from utils import save_data
++from utils.constants import PlayerStatus
 +from utils.data import load_json_data
 +from utils.player_dns import get_player_dns
 +from utils.web_network import LOCAL_HOSTS, lan_web_address, same_web_lan
@@ -3123,7 +3127,7 @@ index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386
 +@player_guide.get("/")
 +def guide() -> str:
 +    return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
-+                           language_names=LANGUAGE_NAMES)
++                           language_names=LANGUAGE_NAMES, gifts=distribution_labels())
 +
 +
 +@player_guide.get("/phone/")
@@ -3140,6 +3144,23 @@ index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386
 +    response = jsonify(get_player_dns(request.remote_addr, urlsplit(request.host_url).hostname))
 +    response.cache_control.no_store = True
 +    return response
++
++
++def _wake_panel(data: bytes, t: dict) -> bytes | None:
++    card = current_save()
++    if not card:
++        return None
++    member = save_data.read_member(card)
++    if member.get("play_status") != PlayerStatus.WAKE_READY and not member.get("wake_download_pending"):
++        return None
++    # Keep the archive's header, account controls and footer. The old entry movie
++    # tries to start a dreaming session again after the card has committed to waking.
++    start = data.find(b'<div id="main">')
++    end = data.find(b'<div id="footer">', start)
++    if start < 0 or end < 0:
++        return None
++    section = render_template("pdw_wake_ready.html", t=t, gifts=distribution_labels())
++    return data[:start] + section.encode("ascii", "xmlcharrefreplace") + data[end:]
 +
 +
 +@player_guide.after_app_request
@@ -3164,18 +3185,22 @@ index 0000000000000000000000000000000000000000..72c5d702ee9985656b69bf998a359386
 +    friends_link = ""
 +    if path in ("/", "/pdw/", "/profile/"):
 +        friends_link = f'<a href="/islands/">{escape(_friends_label())}</a>'
-+        from api.distributions import title
-+        friends_link += f'<a href="/campaign/">{escape(title())}</a>'
++        friends_link += f'<a href="/campaign/">{escape(distribution_labels()["title"])}</a>'
 +        from api.practice import labels as practice_labels
 +        friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
-+    tip_html = "" if path == "/pdw/" and request.args.get("island") else f"<span>{escape(t[tip])}</span>"
++    data = response.get_data()
++    visit = path == "/pdw/" and "island" in request.args
++    wake = _wake_panel(data, t) if path == "/pdw/" and not visit else None
++    if wake is not None:
++        data = wake
++        response.cache_control.no_store = True
++    tip_html = "" if visit or wake is not None else f"<span>{escape(t[tip])}</span>"
 +    banner = (f'<aside class="dw-player-help" lang="{LANG}">{tip_html}<nav>'
 +              f'{friends_link}'
 +              f'<a target="_blank" rel="noopener" href="{guide_url}#dns">{escape(t["dns_title"])}</a>'
 +              f'<a target="_blank" rel="noopener" href="{url_for("player_guide.phone")}">{escape(t["phone_title"])}</a>'
 +              f'<a target="_blank" rel="noopener" href="{guide_url}#{guide_section}">{escape(t["details"])}</a>'
 +              '</nav></aside>')
-+    data = response.get_data()
 +    stylesheet = f'<link rel="stylesheet" href="{css}">'.encode("ascii")
 +    head_end = re.search(rb"</head\s*>|<main\b", data, re.I)
 +    if head_end:
@@ -4025,18 +4050,19 @@ index 0000000000000000000000000000000000000000..24ac06352170773601a4d949860a1a85
 +}
 diff --git a/json_data/distribution_ui.json b/json_data/distribution_ui.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d3ac61fc8
+index 0000000000000000000000000000000000000000..dba8dbc3ee0d6867578d410d95d1a514c4029e7e
 --- /dev/null
 +++ b/json_data/distribution_ui.json
-@@ -0,0 +1,418 @@
+@@ -0,0 +1,426 @@
 +{
 +  "zh": {
 +    "title": "活动配信",
 +    "home": "返回梦世界",
 +    "dream": "梦世界活动",
 +    "wonder": "神秘礼物",
-+    "dream_help": "选择活动伙伴后，在梦世界结束游玩并准备唤醒，再到掌机使用游戏同步。回到游戏后，到连入之森捕捉。这里显示本服的配信记录。",
-+    "wonder_help": "点「配信到我的存档」，然后在游戏标题画面选「神秘礼物 → 接收礼物 → 通过 Nintendo WFC 接收」。收卡后在宝可梦中心找配送员领取并保存。下次游戏同步会核对卡册。一次接收一张。",
++    "dream_help": "点活动伙伴旁的「配信到我的存档」。在网页结束游玩并选「准备唤醒」，再到掌机用游戏同步唤醒宝可梦。回到游戏后，去连入之森捕捉活动伙伴。",
++    "wake_timing": "网页已经显示「等待唤醒」时也可以选伙伴。掌机开始下载后，这次的内容就固定了。之后选的伙伴和这次装不下的伙伴会保留到下次唤醒。",
++    "wonder_help": "在想领的礼物旁点「配信到我的存档」。日版卡带请回到有「つづきから はじめる」的标题菜单，选「ふしぎなおくりもの」→「おくりものを うけとる」→「はい」→「Wi-Fiで うけとる」。确认连接和礼物名称后选「はい」。收到卡后选「つづきから はじめる」进入游戏，到宝可梦中心找戴蓝帽的配送员，领完用「レポート」存档。一次收一张，下一次游戏同步会核对卡册。",
 +    "eevee": "伊布进化形活动每份存档可选一只。",
 +    "login": "请从首页登录自己的帐号，并选择已绑定的游戏存档。",
 +    "sync": "请先用这张卡带完成一次游戏同步，让服务器识别游戏版本和语言。",
@@ -4087,7 +4113,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "Back to Dream World",
 +    "dream": "Dream World promotions",
 +    "wonder": "Mystery Gift",
-+    "dream_help": "Select a partner, finish your Dream World session, then wake your Pokémon with Game Sync. Catch the partner in Entree Forest. The list tracks deliveries made by this server.",
++    "dream_help": "Choose “Send to my save” beside the event partner. Finish your web visit and prepare to wake up, then wake your Pokémon with Game Sync on the DS. Catch your event partner in Entree Forest.",
++    "wake_timing": "You can still choose a partner while the website is waiting for the DS. Once the DS starts downloading, this delivery is fixed. Later choices and partners that did not fit stay queued for the next wake-up.",
 +    "wonder_help": "Choose Send to my save. On the title screen select Mystery Gift → Receive Gift → Get via Nintendo WFC. Collect the gift from the deliveryman in a Pokémon Center and save. The next Game Sync checks the album. Receive one card at a time.",
 +    "eevee": "Each save can choose one Eevee evolution from its promotion.",
 +    "login": "Sign in from the home page and select your linked game.",
@@ -4139,8 +4166,9 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "ドリームワールドに戻る",
 +    "dream": "ドリームワールドのキャンペーン",
 +    "wonder": "ふしぎなおくりもの",
-+    "dream_help": "仲間を選び、ドリームワールドを終了して起こす準備をしたら、ゲームシンクで起こしてください。ハイリンクの森で仲間を捕まえられます。ここにはこのサーバーでの配信履歴が表示されます。",
-+    "wonder_help": "「自分のセーブデータに配信」を押し、タイトル画面の「ふしぎなおくりもの」から、おくりものを受け取る → Wi-Fiで受け取る、と進んでください。ポケモンセンターで配達員から受け取り、レポートを書いてください。次のゲームシンクでカードを確認します。受信は1枚ずつです。",
++    "dream_help": "欲しい仲間の横にある配信ボタンを押します。ウェブで遊びを終えて起こす準備をしたら、DSのゲームシンクでポケモンを起こします。ゲームに戻り、ハイリンクの森で仲間を捕まえてください。",
++    "wake_timing": "ウェブで起こす準備を済ませた後も、DSがダウンロードを始めるまでは仲間を選べます。開始後に選んだ仲間や今回の空き枠に入らなかった仲間は、次に起こすときに受け取れます。",
++    "wonder_help": "欲しいカードの横の「自分のセーブデータに配信」を押します。DSのタイトルメニューで「ふしぎなおくりもの」→「おくりものを うけとる」→「はい」→「Wi-Fiで うけとる」と進み、接続とプレゼントの名前を確認して「はい」を選びます。受信後は「つづきから はじめる」でゲームに入り、ポケモンセンターの青い帽子の配達員から受け取ってレポートを書きます。受信は1枚ずつです。次のゲームシンクでカードを確認します。",
 +    "eevee": "イーブイの進化形はセーブデータごとに1匹選べます。",
 +    "login": "トップページでログインして登録済みのソフトを選んでください。",
 +    "sync": "このソフトで一度ゲームシンクを行い、バージョンと言語を登録してください。",
@@ -4191,7 +4219,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "Retour au Monde des Rêves",
 +    "dream": "Promotions du Monde des Rêves",
 +    "wonder": "Cadeau Mystère",
-+    "dream_help": "Choisissez un partenaire, quittez le Monde des Rêves et réveillez votre Pokémon avec la Synchro-Jeu. Retrouvez votre partenaire dans la Forêt du Heylink. L’historique couvre les envois de ce serveur.",
++    "dream_help": "Demandez l’envoi à votre sauvegarde à côté du partenaire choisi. Terminez la visite sur le site, puis réveillez votre Pokémon sur la DS avec la Synchro-Jeu. Capturez votre partenaire dans la Forêt du Heylink.",
++    "wake_timing": "Vous pouvez encore choisir un partenaire pendant que le site attend le réveil. Dès que la DS commence le téléchargement, le contenu de cet envoi est fixé. Les partenaires choisis ensuite ou qui n’ont pas trouvé de place restent en attente pour le prochain réveil.",
 +    "wonder_help": "Demandez l’envoi, puis choisissez Cadeau Mystère → Recevoir un cadeau → Via la CWF Nintendo sur l’écran titre. Récupérez le cadeau au Centre Pokémon et sauvegardez. La prochaine Synchro-Jeu vérifie l’album. Recevez une carte à la fois.",
 +    "eevee": "Une seule évolution d’Évoli par sauvegarde pour cette promotion.",
 +    "login": "Connectez-vous depuis l’accueil et choisissez votre jeu associé.",
@@ -4243,7 +4272,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "Torna al Dream World",
 +    "dream": "Promozioni Dream World",
 +    "wonder": "Dono Segreto",
-+    "dream_help": "Scegli un compagno, termina la sessione e sveglia il tuo Pokémon con il Sincrogioco. Cattura il compagno nella Foresta Intramondo. Qui trovi le consegne di questo server.",
++    "dream_help": "Richiedi l’invio al tuo salvataggio accanto al compagno scelto. Termina la visita sul sito e prepara il risveglio, poi sveglia il tuo Pokémon con il Sincrogioco sul DS. Cattura il compagno nella Foresta Intramondo.",
++    "wake_timing": "Puoi ancora scegliere un compagno mentre il sito attende il risveglio. Quando il DS inizia il download, il contenuto dell’invio è definitivo. I compagni scelti in seguito o rimasti senza posto attendono il prossimo risveglio.",
 +    "wonder_help": "Richiedi l’invio, poi scegli Dono Segreto → Ricevi dono → Tramite Nintendo WFC dal menu iniziale. Ritira il dono al Centro Pokémon e salva. Il prossimo Sincrogioco controlla l’album. Ricevi una scheda alla volta.",
 +    "eevee": "Questa promozione offre una sola evoluzione di Eevee per salvataggio.",
 +    "login": "Accedi dalla pagina iniziale e seleziona il gioco collegato.",
@@ -4295,7 +4325,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "Zur Traumwelt",
 +    "dream": "Traumwelt-Aktionen",
 +    "wonder": "Geheimgeschehen",
-+    "dream_help": "Wähle einen Partner, beende den Traumwelt-Besuch und wecke dein Pokémon per Spielsynchro. Fange den Partner im Kontaktebenenhain. Hier stehen die Zustellungen dieses Servers.",
++    "dream_help": "Wähle neben dem gewünschten Partner die Option zum Senden an deinen Spielstand. Beende den Besuch auf der Website und bereite das Aufwecken vor. Wecke dein Pokémon auf dem DS per Spielsynchro und fange den Partner im Kontaktebenenhain.",
++    "wake_timing": "Solange die Website auf das Aufwecken wartet, kannst du noch einen Partner wählen. Sobald der DS mit dem Download beginnt, steht die Lieferung fest. Später gewählte Partner und solche, für die kein Platz mehr war, warten bis zum nächsten Aufwecken.",
 +    "wonder_help": "Fordere das Geschenk an. Wähle im Titelmenü Geheimgeschehen → Geschenk empfangen → Über Nintendo WFC. Hole es im Pokémon-Center ab und speichere. Die nächste Spielsynchro prüft das Album. Empfange jeweils eine Karte.",
 +    "eevee": "Pro Spielstand ist eine Evoli-Entwicklung aus dieser Aktion möglich.",
 +    "login": "Melde dich auf der Startseite an und wähle dein verknüpftes Spiel.",
@@ -4347,7 +4378,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "Volver a Dream World",
 +    "dream": "Promociones de Dream World",
 +    "wonder": "Regalo Misterioso",
-+    "dream_help": "Elige un compañero, termina la sesión y despierta a tu Pokémon con la Sincronizar Juego. Captura al compañero en el Bosque Nexo. Aquí se registran los envíos de este servidor.",
++    "dream_help": "Pulsa el botón de envío a tu partida junto al compañero que quieras. Termina la visita en la web y prepara el despertar. Despierta a tu Pokémon con la Sincronización de Juego en la DS y captura al compañero en el Bosque Nexo.",
++    "wake_timing": "Aún puedes elegir un compañero mientras la web espera a que despiertes a tu Pokémon. El contenido del envío queda fijado cuando la DS empieza la descarga. Los compañeros que elijas después o que no quepan se guardan para el próximo despertar.",
 +    "wonder_help": "Solicita el envío. En el menú de inicio elige Regalo Misterioso → Recibir regalo → Mediante CWF de Nintendo. Recoge el regalo en el Centro Pokémon y guarda la partida. La siguiente sincronización comprueba el álbum. Recibe una tarjeta cada vez.",
 +    "eevee": "Esta promoción permite elegir una evolución de Eevee por partida.",
 +    "login": "Inicia sesión desde la página principal y selecciona tu juego vinculado.",
@@ -4399,7 +4431,8 @@ index 0000000000000000000000000000000000000000..8a5955a111cfd7354a5c1541fdb22c4d
 +    "home": "드림월드로 돌아가기",
 +    "dream": "드림월드 이벤트",
 +    "wonder": "이상한 소포",
-+    "dream_help": "파트너를 고른 뒤 드림월드를 종료하고 게임싱크로 포켓몬을 깨워 주세요. 하일링크의 숲에서 파트너를 잡을 수 있습니다. 이곳에는 이 서버의 배포 기록이 표시됩니다.",
++    "dream_help": "원하는 파트너 옆의 배포 버튼을 누르세요. 웹에서 놀이를 마치고 깨울 준비를 한 뒤, DS의 게임싱크로 포켓몬을 깨우세요. 게임으로 돌아가 하일링크의 숲에서 파트너를 잡으세요.",
++    "wake_timing": "웹에서 깨울 준비를 마친 뒤에도 DS가 다운로드를 시작하기 전까지 파트너를 고를 수 있어요. 그 뒤에 고른 파트너나 이번에 자리가 부족했던 파트너는 다음에 깨울 때까지 대기해요.",
 +    "wonder_help": "배포 버튼을 누르고 타이틀 화면에서 이상한 소포 → 선물 받기 → 닌텐도 Wi-Fi 커넥션으로 받기를 선택하세요. 포켓몬센터 배달원에게 선물을 받고 저장하세요. 다음 게임싱크 때 앨범을 확인합니다. 한 번에 카드 한 장을 받습니다.",
 +    "eevee": "이브이 진화형 이벤트는 저장 데이터마다 한 마리를 선택할 수 있습니다.",
 +    "login": "홈에서 로그인하고 등록한 게임을 선택하세요.",
@@ -6794,12 +6827,15 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7686a0b41
+index 0000000000000000000000000000000000000000..552eebd21b29ed44a4e86423fe77d143dde867ad
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,298 @@
+@@ -0,0 +1,322 @@
 +{
 +  "en": {
++    "wake_title": "Your Pokémon is ready to wake up",
++    "wake_console": "On your DS, open the C-Gear, choose ONLINE (Wi-Fi on a Japanese cartridge), then Game Sync. Wake your Pokémon and stay connected until the sync finishes.",
++    "wake_skin": "View C-Gear skins",
 +    "title": "Player guide",
 +    "dns_title": "Find my DS DNS",
 +    "checking": "Checking the DNS service…",
@@ -6837,6 +6873,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "Connect the PCs with Tailscale and start the relays described in the guide. The host opens Invite-Friend.cmd and shares the one-use invitation privately. On your own PC, open Visit-Friend.cmd and sign in with your home account. Keep sync open while playing and wait for final sync before waking your Pokémon on your home server. Reverse the roles when your friend visits you."
 +  },
 +  "ja": {
++    "wake_title": "ポケモンを起こせます",
++    "wake_console": "DSのCギアで「Wi-Fi」→「ゲームシンク」を選び、ポケモンを起こしてください。ゲームシンクが終わるまで接続したままお待ちください。",
++    "wake_skin": "Cギアのスキンを確認する",
 +    "title": "遊び方ガイド",
 +    "dns_title": "DSに設定するDNSを調べる",
 +    "checking": "DNSを確認中…",
@@ -6874,6 +6913,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "TailscaleでPCをつなぎ、ガイドに従って中継を起動します。ホストはInvite-Friend.cmdで発行した使い切りの招待コードを訪問者に個別に渡します。訪問者は自分のPCでVisit-Friend.cmdを開き、自分のアカウントでログインします。遊んでいる間は同期ウィンドウを開いたままにします。最後の同期が終わったら、自分のサーバーでポケモンを起こせます。ホストを交代するときは手順も交代します。"
 +  },
 +  "zh": {
++    "wake_title": "宝可梦正在等待唤醒",
++    "wake_console": "在掌机的 C-Gear 下屏点「ONLINE」（日版为「Wi-Fi」）→「游戏同步」（ゲームシンク），选择唤醒宝可梦。保持联网，直到游戏提示同步完成。",
++    "wake_skin": "查看 C-Gear 壁纸",
 +    "title": "游玩指南",
 +    "dns_title": "查看我的掌机 DNS",
 +    "checking": "正在检查游戏 DNS…",
@@ -6911,6 +6953,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "双方的电脑用 Tailscale 连通并按教程启动转接后，房主打开 Invite-Friend.cmd，将一次性邀请码私下发给访客。访客在自己的电脑打开 Visit-Friend.cmd，用本地账号登录。游玩期间保持同步窗口打开，结束后等最后一次同步完成，再回自己的私服唤醒宝可梦。互换房主时，两个人交换步骤。"
 +  },
 +  "fr": {
++    "wake_title": "Votre Pokémon peut être réveillé",
++    "wake_console": "Sur votre DS, ouvrez le C-Gear et choisissez la Synchro-Jeu dans le menu en ligne. Réveillez votre Pokémon et restez connecté jusqu’à la fin de la synchronisation.",
++    "wake_skin": "Voir les habillages du C-Gear",
 +    "title": "Guide de jeu",
 +    "dns_title": "Trouver le DNS de ma DS",
 +    "checking": "Vérification du DNS…",
@@ -6948,6 +6993,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "Après avoir connecté les PC avec Tailscale et lancé les relais du guide, l’hôte ouvre Invite-Friend.cmd et transmet le code en privé. Sur votre PC, ouvrez Visit-Friend.cmd et utilisez votre compte habituel. Gardez la synchronisation ouverte et attendez sa fin avant de réveiller le Pokémon sur votre serveur. Inversez les rôles pour accueillir votre ami."
 +  },
 +  "it": {
++    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
++    "wake_console": "Sul DS, apri il C-Gear e scegli il Sincrogioco dal menu online. Risveglia il tuo Pokémon e resta connesso fino al termine della sincronizzazione.",
++    "wake_skin": "Visualizza gli sfondi del C-Gear",
 +    "title": "Guida per giocare",
 +    "dns_title": "Trova il DNS per il tuo DS",
 +    "checking": "Controllo del DNS in corso…",
@@ -6985,6 +7033,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "Collegate i PC con Tailscale e avviate i relay come indicato nella guida. Chi ospita apre Invite-Friend.cmd e invia in privato il codice monouso. Sul tuo PC apri Visit-Friend.cmd e accedi con il tuo account locale. Tieni aperta la sincronizzazione mentre giochi. Attendi la sincronizzazione finale prima di svegliare il Pokémon sul tuo server. Per ricambiare la visita, invertite i ruoli."
 +  },
 +  "de": {
++    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
++    "wake_console": "Öffne auf deinem DS das Online-Menü des C-Gears und wähle die Spielsynchro. Wecke dein Pokémon auf und bleibe verbunden, bis die Übertragung abgeschlossen ist.",
++    "wake_skin": "C-Gear-Hintergründe ansehen",
 +    "title": "Spielanleitung",
 +    "dns_title": "DNS-Adresse für meinen DS anzeigen",
 +    "checking": "DNS-Dienst wird geprüft…",
@@ -7022,6 +7073,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "Verbindet die PCs mit Tailscale und startet die im Leitfaden beschriebenen Relays. Der Gastgeber öffnet Invite-Friend.cmd und sendet den Einladungscode privat. Öffne Visit-Friend.cmd auf deinem PC und melde dich mit deinem eigenen Konto an. Lass das Fenster beim Spielen offen. Wecke dein Pokémon auf deinem eigenen Server, nachdem die letzte Synchronisierung abgeschlossen ist. Beim Gegenbesuch tauscht ihr die Rollen."
 +  },
 +  "es": {
++    "wake_title": "Tu Pokémon está listo para despertar",
++    "wake_console": "En tu DS, abre el menú en línea del C-Gear y elige la Sincronía de Juego. Despierta a tu Pokémon y mantén la conexión hasta que termine la sincronización.",
++    "wake_skin": "Ver diseños del C-Gear",
 +    "title": "Guía de juego",
 +    "dns_title": "Consultar el DNS de mi DS",
 +    "checking": "Comprobando el DNS…",
@@ -7059,6 +7113,9 @@ index 0000000000000000000000000000000000000000..1512635146760fe464f0afd290650af7
 +    "visit": "Conectad los equipos con Tailscale e iniciad los programas de conexión según la guía. El anfitrión abre Invite-Friend.cmd y envía el código de un solo uso en privado. En tu equipo, abre Visit-Friend.cmd e inicia sesión con tu cuenta local. Mantén la sincronización abierta mientras juegas. Espera a que termine la última sincronización antes de despertar al Pokémon en tu servidor. Para devolver la visita, intercambiad los papeles."
 +  },
 +  "ko": {
++    "wake_title": "포켓몬을 깨울 수 있어요",
++    "wake_console": "DS의 C기어에서 온라인 메뉴를 열고 게임싱크를 선택해 포켓몬을 깨우세요. 게임싱크가 끝날 때까지 연결을 유지하세요.",
++    "wake_skin": "C기어 스킨 보기",
 +    "title": "플레이 안내",
 +    "dns_title": "내 DS의 DNS 확인",
 +    "checking": "게임 DNS 확인 중…",
@@ -16516,10 +16573,10 @@ index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7
 +}
 diff --git a/static/player-guide.css b/static/player-guide.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..c4f05b3bfe36b7e726848d4773a21cbd269a5400
+index 0000000000000000000000000000000000000000..94e1f6a154309d519984690a87cffe962cf466cd
 --- /dev/null
 +++ b/static/player-guide.css
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,50 @@
 +.dw-player-help {
 +  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
 +  gap: 6px 18px; padding: 9px 16px; margin: 0 auto; width: 100%; max-width: 1003px;
@@ -16527,6 +16584,10 @@ index 0000000000000000000000000000000000000000..c4f05b3bfe36b7e726848d4773a21cbd
 +  text-align: start; font: 14px/1.5 system-ui, sans-serif;
 +}
 +.dw-player-help span { flex: 1 1 280px; }
++.dw-wake-ready { box-sizing: border-box; max-width: 56rem; margin: 2rem auto; padding: 2rem; background: #fffcf0; border: 1px solid #c5c9a4; color: #293e31; font: 18px/1.6 system-ui, sans-serif; text-align: start; }
++.dw-wake-ready h1 { margin: 0; font-size: 1.55em; }
++.dw-wake-ready p { margin: .55em 0 .85em; }
++.dw-wake-ready a { color: #245841; text-decoration: underline; }
 +.dw-player-help nav { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 +.dw-player-help nav a { color: #264c45; font: 600 14px/1.5 system-ui, sans-serif; text-decoration: underline; }
 +.dw-login-help { margin: 355px 0 0; max-width: 630px; }
@@ -16831,7 +16892,7 @@ index 0000000000000000000000000000000000000000..b919bedcdf02236e3046a8d15e8785ba
 +</main></body></html>
 diff --git a/templates/distributions.html b/templates/distributions.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..ad96aefa4c91ca68b453b2a208eb55fa6d3f8d5d
+index 0000000000000000000000000000000000000000..302fb4de22146290ba65f52f87394fcc56588fbd
 --- /dev/null
 +++ b/templates/distributions.html
 @@ -0,0 +1,36 @@
@@ -16853,7 +16914,7 @@ index 0000000000000000000000000000000000000000..ad96aefa4c91ca68b453b2a208eb55fa
 +{% endif %}{% if japanese or card %}
 +{% if rom %}<p>{{ rom }}</p>{% endif %}
 +<nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=k,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>
-+{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.eevee }}</p>{% endif %}
++{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.wake_timing }}</p><p>{{ t.eevee }}</p>{% endif %}
 +{% if card %}{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}{% endif %}
 +{% macro fields() %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="filter" value="{{ mode }}"><input type="hidden" name="q" value="{{ search }}">{% if japanese %}<input type="hidden" name="scope" value="jp"><input type="hidden" name="version" value="{{ version or '' }}">{% endif %}{% endmacro %}
 +<form class="gift-search" method="get" action="{{ url_for(endpoint) }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="filter" value="{{ mode }}">
@@ -17030,6 +17091,20 @@ index 0000000000000000000000000000000000000000..d3618ce4477ac1aa6ac38a01dc1a7cdb
 +{% if rows %}<dl>{% for key,value in rows %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
 +{% else %}<p>{{ t.none }}</p>{% endif %}</section>{% endfor %}</div>
 +{% endblock %}
+diff --git a/templates/pdw_wake_ready.html b/templates/pdw_wake_ready.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..11f39102f1f7d94cb2340bab6043f9c2f86abdfb
+--- /dev/null
++++ b/templates/pdw_wake_ready.html
+@@ -0,0 +1,8 @@
++<div id="main">
++  <section class="dw-wake-ready" aria-labelledby="dw-wake-title">
++    <h1 id="dw-wake-title">{{ t.wake_title }}</h1>
++    <p>{{ t.wake_console }}</p>
++    <a href="{{ url_for('customize.index', kind='cgear') }}">{{ t.wake_skin }}</a>
++    <p><a href="{{ url_for('player_guide.guide', _anchor='distributions') }}">{{ gifts.title }}</a></p>
++  </section>
++</div>
 diff --git a/templates/phone_access.html b/templates/phone_access.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c53969834
@@ -17064,10 +17139,10 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +</html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f8462016b82
+index 0000000000000000000000000000000000000000..e8b307605d7ab49c45cd76bd6d2c0a9b2b43171d
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,66 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -17090,6 +17165,7 @@ index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f84
 +    <nav class="guide-nav" aria-label="{{ t.title }}">
 +      <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
 +      <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
++      <a href="#distributions">{{ gifts.title }}</a>
 +    </nav>
 +    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
 +             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-checking="{{ t.checking }}">
@@ -17122,6 +17198,14 @@ index 0000000000000000000000000000000000000000..973ab37989d86096c36543df87346f84
 +    </section>
 +    <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
 +    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
++    <section id="distributions">
++      <h2>{{ gifts.title }}</h2>
++      {% for kind in ('dream','wonder') %}
++      <h3><a href="{{ url_for('campaigns.index', kind=kind) }}">{{ gifts[kind] }}</a></h3>
++      <p>{{ gifts[kind ~ '_help'] }}</p>
++      {% if kind == 'dream' %}<p>{{ gifts.wake_timing }}</p>{% endif %}
++      {% endfor %}
++    </section>
 +  </main>
 +</body>
 +</html>
@@ -18462,6 +18546,55 @@ index 0000000000000000000000000000000000000000..41645523ea173663baf7697db628522f
 +        islands.import_island(one, island)
 +    with server(tmp_path / "visitor"):
 +        assert islands.native_member_id(one, island["island_id"]) == restored
+diff --git a/tests/test_pdw_wake_page.py b/tests/test_pdw_wake_page.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd696da1466c49d41f2b72b19330cb30918874c7
+--- /dev/null
++++ b/tests/test_pdw_wake_page.py
+@@ -0,0 +1,43 @@
++"""A Dream World visit may already be over while the DS still has to download its skin."""
++import re
++from unittest.mock import patch
++
++from api import pgl_pals
++from api.server import create_app
++from tests.test_visit_storage import Server
++from utils import save_data
++from utils.constants import PlayerStatus
++
++
++def test_select_skin_after_web_wake(tmp_path, monkeypatch):
++    server = Server(tmp_path / "wake.sqlite")
++    try:
++        card = server.resident(14)
++        monkeypatch.setattr(pgl_pals, "accounts", server.accounts)
++        monkeypatch.setattr(save_data, "db", server.db)
++        client = create_app().test_client()
++        with client.session_transaction() as state:
++            state.update(username="Trainer", gscd=card)
++        server.db.update(card, "player_data", lambda data: data["member"].update(
++            sleeping_flag=1, play_status=PlayerStatus.DREAMING))
++        with patch("api.native_islands.start_browser"):
++            assert b'id="flashcontent"' in client.get("/pdw/").data
++            assert client.get("/api/?p=pdw.home.pdw_end").status_code == 200
++            for path in ("/pdw/", "/pdw/index.html"):
++                result = client.get(path)
++                assert result.cache_control.no_store
++                assert b'id="dw-wake-title"' in result.data and b'id="flashcontent"' not in result.data
++                assert b'/customize/?kind=cgear' in result.data
++                assert b'/player-guide/#distributions' in result.data
++            guide = client.get("/player-guide/").data
++            assert b'id="distributions"' in guide
++            assert b'/campaign/?kind=dream' in guide and b'/campaign/?kind=wonder' in guide
++            response = client.get("/customize/?kind=cgear")
++            csrf = re.search(r'name="csrf" value="([^"]+)"', response.get_data(as_text=True))[1]
++            assert client.post("/customize/", data={"card": card, "csrf": csrf, "choice": "C014"}).status_code == 303
++            sync = server.db.read(card, "game_sync")
++            assert sync["cgear_skin"] == "C014_reshiram_0_j.bin" and not sync.get("pending_wake")
++            assert server.db.read(card, "player_data")["member"]["play_status"] == PlayerStatus.WAKE_READY
++            assert b'id="flashcontent"' in create_app().test_client().get("/pdw/").data
++    finally:
++        server.close()
 diff --git a/tests/test_practice.py b/tests/test_practice.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..e811da00c24768eecc2230054fb65f40caf774c8

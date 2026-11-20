@@ -40,6 +40,8 @@ Open **Event distributions** from Dream World and select your linked cartridge. 
 
 The server fetches an individual card from a pinned archive when requested. Temporary-save tests cover the web and cartridge protocols. Physical-cartridge trials for both event paths are still pending. The Cleffa photo below documents the Tree of Dreams path. [Generation V event archive](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205) · [Dream World encounter reference](https://github.com/kwsch/PKHeX/blob/master/PKHeX.Core/Legality/Encounters/Data/Gen5/Encounters5Dream.cs)
 
+While the website is waiting for the DS to wake your Pokémon, you can still queue an event partner or save a C-Gear skin. The delivery is fixed when the DS starts downloading. Partners queued later or left over when space runs out stay queued for the next wake-up. Mystery Gifts can be received separately from the title screen. [Open the receiving instructions on the server PC](http://127.0.0.1:8080/player-guide/#distributions)
+
 ### Japanese cartridge events
 
 **Japanese event catalogue** lists the 472 Japanese Wonder Cards preserved in the Generation V release archive and 47 Dream World entries across Black, White, Black 2 and White 2. Each distinct card file counts once. Dream World entries count game and move variants. Browse all four games while signed out. Search by species, original card title or card number (for example `#2046`). Select your own cartridge to request compatible gifts. [Open the catalogue](http://127.0.0.1:8080/campaign/japan/) · [Original card files](https://github.com/projectpokemon/EventsGallery/tree/f1f3095183ee54dca63216164adb1f278714ec55/Released/Gen%205/Wondercards/JPN)

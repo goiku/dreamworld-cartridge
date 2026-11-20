@@ -20,6 +20,7 @@
     <nav class="guide-nav" aria-label="{{ t.title }}">
       <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
       <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
+      <a href="#distributions">{{ gifts.title }}</a>
     </nav>
     <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
              data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-checking="{{ t.checking }}">
@@ -52,6 +53,14 @@
     </section>
     <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
     <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
+    <section id="distributions">
+      <h2>{{ gifts.title }}</h2>
+      {% for kind in ('dream','wonder') %}
+      <h3><a href="{{ url_for('campaigns.index', kind=kind) }}">{{ gifts[kind] }}</a></h3>
+      <p>{{ gifts[kind ~ '_help'] }}</p>
+      {% if kind == 'dream' %}<p>{{ gifts.wake_timing }}</p>{% endif %}
+      {% endfor %}
+    </section>
   </main>
 </body>
 </html>

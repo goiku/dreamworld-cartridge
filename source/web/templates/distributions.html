@@ -16,7 +16,7 @@
 {% endif %}{% if japanese or card %}
 {% if rom %}<p>{{ rom }}</p>{% endif %}
 <nav aria-label="{{ t.title }}">{% for k in ('dream','wonder') %}<a {% if kind==k %}aria-current="page"{% endif %} href="{{ url_for(endpoint,kind=k,version=version) }}">{{ t[k] }}</a>{% endfor %}</nav>
-{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.eevee }}</p>{% endif %}
+{% if japanese and kind=='wonder' %}<p>{{ t.coverage }}</p>{% endif %}<p>{{ t[kind+'_help'] }}</p>{% if kind=='dream' %}<p>{{ t.wake_timing }}</p><p>{{ t.eevee }}</p>{% endif %}
 {% if card %}{% if not rom or kind=='wonder' and not ident %}<p>{{ t.sync }}</p>{% elif kind=='wonder' and not album_known %}<p>{{ t.unknown_help }}</p>{% endif %}{% endif %}
 {% macro fields() %}<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="card" value="{{ card }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="filter" value="{{ mode }}"><input type="hidden" name="q" value="{{ search }}">{% if japanese %}<input type="hidden" name="scope" value="jp"><input type="hidden" name="version" value="{{ version or '' }}">{% endif %}{% endmacro %}
 <form class="gift-search" method="get" action="{{ url_for(endpoint) }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="filter" value="{{ mode }}">
