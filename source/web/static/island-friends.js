@@ -80,7 +80,7 @@ async function refreshPresence() {
   try {
     const response = await fetch("/islands/updates", {cache: "no-store"});
     if (!response.ok) return;
-    const {revision} = await response.json();
+    const {revision, delivery} = await response.json();
     const list = document.querySelector(".island-list");
     if (list && revision !== list.dataset.revision) {
       const page = await fetch(location.href, {cache:"no-store"});
@@ -92,6 +92,22 @@ async function refreshPresence() {
           section.querySelectorAll("time[data-time]").forEach(formatTime);
           document.querySelector(selector).replaceWith(section);
         }
+      }
+    } else if (list && delivery) {
+      for (const row of list.querySelectorAll("[data-island]")) {
+        const state = delivery[row.dataset.island];
+        if (!state) continue;
+        const sync = row.querySelector("[data-last-sync]");
+        const pending = row.querySelector("[data-pending]");
+        if (!sync || !pending) continue;
+        const time = sync.querySelector("time");
+        sync.hidden = !state.last_sync;
+        if (state.last_sync && time.dataset.time !== String(state.last_sync)) {
+          time.dataset.time = state.last_sync;
+          formatTime(time);
+        }
+        if (pending.textContent !== state.summary) pending.textContent = state.summary;
+        pending.hidden = !state.summary;
       }
     }
   } catch { /* Cached visits remain available when the peer is unreachable. */ }

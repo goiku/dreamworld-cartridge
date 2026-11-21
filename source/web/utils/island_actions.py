@@ -63,6 +63,18 @@ def history(card, island) -> list[dict]:
         ]
 
 
+def pending_action_counts(card: str) -> dict[str, dict[str, int]]:
+    with db.transaction() as conn:
+        schema(conn)
+        counts = {}
+        for island, kind, count in conn.execute(
+            """SELECT island,json_extract(request,'$.kind'),COUNT(*) FROM island_actions
+               WHERE card=? AND status='pending' GROUP BY island,json_extract(request,'$.kind')""", (card,)
+        ):
+            counts.setdefault(island, {})[kind] = count
+        return counts
+
+
 def _identity(island, version, kind, slot) -> str:
     raw = f"{island}/{version}/{kind}/{slot}".encode("ascii")
     return hashlib.sha256(raw).hexdigest()

@@ -392,6 +392,13 @@ def pending_footprints(gscd: str, dest_island: str, limit: int = MAX_BATCH) -> l
         return [json.loads(row[0]) for row in rows]
 
 
+def pending_footprint_counts(gscd: str) -> dict[str, int]:
+    with _transaction() as conn:
+        return dict(conn.execute(
+            "SELECT dest,COUNT(*) FROM offline_island_outbox WHERE gscd=? AND delivered=0 GROUP BY dest", (gscd,)
+        ))
+
+
 def _ids(ids: object) -> None:
     if not isinstance(ids, list) or len(ids) > MAX_BATCH or any(
         not isinstance(ident, str) or not _HEX32.fullmatch(ident) for ident in ids

@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "a09c4fccc0db5fd244969288c7562045ca4099035df604d1a54404f814e8e967",
+    "patch_sha256": "8b8ce20545d832621c7da8d4f2204f579e9d8db6c66aa503f4841656dab59c2c",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -56,9 +56,10 @@
       },
       "api/offline_friends.py": {
         "before": null,
-        "after": "4b8aeaa1d4469abb52e6e100938643e237c8aee0d097e3fe7449f4db2af581d6",
+        "after": "edd93183b26b070126bf82eadbc8ff97f82baf7598e25bc9a33569c0997b6568",
         "previous": [
           "33a6f5dc4f813220a8b3401ab13aae13d8effeb42a1be4b070fcf56c5910d9e0",
+          "4b8aeaa1d4469abb52e6e100938643e237c8aee0d097e3fe7449f4db2af581d6",
           "ccfa450590e55f11eea2bf97c133c58fbab9e7a7aee94c3ccf7bf5b282da7fe0"
         ]
       },
@@ -268,7 +269,10 @@
       },
       "json_data/offline_islands_ui.json": {
         "before": null,
-        "after": "debaffb24dbd2ef689e635a91f41556d9c3d5047f396c57c64433c81da3273d0"
+        "after": "985278f0863f0eb06b20db7acce001389f9c9576c6ab68872407c3c443616e90",
+        "previous": [
+          "debaffb24dbd2ef689e635a91f41556d9c3d5047f396c57c64433c81da3273d0"
+        ]
       },
       "json_data/player_guide.json": {
         "before": null,
@@ -485,7 +489,10 @@
       },
       "static/island-friends.js": {
         "before": null,
-        "after": "deb226aa69cacd0da6bbfed5f4db9ca78d0dd80067d6c1f6c7b1a471647d6cde"
+        "after": "d5173f9238afc86304ab0721395c017c20d4834b8988f70c7f41b22f6e637309",
+        "previous": [
+          "deb226aa69cacd0da6bbfed5f4db9ca78d0dd80067d6c1f6c7b1a471647d6cde"
+        ]
       },
       "static/melonds-tuck-in.py": {
         "before": null,
@@ -586,7 +593,10 @@
       },
       "templates/island_friends.html": {
         "before": null,
-        "after": "f54808cc1b59c7dee9b4f20eaaeac92ac2ed786559664880b07c66adfabfa70b"
+        "after": "e0d7edad147ec6a7548528205f9d8b601f6e5e2b8424aa6786dd9f7fe2d83602",
+        "previous": [
+          "f54808cc1b59c7dee9b4f20eaaeac92ac2ed786559664880b07c66adfabfa70b"
+        ]
       },
       "templates/island_profile.html": {
         "before": null,
@@ -684,9 +694,10 @@
       },
       "tests/test_island_actions.py": {
         "before": null,
-        "after": "76ae6d761dd2e5dbc4ee2a141a887c5b86ce4574b0420db5ce11d44394891a81",
+        "after": "7415e59ab9591f3165102bc7dad7ec2d925d9b30587f05ab3f1072fbfce2ae6d",
         "previous": [
-          "57ddf99b048f11e3154c1b8ada955e9691ac39f2427e2556c333ad65d70ce71c"
+          "57ddf99b048f11e3154c1b8ada955e9691ac39f2427e2556c333ad65d70ce71c",
+          "76ae6d761dd2e5dbc4ee2a141a887c5b86ce4574b0420db5ce11d44394891a81"
         ]
       },
       "tests/test_island_encounters.py": {
@@ -695,7 +706,10 @@
       },
       "tests/test_island_peers.py": {
         "before": null,
-        "after": "f221f810d241cd79b041e66625e6b29ad447b94e12e8dfb16117060f88a7ce1f"
+        "after": "fc9b073baf2ff09a0380206ae70b44ca06b74aab91b962771481c5d3b03e2722",
+        "previous": [
+          "f221f810d241cd79b041e66625e6b29ad447b94e12e8dfb16117060f88a7ce1f"
+        ]
       },
       "tests/test_island_profile.py": {
         "before": null,
@@ -792,7 +806,10 @@
       },
       "utils/island_actions.py": {
         "before": null,
-        "after": "c71cb2c39c4cd1ec14f32889ff1a80f5bdba8f3bf16ec06a3a82c0171373455b"
+        "after": "9d8a20d4fc937a74da9f551f1d34af69fc69adbea0bb9323d55eaeee9b420eed",
+        "previous": [
+          "c71cb2c39c4cd1ec14f32889ff1a80f5bdba8f3bf16ec06a3a82c0171373455b"
+        ]
       },
       "utils/island_art.py": {
         "before": null,
@@ -800,8 +817,9 @@
       },
       "utils/island_peers.py": {
         "before": null,
-        "after": "d008a12475ca9baf217af8aa0548a3f414c8e755726b3105e9e63f953be86e85",
+        "after": "94ca9c0c57fd03b7ae93bd8edde843bb56a8158b0185cd80918fc57644f4b99b",
         "previous": [
+          "d008a12475ca9baf217af8aa0548a3f414c8e755726b3105e9e63f953be86e85",
           "d8c0ffa7e4a98f6453f33323aa49805ade22b7fb34884a652c79a600eacb4593"
         ]
       },
@@ -849,8 +867,9 @@
       },
       "utils/offline_islands.py": {
         "before": null,
-        "after": "5bcb2b970b76a7036db1118566ab9998666d414128009a84e925fe020f993f16",
+        "after": "7f66fac57a54e1bc3c88edcf4dc4bdff3d2efc8dc045733cf1e84d1295a2121b",
         "previous": [
+          "5bcb2b970b76a7036db1118566ab9998666d414128009a84e925fe020f993f16",
           "e7cb647d3f62e717527b0db9c003d56c6cb12418615d91943e1950c1c5c27ea9"
         ]
       },

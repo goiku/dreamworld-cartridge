@@ -46,6 +46,7 @@ def test_offline_reservations_delayed_ack_and_changed_shelf(tmp_path):
             actions.request_action(guest, island, owner["version"], "trade", slot, 150)
         batch = actions.pending(guest, island)
         assert len(batch) == 3 and count(guest, 150) == initial[0] - 3
+        assert actions.pending_action_counts(guest) == {island: {"trade": 3}}
     with active(tmp_path / "home"):
         islands.import_island(host, visitor)
         stale = managers.get_shelf(host).data["share_list"][2]
@@ -59,6 +60,7 @@ def test_offline_reservations_delayed_ack_and_changed_shelf(tmp_path):
         actions.settle(guest, island, batch, results)
         assert (count(guest, 150), count(guest, 149)) == (initial[0] - 2, initial[1] + 2)
         assert not actions.pending(guest, island)
+        assert actions.pending_action_counts(guest) == {}
 
 
 def test_water_receipts_and_refund(tmp_path):
@@ -86,6 +88,7 @@ def test_water_receipts_and_refund(tmp_path):
             actions.request_action(guest, island, owner["version"], "water", i)
         batch = actions.pending(guest, island)
         assert visits.friend_waterings_left(guest) == remaining - 2
+        assert actions.pending_action_counts(guest) == {island: {"water": 2}}
     with active(tmp_path / "home"):
         islands.import_island(host, visitor)
         garden = managers.get_crops(host)
@@ -99,6 +102,34 @@ def test_water_receipts_and_refund(tmp_path):
         actions.settle(guest, island, batch, results)
         assert visits.friend_waterings_left(guest) == remaining - 1
         assert save_data.read_member(guest)["experiment_point"] == points + 10
+        assert actions.pending_action_counts(guest) == {}
+
+
+def test_roster_counts_all_batches_and_only_the_selected_save(tmp_path):
+    from api import offline_friends
+
+    visitor, other, owner = map(gsid_to_gscd, (201, 202, 203))
+    labels = offline_friends._labels[offline_friends.LANG]
+    with active(tmp_path / "roster") as db:
+        for card in (visitor, other, owner):
+            create(db, card, "Fixture")
+        friend = islands.export_island(owner)
+        island = friend["island_id"]
+        for card, amount in ((visitor, islands.MAX_BATCH + 1), (other, 1)):
+            islands.import_island(card, friend)
+            for i in range(amount):
+                islands.record_footprint(card, island, f"{i:032x}")
+        with db.transaction() as conn:
+            actions.schema(conn)
+            conn.executemany(
+                "INSERT INTO island_actions VALUES(?,?,?,?,?)",
+                [(visitor, island, str(i), '{"kind":"water"}', "pending") for i in range(31)]
+                + [(other, island, "0", '{"kind":"trade"}', "pending")],
+            )
+        for card, feet, water, trade in ((visitor, islands.MAX_BATCH + 1, 31, 0), (other, 1, 0, 1)):
+            row = offline_friends._delivery_status(card, [friend], {})[island]
+            assert row["last_sync"] is None
+            assert row["summary"] == labels["pending_counts"].format(feet=feet, water=water, trade=trade) + " " + labels["pair_to_send"]
 
 
 def test_profile_form_reserves_trade_only_with_its_session_token(tmp_path, monkeypatch):

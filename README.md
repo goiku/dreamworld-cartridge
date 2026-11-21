@@ -99,6 +99,8 @@ Six Japanese tournament promotions award nine Berry types in Black 2 and White 2
 
 Each player signs in on their own server using the account linked to their cartridge. Choose **View friends** in Dream World to save a copy of a friend's island.
 
+Under each friend's name, **Last updated** tells you when the island itself changed. **Last synced** tells you when your paired servers last exchanged data. If your friend turns off their PC, you can still use the same visit button. Your friend's entry shows how many footprints, waterings and trades are waiting. After the servers reconnect, open the friend's profile to see which requests were accepted or declined.
+
 - **Pair once for automatic updates.** Start the same server release on both PCs. Connect them to the same LAN or private Tailscale network. One player generates an invitation on the friends page and privately sends the entire code to the other player. The code is valid for 30 minutes. Choose the LAN code on the same Wi-Fi or the Tailscale code between homes. The recipient pastes it into their own friends page and pairs. While both servers are online, they check for new snapshots about every 30 seconds and deliver queued footprints. The consoles and battle relay can stay off. If Windows Firewall blocks the connection, allow TCP 8094 from your local network or your friend's Tailscale address.
 - **Share a file.** The owner selects **Export my island snapshot** and sends the file. The visitor selects **Import a friend’s snapshot** on their own site and can visit immediately. Pair the servers when you want automatic updates and footprint delivery. Importing an older file preserves the newer cached version.
 

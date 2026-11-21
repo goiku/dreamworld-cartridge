@@ -48,6 +48,28 @@ def _revision(friends: list[dict], feet: list[dict], paired: set[str]) -> str:
     return hashlib.sha256(json.dumps([rows, ids]).encode()).hexdigest()[:24]
 
 
+def _delivery_status(card: str, friends: list[dict], links: dict) -> dict:
+    if not friends:
+        return {}
+    feet = islands.pending_footprint_counts(card)
+    jobs = actions.pending_action_counts(card)
+    labels = _labels[LANG]
+    result = {}
+    for friend in friends:
+        island = friend["island_id"]
+        link = links.get(island)
+        counts = {"feet": feet.get(island, 0), "water": 0, "trade": 0, **jobs.get(island, {})}
+        summary = ""
+        if any(counts.values()):
+            summary = labels["pending_counts"].format(**counts)
+            if link is None:
+                summary += " " + labels["pair_to_send"]
+        elif link is not None:
+            summary = labels["nothing_pending"]
+        result[island] = {"last_sync": link["heard"] if link is not None else None, "summary": summary}
+    return result
+
+
 @offline_friends.context_processor
 def context() -> dict:
     return {"t": _labels[LANG], "lang": "zh-CN" if LANG == "zh" else LANG, "date": _date}
@@ -83,6 +105,7 @@ def roster() -> str:
     archive = []
     feet = []
     revision = ""
+    delivery = {}
     if card:
         connections = {entry["island"]: entry for entry in peers.link_rows(card)}
         for entry in islands.list_friends(card):
@@ -93,18 +116,20 @@ def roster() -> str:
         pals = dream_pals({"rowcount": "9999"})["list"]
         feet = islands.received_footprints(card)
         revision = _revision(archive, feet, set(connections))
+        delivery = _delivery_status(card, archive, connections)
     return render_template("island_friends.html", card=card, friends=archive, original=pals,
                            notice=request.args.get("notice"),
                            csrf=session.setdefault("island_csrf", secrets.token_hex(24)) if card else "",
-                           feet=feet, revision=revision)
+                           feet=feet, revision=revision, delivery=delivery)
 
 
 @offline_friends.get("/updates")
 def updates() -> Response:
     card = _card()
-    links = peers.link_rows(card)
-    revision = _revision(islands.list_friends(card), islands.received_footprints(card), {row["island"] for row in links})
-    return jsonify(revision=revision)
+    links = {row["island"]: row for row in peers.link_rows(card)}
+    friends = islands.list_friends(card)
+    revision = _revision(friends, islands.received_footprints(card), set(links))
+    return jsonify(revision=revision, delivery=_delivery_status(card, friends, links))
 
 
 @offline_friends.get("/export")

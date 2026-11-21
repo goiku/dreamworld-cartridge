@@ -1088,10 +1088,10 @@ index 0000000000000000000000000000000000000000..c297355ea4d0b1d67c8dc55644944c02
 +                     (card, session["island_browser"]))
 diff --git a/api/offline_friends.py b/api/offline_friends.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..abdfb671cbb87598ce604e790d3dbeb034e9c1ad
+index 0000000000000000000000000000000000000000..d6e159d3f38187beea72145358828e07e873bb30
 --- /dev/null
 +++ b/api/offline_friends.py
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,248 @@
 +"""A home cartridge's cached islands, share controls, native room links, and visitor log."""
 +import hashlib
 +import json
@@ -1142,6 +1142,28 @@ index 0000000000000000000000000000000000000000..abdfb671cbb87598ce604e790d3dbeb0
 +    return hashlib.sha256(json.dumps([rows, ids]).encode()).hexdigest()[:24]
 +
 +
++def _delivery_status(card: str, friends: list[dict], links: dict) -> dict:
++    if not friends:
++        return {}
++    feet = islands.pending_footprint_counts(card)
++    jobs = actions.pending_action_counts(card)
++    labels = _labels[LANG]
++    result = {}
++    for friend in friends:
++        island = friend["island_id"]
++        link = links.get(island)
++        counts = {"feet": feet.get(island, 0), "water": 0, "trade": 0, **jobs.get(island, {})}
++        summary = ""
++        if any(counts.values()):
++            summary = labels["pending_counts"].format(**counts)
++            if link is None:
++                summary += " " + labels["pair_to_send"]
++        elif link is not None:
++            summary = labels["nothing_pending"]
++        result[island] = {"last_sync": link["heard"] if link is not None else None, "summary": summary}
++    return result
++
++
 +@offline_friends.context_processor
 +def context() -> dict:
 +    return {"t": _labels[LANG], "lang": "zh-CN" if LANG == "zh" else LANG, "date": _date}
@@ -1177,6 +1199,7 @@ index 0000000000000000000000000000000000000000..abdfb671cbb87598ce604e790d3dbeb0
 +    archive = []
 +    feet = []
 +    revision = ""
++    delivery = {}
 +    if card:
 +        connections = {entry["island"]: entry for entry in peers.link_rows(card)}
 +        for entry in islands.list_friends(card):
@@ -1187,18 +1210,20 @@ index 0000000000000000000000000000000000000000..abdfb671cbb87598ce604e790d3dbeb0
 +        pals = dream_pals({"rowcount": "9999"})["list"]
 +        feet = islands.received_footprints(card)
 +        revision = _revision(archive, feet, set(connections))
++        delivery = _delivery_status(card, archive, connections)
 +    return render_template("island_friends.html", card=card, friends=archive, original=pals,
 +                           notice=request.args.get("notice"),
 +                           csrf=session.setdefault("island_csrf", secrets.token_hex(24)) if card else "",
-+                           feet=feet, revision=revision)
++                           feet=feet, revision=revision, delivery=delivery)
 +
 +
 +@offline_friends.get("/updates")
 +def updates() -> Response:
 +    card = _card()
-+    links = peers.link_rows(card)
-+    revision = _revision(islands.list_friends(card), islands.received_footprints(card), {row["island"] for row in links})
-+    return jsonify(revision=revision)
++    links = {row["island"]: row for row in peers.link_rows(card)}
++    friends = islands.list_friends(card)
++    revision = _revision(friends, islands.received_footprints(card), set(links))
++    return jsonify(revision=revision, delivery=_delivery_status(card, friends, links))
 +
 +
 +@offline_friends.get("/export")
@@ -6369,10 +6394,10 @@ index 0000000000000000000000000000000000000000..3abfb47fdab254bc4225b7455fc35e6b
 +}
 diff --git a/json_data/offline_islands_ui.json b/json_data/offline_islands_ui.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b48e78d03
+index 0000000000000000000000000000000000000000..fe9823bddd837f0f36f478bd77cd041eb0b9a43e
 --- /dev/null
 +++ b/json_data/offline_islands_ui.json
-@@ -0,0 +1,810 @@
+@@ -0,0 +1,834 @@
 +{
 +  "zh": {
 +    "friends": "查看好友",
@@ -6384,6 +6409,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "离线串门",
 +    "live": "实时访问",
 +    "recent": "上次同步",
++    "pending_counts": "待同步的互动有 {feet} 个脚印、{water} 次浇水、{trade} 笔交换。",
++    "pair_to_send": "与好友配对后会自动补送。",
++    "nothing_pending": "没有待同步的互动。",
 +    "updated": "上次更新",
 +    "empty": "还没有好友岛。输入朋友的邀请码，或导入他分享的小岛文件。",
 +    "pair": "好友配对",
@@ -6485,6 +6513,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "Offline visit",
 +    "live": "Live visit",
 +    "recent": "Last synced",
++    "pending_counts": "Waiting to sync · Footprints {feet} · Waterings {water} · Trades {trade}",
++    "pair_to_send": "Pair with this friend to send them automatically.",
++    "nothing_pending": "Nothing waiting to sync.",
 +    "updated": "Last updated",
 +    "empty": "No islands yet. Enter a friend’s invitation or import their island file.",
 +    "pair": "Pair islands",
@@ -6586,6 +6617,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "オフライン訪問",
 +    "live": "リアルタイム訪問",
 +    "recent": "最終同期",
++    "pending_counts": "未送信の足あと {feet} 件・水やり {water} 件・交換 {trade} 件",
++    "pair_to_send": "この友だちとペアリングすると、自動で送信されます。",
++    "nothing_pending": "同期待ちの記録はありません。",
 +    "updated": "最終更新",
 +    "empty": "友だちの招待コードを入力するか、島ファイルを読み込んでください。",
 +    "pair": "島をペアリング",
@@ -6687,6 +6721,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "Visite hors ligne",
 +    "live": "Visite en direct",
 +    "recent": "Dernière synchronisation",
++    "pending_counts": "En attente · Empreintes {feet} · Arrosages {water} · Échanges {trade}",
++    "pair_to_send": "Associez vos îles pour les envoyer automatiquement.",
++    "nothing_pending": "Aucune interaction en attente de synchronisation.",
 +    "updated": "Dernière mise à jour",
 +    "empty": "Entrez une invitation ou importez un fichier d’île.",
 +    "pair": "Associer les îles",
@@ -6788,6 +6825,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "Visita offline",
 +    "live": "Visita in diretta",
 +    "recent": "Ultima sincronizzazione",
++    "pending_counts": "In attesa · Impronte {feet} · Innaffiature {water} · Scambi {trade}",
++    "pair_to_send": "Abbina le vostre isole per inviare queste attività automaticamente.",
++    "nothing_pending": "Nessuna attività in attesa di sincronizzazione.",
 +    "updated": "Ultimo aggiornamento",
 +    "empty": "Inserisci un invito o importa il file di un’isola.",
 +    "pair": "Associa le isole",
@@ -6889,6 +6929,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "Offline besuchen",
 +    "live": "Live besuchen",
 +    "recent": "Zuletzt synchronisiert",
++    "pending_counts": "Noch ausstehend · Fußspuren {feet} · Gießvorgänge {water} · Tauschanfragen {trade}",
++    "pair_to_send": "Verbinde eure Inseln, um diese Einträge automatisch zu senden.",
++    "nothing_pending": "Alle Aktionen sind synchronisiert.",
 +    "updated": "Zuletzt aktualisiert",
 +    "empty": "Gib eine Einladung ein oder importiere eine Inseldatei.",
 +    "pair": "Inseln koppeln",
@@ -6990,6 +7033,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "Visita sin conexión",
 +    "live": "Visita en directo",
 +    "recent": "Última sincronización",
++    "pending_counts": "Pendiente de envío · Huellas {feet} · Riegos {water} · Intercambios {trade}",
++    "pair_to_send": "Vincula las dos islas para enviarlos automáticamente.",
++    "nothing_pending": "No hay interacciones pendientes de sincronización.",
 +    "updated": "Última actualización",
 +    "empty": "Introduce una invitación o importa el archivo de una isla.",
 +    "pair": "Vincular islas",
@@ -7091,6 +7137,9 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +    "saved": "오프라인 방문",
 +    "live": "실시간 방문",
 +    "recent": "마지막 동기화",
++    "pending_counts": "동기화 대기 중 · 발자국 {feet}개 · 물 주기 {water}회 · 교환 {trade}건",
++    "pair_to_send": "이 친구와 섬을 연결하면 자동으로 전송됩니다.",
++    "nothing_pending": "동기화를 기다리는 기록이 없습니다.",
 +    "updated": "마지막 업데이트",
 +    "empty": "친구의 초대 코드를 입력하거나 섬 파일을 가져오세요.",
 +    "pair": "섬 연결",
@@ -17757,10 +17806,10 @@ index 0000000000000000000000000000000000000000..6187bbcd0420357e8b201601f63848ff
 +@media(max-width:36rem){.mast{padding:.8rem 1rem;font-size:.9rem}.pal{gap:.65rem}.mini{width:3.6rem;height:3.6rem}.hero{gap:.25rem}.hero p{font-size:.94rem}.input-action input{width:100%}.room-head{gap:.5rem}.room-head .button{font-size:.95rem}}
 diff --git a/static/island-friends.js b/static/island-friends.js
 new file mode 100644
-index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7bdbb7d63
+index 0000000000000000000000000000000000000000..5fa160778a54a77f6341061acddb59332c7268cb
 --- /dev/null
 +++ b/static/island-friends.js
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,120 @@
 +"use strict";
 +
 +const csrf = document.querySelector('meta[name="island-csrf"]').content;
@@ -17843,7 +17892,7 @@ index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7
 +  try {
 +    const response = await fetch("/islands/updates", {cache: "no-store"});
 +    if (!response.ok) return;
-+    const {revision} = await response.json();
++    const {revision, delivery} = await response.json();
 +    const list = document.querySelector(".island-list");
 +    if (list && revision !== list.dataset.revision) {
 +      const page = await fetch(location.href, {cache:"no-store"});
@@ -17855,6 +17904,22 @@ index 0000000000000000000000000000000000000000..8097ba8c919d1963b825007d891833b7
 +          section.querySelectorAll("time[data-time]").forEach(formatTime);
 +          document.querySelector(selector).replaceWith(section);
 +        }
++      }
++    } else if (list && delivery) {
++      for (const row of list.querySelectorAll("[data-island]")) {
++        const state = delivery[row.dataset.island];
++        if (!state) continue;
++        const sync = row.querySelector("[data-last-sync]");
++        const pending = row.querySelector("[data-pending]");
++        if (!sync || !pending) continue;
++        const time = sync.querySelector("time");
++        sync.hidden = !state.last_sync;
++        if (state.last_sync && time.dataset.time !== String(state.last_sync)) {
++          time.dataset.time = state.last_sync;
++          formatTime(time);
++        }
++        if (pending.textContent !== state.summary) pending.textContent = state.summary;
++        pending.hidden = !state.summary;
 +      }
 +    }
 +  } catch { /* Cached visits remain available when the peer is unreachable. */ }
@@ -18997,10 +19062,10 @@ index 0000000000000000000000000000000000000000..645faa9d97e5b32edb3584e62ad873a4
 +<script src="{{ url_for('island_adventure.static', filename='island-bridge.js') }}"></script>
 diff --git a/templates/island_friends.html b/templates/island_friends.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..31fb7139b5d1ff961475aeef0b3b8e19930cd9c1
+index 0000000000000000000000000000000000000000..c49b9845e8da7305e3cbe73535de7d01efc7a46e
 --- /dev/null
 +++ b/templates/island_friends.html
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,47 @@
 +{% extends "island_base.html" %}
 +{% block main %}
 +<section class="hero">
@@ -19016,6 +19081,10 @@ index 0000000000000000000000000000000000000000..31fb7139b5d1ff961475aeef0b3b8e19
 +    <img class="mini" src="{{ url_for('.picture',item_id=f.house) }}" loading="lazy" alt="">
 +    <div class="pal-body"><h2>{{ f.name }}</h2>
 +    <p class="dates">{{ t.updated }} <time data-time="{{ f.updated_at }}">{{ date(f.updated_at) }}</time></p>
++    {% set status = delivery[f.island_id] %}
++    <p class="dates" data-last-sync {% if not status.last_sync %}hidden{% endif %}>{{ t.recent }}
++      <time{% if status.last_sync %} data-time="{{ status.last_sync }}"{% endif %}>{{ date(status.last_sync) if status.last_sync else '' }}</time></p>
++    <p class="dates" data-pending {% if not status.summary %}hidden{% endif %}>{{ status.summary }}</p>
 +    <form method="post" action="{{ url_for('.enter',island_id=f.island_id) }}" class="actions">
 +      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="event_id" value="{{ f.event_id }}">
 +      <button type="submit" class="primary">{{ t.visit }}</button>
@@ -20175,10 +20244,10 @@ index 0000000000000000000000000000000000000000..4b415507b05be4b13990d266883b5df7
 +    assert decode_form(response.get_data(as_text=True))["returncd"] == "102"
 diff --git a/tests/test_island_actions.py b/tests/test_island_actions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927a1705b26
+index 0000000000000000000000000000000000000000..1cdb8b4439028b4f61d120c696a218e245b92b03
 --- /dev/null
 +++ b/tests/test_island_actions.py
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,173 @@
 +from contextlib import ExitStack, contextmanager
 +from unittest.mock import patch
 +
@@ -20227,6 +20296,7 @@ index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927
 +            actions.request_action(guest, island, owner["version"], "trade", slot, 150)
 +        batch = actions.pending(guest, island)
 +        assert len(batch) == 3 and count(guest, 150) == initial[0] - 3
++        assert actions.pending_action_counts(guest) == {island: {"trade": 3}}
 +    with active(tmp_path / "home"):
 +        islands.import_island(host, visitor)
 +        stale = managers.get_shelf(host).data["share_list"][2]
@@ -20240,6 +20310,7 @@ index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927
 +        actions.settle(guest, island, batch, results)
 +        assert (count(guest, 150), count(guest, 149)) == (initial[0] - 2, initial[1] + 2)
 +        assert not actions.pending(guest, island)
++        assert actions.pending_action_counts(guest) == {}
 +
 +
 +def test_water_receipts_and_refund(tmp_path):
@@ -20267,6 +20338,7 @@ index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927
 +            actions.request_action(guest, island, owner["version"], "water", i)
 +        batch = actions.pending(guest, island)
 +        assert visits.friend_waterings_left(guest) == remaining - 2
++        assert actions.pending_action_counts(guest) == {island: {"water": 2}}
 +    with active(tmp_path / "home"):
 +        islands.import_island(host, visitor)
 +        garden = managers.get_crops(host)
@@ -20280,6 +20352,34 @@ index 0000000000000000000000000000000000000000..ebe5c514ede590006dcd2eadaa9be927
 +        actions.settle(guest, island, batch, results)
 +        assert visits.friend_waterings_left(guest) == remaining - 1
 +        assert save_data.read_member(guest)["experiment_point"] == points + 10
++        assert actions.pending_action_counts(guest) == {}
++
++
++def test_roster_counts_all_batches_and_only_the_selected_save(tmp_path):
++    from api import offline_friends
++
++    visitor, other, owner = map(gsid_to_gscd, (201, 202, 203))
++    labels = offline_friends._labels[offline_friends.LANG]
++    with active(tmp_path / "roster") as db:
++        for card in (visitor, other, owner):
++            create(db, card, "Fixture")
++        friend = islands.export_island(owner)
++        island = friend["island_id"]
++        for card, amount in ((visitor, islands.MAX_BATCH + 1), (other, 1)):
++            islands.import_island(card, friend)
++            for i in range(amount):
++                islands.record_footprint(card, island, f"{i:032x}")
++        with db.transaction() as conn:
++            actions.schema(conn)
++            conn.executemany(
++                "INSERT INTO island_actions VALUES(?,?,?,?,?)",
++                [(visitor, island, str(i), '{"kind":"water"}', "pending") for i in range(31)]
++                + [(other, island, "0", '{"kind":"trade"}', "pending")],
++            )
++        for card, feet, water, trade in ((visitor, islands.MAX_BATCH + 1, 31, 0), (other, 1, 0, 1)):
++            row = offline_friends._delivery_status(card, [friend], {})[island]
++            assert row["last_sync"] is None
++            assert row["summary"] == labels["pending_counts"].format(feet=feet, water=water, trade=trade) + " " + labels["pair_to_send"]
 +
 +
 +def test_profile_form_reserves_trade_only_with_its_session_token(tmp_path, monkeypatch):
@@ -20370,10 +20470,10 @@ index 0000000000000000000000000000000000000000..f147e6a8c066bef0cc8a2b2ca32108ac
 +        assert not any(packet[8:])
 diff --git a/tests/test_island_peers.py b/tests/test_island_peers.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..5ecfc92039ab03a98e5f7477fbfd12659b1eefe9
+index 0000000000000000000000000000000000000000..0455dde6d2808b96bc823551560935b719c90c15
 --- /dev/null
 +++ b/tests/test_island_peers.py
-@@ -0,0 +1,297 @@
+@@ -0,0 +1,309 @@
 +"""Two private hosts, encrypted pairing, a full host shutdown, and background catch-up."""
 +
 +import json
@@ -20499,6 +20599,9 @@ index 0000000000000000000000000000000000000000..5ecfc92039ab03a98e5f7477fbfd1265
 +            elif cmd == "scene":
 +                client = client or web_session(card, number)
 +                result = open_scene(client, *args)
++            elif cmd == "delivery":
++                client = client or web_session(card, number)
++                result = client.get("/islands/updates").json["delivery"][args[0]]
 +            elif cmd == "refresh":
 +                result = peers.sync(peers.lookup(card, *args))
 +            else:
@@ -20553,6 +20656,10 @@ index 0000000000000000000000000000000000000000..5ecfc92039ab03a98e5f7477fbfd1265
 +
 +
 +def test_offline_and_automatic_reconnect(tmp_path):
++    from config import LANG
++    from utils.data import load_json_data
++
++    labels = load_json_data("offline_islands_ui")[LANG]
 +    host_a, host_b = "127.0.0.12", "127.0.0.13"
 +    with socket.socket() as sock:
 +        sock.bind((host_a, 0))
@@ -20561,6 +20668,7 @@ index 0000000000000000000000000000000000000000..5ecfc92039ab03a98e5f7477fbfd1265
 +    with host(a, host_a, port, 7) as (island_a, A):
 +        with host(b, host_b, port, 8) as (island_b, B):
 +            assert A("join", B("invite"))["island_id"] == island_b
++            assert A("delivery", island_b)["last_sync"] and B("delivery", island_a)["last_sync"]
 +            assert B("cached", island_a)["content"]["profile"]["pgl_name"] == "Owner 7"
 +            B("change", 42)
 +            eventually(lambda: A("cached", island_b)["content"]["profile"]["point"] == 42)
@@ -20570,11 +20678,15 @@ index 0000000000000000000000000000000000000000..5ecfc92039ab03a98e5f7477fbfd1265
 +        A("visit", island_b, event)
 +        A("visit", island_b, event)
 +        assert len(A("outbox", island_b)) == 1
++        waiting = A("delivery", island_b)
++        assert waiting["summary"] == labels["pending_counts"].format(feet=1, water=0, trade=0)
 +        with host(b, host_b, port, 8) as (restored, B):
 +            assert restored == island_b
 +            eventually(lambda: len(B("inbox")) == 1 and not A("outbox", island_b))
 +            A("refresh", island_b)
 +            B("refresh", island_a)
++            synced = A("delivery", island_b)
++            assert synced["last_sync"] >= waiting["last_sync"] and synced["summary"] == labels["nothing_pending"]
 +            assert [entry["event_id"] for entry in B("inbox")] == [event]
 +            assert A("cached", island_b)["content"]["profile"]["point"] == 42
 +
@@ -22607,10 +22719,10 @@ index 0000000000000000000000000000000000000000..7f73a23a1e3ab9a0064df8653520ba26
 +    return movie[:8] + (zlib.compress(body) if compressed else body)
 diff --git a/utils/island_actions.py b/utils/island_actions.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..9c59359a95c09e9ce90328da749bb5ff99ed3fe2
+index 0000000000000000000000000000000000000000..3aeaba37c06fd1e6a6722849bac37df7b293c28e
 --- /dev/null
 +++ b/utils/island_actions.py
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,260 @@
 +"""Two paired islands exchange requests over their existing authenticated link.
 +
 +The visitor reserves payment when submitting. Only an owner acknowledgement credits
@@ -22674,6 +22786,18 @@ index 0000000000000000000000000000000000000000..9c59359a95c09e9ce90328da749bb5ff
 +                (card, island),
 +            )
 +        ]
++
++
++def pending_action_counts(card: str) -> dict[str, dict[str, int]]:
++    with db.transaction() as conn:
++        schema(conn)
++        counts = {}
++        for island, kind, count in conn.execute(
++            """SELECT island,json_extract(request,'$.kind'),COUNT(*) FROM island_actions
++               WHERE card=? AND status='pending' GROUP BY island,json_extract(request,'$.kind')""", (card,)
++        ):
++            counts.setdefault(island, {})[kind] = count
++        return counts
 +
 +
 +def _identity(island, version, kind, slot) -> str:
@@ -22919,10 +23043,10 @@ index 0000000000000000000000000000000000000000..c754f55af66654d4eae162b92ce733ac
 +    raise FileNotFoundError
 diff --git a/utils/island_peers.py b/utils/island_peers.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..56cfe9b2a63ce7a8dfa9f0eb65bd13d2c3b52843
+index 0000000000000000000000000000000000000000..e2742cc171d75fec89bee6414d15bca0d9a68327
 --- /dev/null
 +++ b/utils/island_peers.py
-@@ -0,0 +1,393 @@
+@@ -0,0 +1,398 @@
 +"""Authenticated, reciprocal exchanges of signed island views and delivery receipts."""
 +
 +import hashlib
@@ -23167,6 +23291,8 @@ index 0000000000000000000000000000000000000000..56cfe9b2a63ce7a8dfa9f0eb65bd13d2
 +        add_link(db, card, doc["island_id"], address, key)
 +        db.execute("UPDATE invites SET used=? WHERE id=?", (digest, invitation))
 +    islands.import_island(card, doc)
++    with database() as db:
++        db.execute("UPDATE links SET heard=? WHERE id=?", (now(), digest))
 +    return {"snapshot": local}
 +
 +
@@ -23293,12 +23419,15 @@ index 0000000000000000000000000000000000000000..56cfe9b2a63ce7a8dfa9f0eb65bd13d2
 +    ids = islands.receive_footprints(card, island, _batch(msg, "events"))
 +    extra = {"action_results": actions.receive(card,island,msg["actions"])} if "actions" in msg else {}
 +    doc = islands.export_island(card)
-+    return {
++    reply = {
 +        **extra,
 +        "ack": ids,
 +        "events": islands.pending_footprints(card, island),
 +        "snapshot": doc if msg["since"] != doc["version"] else None,
 +    }
++    with database() as db:
++        db.execute("UPDATE links SET heard=? WHERE id=?", (now(), key_id))
++    return reply
 +
 +
 +def dispatch(address: str, action: str, key_id: str, raw: bytes) -> bytes:
@@ -23937,10 +24066,10 @@ index 0000000000000000000000000000000000000000..abf27868144e473d7d291fe405220c23
 +    return result[:8] + (zlib.compress(result[8:]) if result[:3] == b"CWS" else result[8:])
 diff --git a/utils/offline_islands.py b/utils/offline_islands.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e300f4dcd29695eaa4d544556cba4029bfafcdf4
+index 0000000000000000000000000000000000000000..5d1a524b9d726b755f1d7c68a4933d15882dbde4
 --- /dev/null
 +++ b/utils/offline_islands.py
-@@ -0,0 +1,443 @@
+@@ -0,0 +1,450 @@
 +"""Signed, read-only island postcards and a separate durable footprint mailbox."""
 +import hashlib
 +import json
@@ -24333,6 +24462,13 @@ index 0000000000000000000000000000000000000000..e300f4dcd29695eaa4d544556cba4029
 +        rows = conn.execute("SELECT document FROM offline_island_outbox WHERE gscd=? AND dest=? AND delivered=0 "
 +                            "ORDER BY rowid LIMIT ?", (gscd, dest_island, max(0, min(limit, MAX_BATCH))))
 +        return [json.loads(row[0]) for row in rows]
++
++
++def pending_footprint_counts(gscd: str) -> dict[str, int]:
++    with _transaction() as conn:
++        return dict(conn.execute(
++            "SELECT dest,COUNT(*) FROM offline_island_outbox WHERE gscd=? AND delivered=0 GROUP BY dest", (gscd,)
++        ))
 +
 +
 +def _ids(ids: object) -> None:

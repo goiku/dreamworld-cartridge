@@ -123,6 +123,9 @@ def serve_fixture(pipe, directory, address, port, number):
             elif cmd == "scene":
                 client = client or web_session(card, number)
                 result = open_scene(client, *args)
+            elif cmd == "delivery":
+                client = client or web_session(card, number)
+                result = client.get("/islands/updates").json["delivery"][args[0]]
             elif cmd == "refresh":
                 result = peers.sync(peers.lookup(card, *args))
             else:
@@ -177,6 +180,10 @@ def eventually(test):
 
 
 def test_offline_and_automatic_reconnect(tmp_path):
+    from config import LANG
+    from utils.data import load_json_data
+
+    labels = load_json_data("offline_islands_ui")[LANG]
     host_a, host_b = "127.0.0.12", "127.0.0.13"
     with socket.socket() as sock:
         sock.bind((host_a, 0))
@@ -185,6 +192,7 @@ def test_offline_and_automatic_reconnect(tmp_path):
     with host(a, host_a, port, 7) as (island_a, A):
         with host(b, host_b, port, 8) as (island_b, B):
             assert A("join", B("invite"))["island_id"] == island_b
+            assert A("delivery", island_b)["last_sync"] and B("delivery", island_a)["last_sync"]
             assert B("cached", island_a)["content"]["profile"]["pgl_name"] == "Owner 7"
             B("change", 42)
             eventually(lambda: A("cached", island_b)["content"]["profile"]["point"] == 42)
@@ -194,11 +202,15 @@ def test_offline_and_automatic_reconnect(tmp_path):
         A("visit", island_b, event)
         A("visit", island_b, event)
         assert len(A("outbox", island_b)) == 1
+        waiting = A("delivery", island_b)
+        assert waiting["summary"] == labels["pending_counts"].format(feet=1, water=0, trade=0)
         with host(b, host_b, port, 8) as (restored, B):
             assert restored == island_b
             eventually(lambda: len(B("inbox")) == 1 and not A("outbox", island_b))
             A("refresh", island_b)
             B("refresh", island_a)
+            synced = A("delivery", island_b)
+            assert synced["last_sync"] >= waiting["last_sync"] and synced["summary"] == labels["nothing_pending"]
             assert [entry["event_id"] for entry in B("inbox")] == [event]
             assert A("cached", island_b)["content"]["profile"]["point"] == 42
 

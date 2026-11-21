@@ -13,6 +13,10 @@
     <img class="mini" src="{{ url_for('.picture',item_id=f.house) }}" loading="lazy" alt="">
     <div class="pal-body"><h2>{{ f.name }}</h2>
     <p class="dates">{{ t.updated }} <time data-time="{{ f.updated_at }}">{{ date(f.updated_at) }}</time></p>
+    {% set status = delivery[f.island_id] %}
+    <p class="dates" data-last-sync {% if not status.last_sync %}hidden{% endif %}>{{ t.recent }}
+      <time{% if status.last_sync %} data-time="{{ status.last_sync }}"{% endif %}>{{ date(status.last_sync) if status.last_sync else '' }}</time></p>
+    <p class="dates" data-pending {% if not status.summary %}hidden{% endif %}>{{ status.summary }}</p>
     <form method="post" action="{{ url_for('.enter',island_id=f.island_id) }}" class="actions">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="event_id" value="{{ f.event_id }}">
       <button type="submit" class="primary">{{ t.visit }}</button>

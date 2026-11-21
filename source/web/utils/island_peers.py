@@ -242,6 +242,8 @@ def receive_pair(address: str, invitation: str, msg: dict) -> dict:
         add_link(db, card, doc["island_id"], address, key)
         db.execute("UPDATE invites SET used=? WHERE id=?", (digest, invitation))
     islands.import_island(card, doc)
+    with database() as db:
+        db.execute("UPDATE links SET heard=? WHERE id=?", (now(), digest))
     return {"snapshot": local}
 
 
@@ -368,12 +370,15 @@ def receive_sync(key_id: str, msg: dict) -> dict:
     ids = islands.receive_footprints(card, island, _batch(msg, "events"))
     extra = {"action_results": actions.receive(card,island,msg["actions"])} if "actions" in msg else {}
     doc = islands.export_island(card)
-    return {
+    reply = {
         **extra,
         "ack": ids,
         "events": islands.pending_footprints(card, island),
         "snapshot": doc if msg["since"] != doc["version"] else None,
     }
+    with database() as db:
+        db.execute("UPDATE links SET heard=? WHERE id=?", (now(), key_id))
+    return reply
 
 
 def dispatch(address: str, action: str, key_id: str, raw: bytes) -> bytes:
