@@ -6,7 +6,10 @@
   <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
 </head>
 <body class="dw-guide">
-  <header class="guide-header"><a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a></header>
+  <header class="guide-header guide-toolbar">
+    {% include "guide_home_link.html" %}
+    <a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a>
+  </header>
   <main class="guide-main">
     {% if chapter %}
     <a href="{{ url_for('player_guide.picture_guide') }}">← {{ t.pictures.title }}</a>
@@ -25,5 +28,6 @@
     <h1>{{ t.pictures.title }}</h1>
     <ul>{% for key in chapters %}<li><a href="{{ url_for('player_guide.picture_guide', chapter=key, step=1) }}">{{ t.pictures.chapters[key] }}</a></li>{% endfor %}</ul>
     {% endif %}
+    <footer class="guide-footer">{% include "guide_home_link.html" %}</footer>
   </main>
 </body></html>

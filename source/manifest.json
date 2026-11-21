@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "bc53e462d6071a2d18fffd6663c5f600338c27cfbc64ced9c5012a114e46772b",
+    "patch_sha256": "24dd9f0f6b7472594e0d86fd398db975cccb2a4f919ba80a09a6694b65efcd81",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -161,12 +161,13 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "afacddd724074ef1cc97b026c381cf4504373ba14c56fde33b59293653952bcb",
+        "after": "29e220658ee3cf6bdd13b386a1cbaaf27ab686c7638cc89f1a0a10a4ccca727c",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
+          "afacddd724074ef1cc97b026c381cf4504373ba14c56fde33b59293653952bcb",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
           "b2f5e44504cc98dfbfc9cb5f0091213ce53822bbf893af14546d604133ac9a21",
           "c92242e33027847db310f551b1794a6fb8076991ac913534ccfd289df4cfb392",
@@ -270,7 +271,7 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "c6c973854ba3b696569ef2686fa57aee89604b3ecf2db12dc5533ae89caa9f5a",
+        "after": "5a8d7cbef8dbbde2129e0791bda96023b2a27891ee89526ee03d059583d29a63",
         "previous": [
           "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
           "3cee081d1ad138589f21c99cbe4810dd00ab6c86303fbd5077ba477196f25055",
@@ -279,6 +280,7 @@
           "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
           "a1f98776dc06a7a067d4b738a881371c3a4d82da2877fa3f1f150cf590b5e8bd",
           "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898",
+          "c6c973854ba3b696569ef2686fa57aee89604b3ecf2db12dc5533ae89caa9f5a",
           "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1",
           "e441dc68505b89503eed0d69e0808761b4866c0b9cb4b67d0e404c0defd901f5"
         ]
@@ -493,8 +495,9 @@
       },
       "static/player-guide.css": {
         "before": null,
-        "after": "024eb0b97a1b703543b69160d453197a6d08e427a23ccebe6df2aac449595598",
+        "after": "7bfe1486017fac23d756d72631afd0a29c9a6436229f6b4815fa4b32cab6d046",
         "previous": [
+          "024eb0b97a1b703543b69160d453197a6d08e427a23ccebe6df2aac449595598",
           "ad3b21b636e1fd99c973ee5b12d5965ce6197a60262b27d1fcf91d95600ce185",
           "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c",
           "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f"
@@ -557,6 +560,10 @@
           "b7434332b09b6eb8c617fb7c7e602626daa5825e2fca71ba7da5324990ebd43a"
         ]
       },
+      "templates/guide_home_link.html": {
+        "before": null,
+        "after": "5a46a44872ddb7af29b4d84dfb65b8756ce8f939a7bedd4e21f0844630985764"
+      },
       "templates/island_adventure.html": {
         "before": null,
         "after": "7b674d6bab274ab840c8e03a4e007fd607f8cf94177b55b6e982a283a35ff541"
@@ -597,15 +604,21 @@
       },
       "templates/phone_access.html": {
         "before": null,
-        "after": "8f51f1b1c2a11c004203714f3d4cb93463aa4ff129e6431f40e70a7eba1eb587"
+        "after": "4c63461b252f97c477cd4cd4006631307514d579001a2a4fe05882a0da5fd01d",
+        "previous": [
+          "8f51f1b1c2a11c004203714f3d4cb93463aa4ff129e6431f40e70a7eba1eb587"
+        ]
       },
       "templates/picture_guide.html": {
         "before": null,
-        "after": "dcc24ae68184f2e047843e2cbd186e336939b89f51949e4d91c102a2f3b611db"
+        "after": "0712df0d15b540b4392e2cf3b29a6c094a4bccb1f0414cc6fff5d31d487c1f0b",
+        "previous": [
+          "dcc24ae68184f2e047843e2cbd186e336939b89f51949e4d91c102a2f3b611db"
+        ]
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "f49c7d0ebce74ee13696f70f88d262dc84bbc0506c5388f678ce619bf591f613",
+        "after": "475b137f64d603db311e5dcbba198d499fccf52128e752fa26a470856e2b62d4",
         "previous": [
           "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
@@ -614,6 +627,7 @@
           "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
           "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
           "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df",
+          "f49c7d0ebce74ee13696f70f88d262dc84bbc0506c5388f678ce619bf591f613",
           "feeb10fba4da070c1af82caa459e6fe859fa90282d863c03e54299eae8fe2790"
         ]
       },
@@ -647,9 +661,10 @@
       },
       "tests/test_game_guides_news.py": {
         "before": null,
-        "after": "4caaf2b43b036735d00e59c6fa571083bed14b381cb604faf5f5cd103912b1ac",
+        "after": "14c04fd910bf5eae52a1f9e60ba442088e6d2dc5e448048e70530dea2144d3b3",
         "previous": [
-          "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5"
+          "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5",
+          "4caaf2b43b036735d00e59c6fa571083bed14b381cb604faf5f5cd103912b1ac"
         ]
       },
       "tests/test_gen5_names.py": {
@@ -911,7 +926,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "903888dc38ed5f3d091f74413b1af46cd3f0c17dfd95e79759f21e9942890202",
+      "sha256": "d48c654d96f9067cd4403d2afeb80b727d95cb7cb9279476f3b2d8dc3cadb0e7",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",

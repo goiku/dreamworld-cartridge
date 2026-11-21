@@ -6,8 +6,8 @@
   <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
 </head>
 <body class="dw-guide">
-  <header class="guide-header">
-    <a href="/">Pokémon Global Link</a>
+  <header class="guide-header guide-toolbar">
+    {% include "guide_home_link.html" %}
     <details class="guide-languages"><summary>{{ language_names[lang] }}</summary>
       <nav>{% for code, name in language_names.items() %}<a lang="{{ code }}" href="/languages/{{ code }}/?page=/player-guide/phone/" {% if code == lang %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</nav>
     </details>
@@ -21,6 +21,7 @@
     <section><h2>{{ t.phone_play_title }}</h2><p>{{ t.phone_play }}</p>
       <div class="guide-actions"><a href="/">{{ t.open_login }}</a><a href="/pdw/">{{ t.phone_game }}</a></div>
     </section>
+    <footer class="guide-footer">{% include "guide_home_link.html" %}</footer>
   </main>
 </body>
 </html>

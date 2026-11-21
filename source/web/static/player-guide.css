@@ -27,6 +27,11 @@ body[data-dw-login] { margin: 0; padding: 20px 12px; background: #f4f5ee; }
 .dw-guide :focus-visible, .dw-player-help :focus-visible { outline: 3px solid #b16b03; outline-offset: 3px; }
 .guide-header { background: #253831; color: #fff; padding: 12px max(16px, calc((100% - 800px) / 2)); display: flex; align-items: center; justify-content: space-between; }
 .guide-header > a { color: #fff; font-weight: 700; text-decoration: none; }
+.guide-toolbar { position: sticky; top: 0; z-index: 2; gap: 1rem; }
+.guide-home { display: inline-flex; align-items: center; gap: .4em; box-sizing: border-box; min-height: 44px; padding: .35rem .9rem; border: 1px solid currentColor; border-radius: 4px; font-weight: 650; text-decoration: none; }
+.guide-home:hover, .guide-home:focus-visible { text-decoration: underline; }
+.guide-footer { margin-top: 1.25rem; }
+.guide-toolbar ~ .guide-main section { scroll-margin-top: 5rem; }
 .guide-languages { position: relative; }
 .guide-languages summary, .console-model summary { cursor: pointer; }
 .guide-languages nav { position: absolute; right: 0; width: 155px; padding: 8px; background: #fff; border: 1px solid #b4bdb3; z-index: 1; }

@@ -3581,7 +3581,7 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..a2cd9b19b2c97e3d46415631de4b6bd2a18e06a7 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626b9c4205f 100644
 --- a/api/server.py
 +++ b/api/server.py
 @@ -7,18 +7,30 @@ import atexit
@@ -3652,7 +3652,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..a2cd9b19b2c97e3d46415631de4b6bd2
 +
 +def _language_page() -> str:
 +    source = request.args.get("page") or urlsplit(request.referrer or "").path
-+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/"} | {f"/practice/{n}/" for n in range(1,13)}
++    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
 +    return source if source in allowed else "/"
 +
 +
@@ -7172,10 +7172,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4a5b3db28
+index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baeaa2d63984
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,738 @@
+@@ -0,0 +1,746 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -7267,7 +7267,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "Plant, water and harvest Berries",
 +        "11": "Cross the rainbow bridge"
 +      }
-+    }
++    },
++    "back_home": "Back to home"
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -7359,7 +7360,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "きのみを育てて収穫する",
 +        "11": "虹の橋から出発する"
 +      }
-+    }
++    },
++    "back_home": "トップページに戻る"
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7451,7 +7453,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "种植、浇水与采收树果",
 +        "11": "从彩虹桥出发"
 +      }
-+    }
++    },
++    "back_home": "返回主页"
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7543,7 +7546,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "Planter, arroser et récolter les Baies",
 +        "11": "Traverser le pont arc-en-ciel"
 +      }
-+    }
++    },
++    "back_home": "Retour à l’accueil"
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7635,7 +7639,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "Piantare, annaffiare e raccogliere Bacche",
 +        "11": "Attraversare il ponte arcobaleno"
 +      }
-+    }
++    },
++    "back_home": "Torna alla pagina iniziale"
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7727,7 +7732,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "Beeren pflanzen, gießen und ernten",
 +        "11": "Die Regenbogenbrücke überqueren"
 +      }
-+    }
++    },
++    "back_home": "Zur Startseite"
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7819,7 +7825,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "Plantar, regar y cosechar Bayas",
 +        "11": "Cruzar el puente arcoíris"
 +      }
-+    }
++    },
++    "back_home": "Volver al inicio"
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7911,7 +7918,8 @@ index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4
 +        "10": "나무열매 심기·물 주기·수확하기",
 +        "11": "무지개다리 건너기"
 +      }
-+    }
++    },
++    "back_home": "홈으로 돌아가기"
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -18238,10 +18246,10 @@ index 0000000000000000000000000000000000000000..41d5fcc6cf29410e8232e8dae667792d
 +    main()
 diff --git a/static/player-guide.css b/static/player-guide.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..05b3f621d61938497cc5cb5008545443338f9699
+index 0000000000000000000000000000000000000000..e5f7beb690a02e4b88b350b607e16bd4a9ee07d7
 --- /dev/null
 +++ b/static/player-guide.css
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,59 @@
 +.dw-player-help {
 +  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
 +  gap: 6px 18px; padding: 9px 16px; margin: 0 auto; width: 100%; max-width: 1003px;
@@ -18271,6 +18279,11 @@ index 0000000000000000000000000000000000000000..05b3f621d61938497cc5cb5008545443
 +.dw-guide :focus-visible, .dw-player-help :focus-visible { outline: 3px solid #b16b03; outline-offset: 3px; }
 +.guide-header { background: #253831; color: #fff; padding: 12px max(16px, calc((100% - 800px) / 2)); display: flex; align-items: center; justify-content: space-between; }
 +.guide-header > a { color: #fff; font-weight: 700; text-decoration: none; }
++.guide-toolbar { position: sticky; top: 0; z-index: 2; gap: 1rem; }
++.guide-home { display: inline-flex; align-items: center; gap: .4em; box-sizing: border-box; min-height: 44px; padding: .35rem .9rem; border: 1px solid currentColor; border-radius: 4px; font-weight: 650; text-decoration: none; }
++.guide-home:hover, .guide-home:focus-visible { text-decoration: underline; }
++.guide-footer { margin-top: 1.25rem; }
++.guide-toolbar ~ .guide-main section { scroll-margin-top: 5rem; }
 +.guide-languages { position: relative; }
 +.guide-languages summary, .console-model summary { cursor: pointer; }
 +.guide-languages nav { position: absolute; right: 0; width: 155px; padding: 8px; background: #fff; border: 1px solid #b4bdb3; z-index: 1; }
@@ -18874,6 +18887,13 @@ index 0000000000000000000000000000000000000000..74c4128ecaf290912000acafa55e7f89
 +{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}{% if row.event=='cafe' %}<label>{{ t.sex }} <select name="gender"><option value="1">♀</option><option value="0">♂</option></select></label>{% endif %} <button type="submit">{{ t.claim }}</button>{% if row.event=="berries" %} <button name="destination" value="chest">{{ t.chest }}</button>{% endif %}</form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
 +{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for(endpoint,kind=kind,filter=mode,page=page-1,q=search,version=version) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for(endpoint,kind=kind,filter=mode,page=page+1,q=search,version=version) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
 +<footer>{% if card and japanese %}<p><a href="/customize/">{{ t.customize }}</a></p>{% endif %}<a href="/languages/?page={{ url_for(endpoint) }}">Language · 日本語 · 简体中文</a></footer></main></body></html>
+diff --git a/templates/guide_home_link.html b/templates/guide_home_link.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..f8837cfbbb6d69871436d6c3a63108160f8406c4
+--- /dev/null
++++ b/templates/guide_home_link.html
+@@ -0,0 +1 @@
++<a class="guide-home" href="/"><span aria-hidden="true">←</span> {{ t.back_home }}</a>
 diff --git a/templates/island_adventure.html b/templates/island_adventure.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..1c08729e52ed4880a12faf43afee72f4685559b4
@@ -19069,10 +19089,10 @@ index 0000000000000000000000000000000000000000..11f39102f1f7d94cb2340bab6043f9c2
 +</div>
 diff --git a/templates/phone_access.html b/templates/phone_access.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c53969834
+index 0000000000000000000000000000000000000000..1e2c973ef1f7b2c86ed89d8cffc70aae902af49a
 --- /dev/null
 +++ b/templates/phone_access.html
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,27 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -19081,8 +19101,8 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
 +</head>
 +<body class="dw-guide">
-+  <header class="guide-header">
-+    <a href="/">Pokémon Global Link</a>
++  <header class="guide-header guide-toolbar">
++    {% include "guide_home_link.html" %}
 +    <details class="guide-languages"><summary>{{ language_names[lang] }}</summary>
 +      <nav>{% for code, name in language_names.items() %}<a lang="{{ code }}" href="/languages/{{ code }}/?page=/player-guide/phone/" {% if code == lang %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</nav>
 +    </details>
@@ -19096,15 +19116,16 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +    <section><h2>{{ t.phone_play_title }}</h2><p>{{ t.phone_play }}</p>
 +      <div class="guide-actions"><a href="/">{{ t.open_login }}</a><a href="/pdw/">{{ t.phone_game }}</a></div>
 +    </section>
++    <footer class="guide-footer">{% include "guide_home_link.html" %}</footer>
 +  </main>
 +</body>
 +</html>
 diff --git a/templates/picture_guide.html b/templates/picture_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..ba1261eb40b4dedf3f5d6ae74d700d4760a76422
+index 0000000000000000000000000000000000000000..aefe8d4eea14c47cc452c94cceec55dfe379a66f
 --- /dev/null
 +++ b/templates/picture_guide.html
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,33 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -19113,7 +19134,10 @@ index 0000000000000000000000000000000000000000..ba1261eb40b4dedf3f5d6ae74d700d47
 +  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
 +</head>
 +<body class="dw-guide">
-+  <header class="guide-header"><a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a></header>
++  <header class="guide-header guide-toolbar">
++    {% include "guide_home_link.html" %}
++    <a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a>
++  </header>
 +  <main class="guide-main">
 +    {% if chapter %}
 +    <a href="{{ url_for('player_guide.picture_guide') }}">← {{ t.pictures.title }}</a>
@@ -19132,14 +19156,15 @@ index 0000000000000000000000000000000000000000..ba1261eb40b4dedf3f5d6ae74d700d47
 +    <h1>{{ t.pictures.title }}</h1>
 +    <ul>{% for key in chapters %}<li><a href="{{ url_for('player_guide.picture_guide', chapter=key, step=1) }}">{{ t.pictures.chapters[key] }}</a></li>{% endfor %}</ul>
 +    {% endif %}
++    <footer class="guide-footer">{% include "guide_home_link.html" %}</footer>
 +  </main>
 +</body></html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..2124e19b7f971baaacad3fa37764d17e63544b6b
+index 0000000000000000000000000000000000000000..8dd4fd4c661b491a3b2304bfdab9703e2452e6b9
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,99 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -19151,8 +19176,8 @@ index 0000000000000000000000000000000000000000..2124e19b7f971baaacad3fa37764d17e
 +  <script type="module" src="{{ url_for('player_guide.static', filename='tuck-form.mjs') }}"></script>
 +</head>
 +<body class="dw-guide">
-+  <header class="guide-header">
-+    <a href="/">Pokémon Global Link</a>
++  <header class="guide-header guide-toolbar">
++    {% include "guide_home_link.html" %}
 +    <details class="guide-languages">
 +      <summary>{{ language_names[lang] }}</summary>
 +      <nav>{% for code, name in language_names.items() %}<a lang="{{ code }}" href="/languages/{{ code }}/?page=/player-guide/" {% if code == lang %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</nav>
@@ -19235,6 +19260,7 @@ index 0000000000000000000000000000000000000000..2124e19b7f971baaacad3fa37764d17e
 +      {% if kind == 'dream' %}<p>{{ gifts.wake_timing }}</p>{% endif %}
 +      {% endfor %}
 +    </section>
++    <footer class="guide-footer">{% include "guide_home_link.html" %}</footer>
 +  </main>
 +</body>
 +</html>
@@ -19879,16 +19905,31 @@ index 0000000000000000000000000000000000000000..d88971e0efe3fedced60d4b25e4c7d24
 +    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]
 diff --git a/tests/test_game_guides_news.py b/tests/test_game_guides_news.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..696beccdd727c8e259ca736900b1c78ff785793d
+index 0000000000000000000000000000000000000000..3731e2bfd57bf1b80064068dd139bbfa720b569d
 --- /dev/null
 +++ b/tests/test_game_guides_news.py
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,89 @@
 +"""The archived homepage, game stage and public guides must agree on localized content."""
 +from flask import url_for
 +
 +from api import pgl_news, practice
 +from api.server import create_app
 +from utils.data import load_json_data
++
++
++def test_guide_home_links_use_the_current_host_and_language(monkeypatch):
++    from api import player_guide
++
++    client = create_app().test_client()
++    for lang, labels in player_guide._messages.items():
++        monkeypatch.setattr(player_guide, "LANG", lang)
++        for path in ("/player-guide/", "/player-guide/phone/", "/player-guide/pictures/"):
++            page = client.get(path, base_url="http://192.168.2.3:8088").get_data(as_text=True)
++            assert page.count('class="guide-home" href="/"') == 2
++            assert page.count(labels["back_home"]) >= 2
++    for path in ("/information/", "/player-guide/pictures/"):
++        location = client.get("/languages/ja/", query_string={"page": path}).location
++        assert location.endswith(":8081" + path)
 +
 +
 +def test_picture_guide_loads_one_step_and_preserves_archive_variants(monkeypatch, tmp_path):

@@ -56,7 +56,7 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..a2cd9b19b2c97e3d46415631de4b6bd2a18e06a7 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626b9c4205f 100644
 --- a/api/server.py
 +++ b/api/server.py
 @@ -9,16 +9,28 @@ import logging
@@ -115,7 +115,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..a2cd9b19b2c97e3d46415631de4b6bd2
  def _language_page() -> str:
      source = request.args.get("page") or urlsplit(request.referrer or "").path
 -    return source if source in _LANGUAGE_PAGES else "/"
-+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/"} | {f"/practice/{n}/" for n in range(1,13)}
++    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
 +    return source if source in allowed else "/"
  
  

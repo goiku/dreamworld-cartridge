@@ -6,6 +6,21 @@ from api.server import create_app
 from utils.data import load_json_data
 
 
+def test_guide_home_links_use_the_current_host_and_language(monkeypatch):
+    from api import player_guide
+
+    client = create_app().test_client()
+    for lang, labels in player_guide._messages.items():
+        monkeypatch.setattr(player_guide, "LANG", lang)
+        for path in ("/player-guide/", "/player-guide/phone/", "/player-guide/pictures/"):
+            page = client.get(path, base_url="http://192.168.2.3:8088").get_data(as_text=True)
+            assert page.count('class="guide-home" href="/"') == 2
+            assert page.count(labels["back_home"]) >= 2
+    for path in ("/information/", "/player-guide/pictures/"):
+        location = client.get("/languages/ja/", query_string={"page": path}).location
+        assert location.endswith(":8081" + path)
+
+
 def test_picture_guide_loads_one_step_and_preserves_archive_variants(monkeypatch, tmp_path):
     from api import player_guide
 
