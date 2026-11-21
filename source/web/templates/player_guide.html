@@ -60,7 +60,7 @@
     <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
     <section id="tuck-in">
       <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_setup }}</p>
-      <p><a download="melonds-tuck-in.py" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
+      <p><a download="{{ '解除睡眠限制.py' if lang == 'zh' else 'remove-tuck-in-limit.py' }}" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
       <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p>
     </section>
     <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>

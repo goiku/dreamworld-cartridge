@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "19ed8fcae42aa78e600c0c53ace87c8f45678cf42b12824c38c01f6b6704143f",
+    "patch_sha256": "31fd2ef9056c33c7a0949b03d31d6614ae84ec461cbf81eaa69da6c5a66f114d",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -253,10 +253,11 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
+        "after": "e441dc68505b89503eed0d69e0808761b4866c0b9cb4b67d0e404c0defd901f5",
         "previous": [
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
+          "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
           "a1f98776dc06a7a067d4b738a881371c3a4d82da2877fa3f1f150cf590b5e8bd",
           "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898",
           "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1"
@@ -460,8 +461,9 @@
       },
       "static/melonds-tuck-in.py": {
         "before": null,
-        "after": "01d7d6130fd2256705ba074b2d2af95ee23b44e8ab33c1866c5a9c857ce66c78",
+        "after": "8deef8e966830cfa545391a930e8ea9fb3ea4e6e6efac8ed8c9553675f02e6a4",
         "previous": [
+          "01d7d6130fd2256705ba074b2d2af95ee23b44e8ab33c1866c5a9c857ce66c78",
           "a354e22992f74f9a4d01b51c4b7326befc68d459bf1624131457699327fbff06"
         ]
       },
@@ -556,12 +558,13 @@
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df",
+        "after": "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
         "previous": [
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
           "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
           "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
-          "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811"
+          "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
+          "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df"
         ]
       },
       "templates/practice.html": {
@@ -614,9 +617,10 @@
       },
       "tests/test_melonds_tuck_in.py": {
         "before": null,
-        "after": "c51ac1e0cb0eeaa20020091d784bdd8bdc5047f2163a9494012b9c5483489d8c",
+        "after": "f23a038e67e7924d8a4b5182caf573839e92cda3dfc39a877019e44521ef3c62",
         "previous": [
-          "6b1e4672095e1de7f829ce225f5b95a599ede0d924b8b67a3ba884456d5f7db6"
+          "6b1e4672095e1de7f829ce225f5b95a599ede0d924b8b67a3ba884456d5f7db6",
+          "c51ac1e0cb0eeaa20020091d784bdd8bdc5047f2163a9494012b9c5483489d8c"
         ]
       },
       "tests/test_native_shared_areas.py": {

@@ -156,3 +156,29 @@ def test_portable_settings_override_the_file_by_the_executable(tmp_path):
     for directory, folder in ((tmp_path, "old"), (tmp_path / "portable", "new")):
         (directory / "melonDS.toml").write_text(f'[Instance0]\nSaveFilePath = "{folder}"\n')
     assert helper.save_path(emulator, rom) == tmp_path / "new/example.sav"
+
+
+def test_update_old_shortcut_and_select_repair_preserves_save(tmp_path, monkeypatch):
+    previous = tmp_path / "translation.nds"
+    previous.write_bytes(bytes(12) + b"IRAJ")
+    repaired = tmp_path / "fixed.nds"
+    repaired.write_bytes(bytes(12) + b"IRAJ" + b"fixed")
+    slot = tmp_path / "player.sav"
+    slot.write_bytes(b"existing progress")
+    cfg = {"regular": str(previous), "sync": str(previous), "save": str(slot)}
+    profile = tmp_path / helper.CONFIG
+    profile.write_text(json.dumps(cfg), encoding="utf8")
+    (tmp_path / helper.OLD_PROGRAM).write_text("# first release", encoding="utf8")
+    (tmp_path / "DreamWorld.cmd").touch()
+    helper.update_profile_program(tmp_path)
+    assert (tmp_path / helper.PROGRAM).read_bytes() == helper_path.read_bytes()
+    assert helper.PROGRAM in (tmp_path / helper.OLD_PROGRAM).read_text(encoding="utf8")
+    with pytest.raises(ValueError):
+        helper.use_repaired_white(tmp_path, repaired)
+    assert json.loads(profile.read_text("utf8")) == cfg
+    monkeypatch.setattr(helper, "is_repaired_white", lambda path: path == repaired)
+    helper.use_repaired_white(tmp_path, repaired)
+    assert json.loads(profile.read_text("utf8")) == {
+        **cfg, "regular": str(repaired), "sync": str(repaired), "chinese_sync": True,
+    }
+    assert slot.read_bytes() == b"existing progress"

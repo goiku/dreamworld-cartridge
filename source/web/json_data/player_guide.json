@@ -43,10 +43,10 @@
     "emulator": "melonDS on this PC",
     "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
     "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again.",
-    "tuck_title": "Tuck in again today",
-    "tuck_download": "Download the Chinese Windows helper",
+    "tuck_title": "Remove the tuck-in limit",
+    "tuck_download": "Remove the tuck-in limit",
     "tuck_setup": "Save in-game and close melonDS. Open the helper with Python 3.11 or later. Select melonDS 1.1, your everyday game, an unmodified copy of the same edition and region, and your latest .sav. Open the helper in the new profile folder for future sessions.",
-    "tuck_steps": "Choose 平时游玩 for everyday play, 申请入睡 to clear the console or clock-change timer and start the original game, or 唤醒并领取 to wake up. All three share one save. On a Japanese C-Gear, tap Wi-Fi → ゲームシンク, then はい to confirm. With 申请入睡, the helper also checks the date set in melonDS and releases a second tuck-in for that day.",
+    "tuck_steps": "Choose 平时游玩 for everyday play, 申请入睡 to clear the console or clock-change timer and start the original game, or 唤醒并领取 to wake up. All three share one save. On a Japanese C-Gear, tap Wi-Fi → ゲームシンク, then はい to confirm. With 申请入睡, the helper also checks the date set in melonDS and releases a second tuck-in for that day. With repaired Simplified Chinese White v2.1, choose 改用《白》汉化同步修复版 to use Chinese during Game Sync.",
     "tuck_card": "For a cartridge, export the 512 KiB save, use the helper to create a copy and restore that copy to the cartridge. The game checks its timer before uploading. Other events that share this timer are also released. For a cartridge, enter the date displayed on the DS."
   },
   "ja": {
@@ -93,10 +93,10 @@
     "emulator": "このPCのmelonDS",
     "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
     "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。",
-    "tuck_title": "同じ日にもう一度寝かしつける",
-    "tuck_download": "中国語の Windows 用ツールをダウンロード",
+    "tuck_title": "寝かしつけ制限を解除",
+    "tuck_download": "寝かしつけ制限を解除",
     "tuck_setup": "ゲーム内でレポートを書き、melonDS を終了します。Python 3.11 以降でツールを起動し、melonDS 1.1、普段遊ぶソフト、同じ地域・バージョンの未改変ソフト、最新の .sav を選びます。次回からは新しくできたフォルダーのツールを使います。",
-    "tuck_steps": "普段は「平时游玩」、寝かしつけるときは「申请入睡」、起こすときは「唤醒并领取」を選びます。「申请入睡」で本体・時計変更による待ち時間を解除します。セーブデータは共通です。下画面の Wi-Fi → ゲームシンクから進めます。「申请入睡」は melonDS の日付も確認し、同じ日にもう一度寝かしつけられるようにします。",
+    "tuck_steps": "普段は「平时游玩」、寝かしつけるときは「申请入睡」、起こすときは「唤醒并领取」を選びます。「申请入睡」で本体・時計変更による待ち時間を解除します。セーブデータは共通です。下画面の Wi-Fi → ゲームシンクから進めます。「申请入睡」は melonDS の日付も確認し、同じ日にもう一度寝かしつけられるようにします。簡体字中国語版『ホワイト』2.1 を修復した場合は「改用《白》汉化同步修复版」で選択できます。",
     "tuck_card": "実機は 512 KiB のセーブデータを取り出し、ツールで作ったコピーを書き戻してください。ソフトはアップロード前に待ち時間を確認します。同じタイマーを使うほかのイベントにも反映されます。カートリッジを使う場合は、DS 本体に表示される日付を入力してください。"
   },
   "zh": {
@@ -143,10 +143,10 @@
     "emulator": "本机 melonDS 模拟器",
     "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
     "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。",
-    "tuck_title": "今天再次入睡",
-    "tuck_download": "下载中文游玩助手（Windows）",
+    "tuck_title": "解除睡眠限制",
+    "tuck_download": "解除睡眠限制",
     "tuck_setup": "先在游戏内保存，关闭 melonDS。用 Python 3.11 或更新版本打开助手，选择自己的 melonDS 1.1、平时玩的游戏、同地区同版本的未修改游戏，以及最新的 .sav。第一次设置会复制一份游玩进度，以后从新文件夹打开助手。",
-    "tuck_steps": "平时点「平时游玩（汉化版）」。要入睡，点「申请入睡（原版）」，助手会先清除换机或改时钟的计时，再启动游戏。下屏点 Wi-Fi → ゲームシンク（游戏同步），はい是“是”，いいえ是“否”。网页准备好唤醒后，点助手的「唤醒并领取（原版）」。三个入口共用同一份进度。助手会读取 melonDS 的日期；如果当天已经入睡过，也会解除这次限制。",
+    "tuck_steps": "平时点「平时游玩（汉化版）」。要入睡，点「申请入睡（原版）」，助手会先清除换机或改时钟的计时，再启动游戏。下屏点 Wi-Fi → ゲームシンク（游戏同步），はい是“是”，いいえ是“否”。网页准备好唤醒后，点助手的「唤醒并领取（原版）」。三个入口共用同一份进度。助手会读取 melonDS 的日期；如果当天已经入睡过，也会解除这次限制。《白》简体中文版 2.1 修复后，可选「改用《白》汉化同步修复版」，在游戏内直接点「游戏同步」。",
     "tuck_card": "实体卡带可用助手处理自己导出的 512 KiB 存档，再把副本恢复到卡带。原版卡带会在上传前检查本地等待。清零也会影响使用同一计时器的其他活动。处理实体卡带副本时，填写掌机上显示的日期。"
   },
   "fr": {
@@ -193,10 +193,10 @@
     "emulator": "melonDS sur ce PC",
     "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
     "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez.",
-    "tuck_title": "Rendormir un Pokémon le même jour",
-    "tuck_download": "Télécharger l’assistant Windows en chinois",
+    "tuck_title": "Lever la limite d’endormissement",
+    "tuck_download": "Lever la limite d’endormissement",
     "tuck_setup": "Sauvegardez en jeu et fermez melonDS. Avec Python 3.11 ou ultérieur, ouvrez l’assistant et choisissez melonDS 1.1, votre jeu habituel, un exemplaire non modifié de la même édition et région et votre dernier fichier .sav. Utilisez ensuite le nouveau dossier.",
-    "tuck_steps": "平时游玩 lance le jeu habituel. 申请入睡 efface le délai lié au changement de console ou d’heure avant de lancer le jeu original. 唤醒并领取 sert au réveil. Les trois utilisent la même sauvegarde. L’assistant vérifie aussi la date de melonDS pour permettre un deuxième endormissement le même jour.",
+    "tuck_steps": "平时游玩 lance le jeu habituel. 申请入睡 efface le délai lié au changement de console ou d’heure avant de lancer le jeu original. 唤醒并领取 sert au réveil. Les trois utilisent la même sauvegarde. L’assistant vérifie aussi la date de melonDS pour permettre un deuxième endormissement le même jour. Pour utiliser la version chinoise 2.1 réparée de Blanc, choisis 改用《白》汉化同步修复版.",
     "tuck_card": "Sur cartouche, exportez la sauvegarde de 512 Kio et restaurez la copie créée. Le jeu vérifie le délai avant l’envoi. Les autres activités liées au même compteur sont aussi débloquées. Pour une cartouche, saisissez la date affichée sur la DS."
   },
   "it": {
@@ -243,10 +243,10 @@
     "emulator": "melonDS su questo PC",
     "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
     "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova.",
-    "tuck_title": "Far addormentare di nuovo un Pokémon oggi",
-    "tuck_download": "Scarica l’assistente Windows in cinese",
+    "tuck_title": "Rimuovi il limite per far addormentare i Pokémon",
+    "tuck_download": "Rimuovi il limite per far addormentare i Pokémon",
     "tuck_setup": "Salva nel gioco e chiudi melonDS. Apri l’assistente con Python 3.11 o successivo. Seleziona melonDS 1.1, il gioco abituale, una copia originale della stessa edizione e regione e il file .sav più recente. In seguito usa la nuova cartella.",
-    "tuck_steps": "平时游玩 avvia il gioco abituale. 申请入睡 azzera l’attesa dovuta al cambio di console o di orario e avvia il gioco originale. 唤醒并领取 serve a svegliare il Pokémon. Le tre opzioni condividono il salvataggio. L’assistente controlla anche la data di melonDS per consentire un secondo accesso nello stesso giorno.",
+    "tuck_steps": "平时游玩 avvia il gioco abituale. 申请入睡 azzera l’attesa dovuta al cambio di console o di orario e avvia il gioco originale. 唤醒并领取 serve a svegliare il Pokémon. Le tre opzioni condividono il salvataggio. L’assistente controlla anche la data di melonDS per consentire un secondo accesso nello stesso giorno. Per usare la versione cinese 2.1 riparata di Bianco, scegli 改用《白》汉化同步修复版.",
     "tuck_card": "Per una cartuccia esporta il salvataggio da 512 KiB e ripristina la copia creata. Il gioco controlla il timer prima di inviare i dati. Si sbloccano anche le altre attività che usano lo stesso timer. Per una cartuccia, inserisci la data visualizzata sulla console."
   },
   "de": {
@@ -293,10 +293,10 @@
     "emulator": "melonDS auf diesem PC",
     "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
     "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut.",
-    "tuck_title": "Heute erneut schlafen legen",
-    "tuck_download": "Chinesischen Windows-Helfer herunterladen",
+    "tuck_title": "Schlaflimit aufheben",
+    "tuck_download": "Schlaflimit aufheben",
     "tuck_setup": "Speichere im Spiel und schließe melonDS. Öffne den Helfer mit Python ab 3.11. Wähle melonDS 1.1, dein übliches Spiel, eine unveränderte Kopie derselben Edition und Region und deine aktuelle .sav-Datei. Nutze künftig den neuen Ordner.",
-    "tuck_steps": "平时游玩 startet dein übliches Spiel. 申请入睡 setzt die Wartezeit nach einem Konsolen- oder Uhrenwechsel zurück und startet das Original. 唤醒并领取 ist zum Aufwecken. Alle drei verwenden denselben Spielstand. Der Helfer prüft auch das Datum in melonDS, damit du am selben Tag erneut ein Pokémon schlafen legen kannst.",
+    "tuck_steps": "平时游玩 startet dein übliches Spiel. 申请入睡 setzt die Wartezeit nach einem Konsolen- oder Uhrenwechsel zurück und startet das Original. 唤醒并领取 ist zum Aufwecken. Alle drei verwenden denselben Spielstand. Der Helfer prüft auch das Datum in melonDS, damit du am selben Tag erneut ein Pokémon schlafen legen kannst. Wähle für die reparierte chinesische Weiße Edition 2.1 die Option 改用《白》汉化同步修复版.",
     "tuck_card": "Exportiere bei einem Spielmodul den 512 KiB großen Spielstand und spiele die erstellte Kopie zurück. Das Spiel prüft den Timer vor dem Hochladen. Auch andere Ereignisse mit diesem Timer werden freigegeben. Gib bei einem Spielmodul das Datum ein, das auf dem DS angezeigt wird."
   },
   "es": {
@@ -343,10 +343,10 @@
     "emulator": "melonDS en este PC",
     "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
     "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo.",
-    "tuck_title": "Dormir a otro Pokémon el mismo día",
-    "tuck_download": "Descargar el asistente de Windows en chino",
+    "tuck_title": "Quitar el límite para dormir Pokémon",
+    "tuck_download": "Quitar el límite para dormir Pokémon",
     "tuck_setup": "Guarda en el juego y cierra melonDS. Abre el asistente con Python 3.11 o posterior. Elige melonDS 1.1, tu juego habitual, una copia sin modificar de la misma edición y región y tu último archivo .sav. Para las próximas sesiones, usa la carpeta nueva.",
-    "tuck_steps": "平时游玩 abre el juego habitual. 申请入睡 pone a cero la espera por cambio de consola o de reloj y abre el juego original. 唤醒并领取 sirve para despertar al Pokémon. Las tres opciones comparten la partida. El asistente también comprueba la fecha de melonDS para que puedas dormir a otro Pokémon ese mismo día.",
+    "tuck_steps": "平时游玩 abre el juego habitual. 申请入睡 pone a cero la espera por cambio de consola o de reloj y abre el juego original. 唤醒并领取 sirve para despertar al Pokémon. Las tres opciones comparten la partida. El asistente también comprueba la fecha de melonDS para que puedas dormir a otro Pokémon ese mismo día. Para usar el Blanco chino 2.1 reparado, elige 改用《白》汉化同步修复版.",
     "tuck_card": "Para un cartucho, exporta la partida de 512 KiB y restaura la copia creada. El juego comprueba el contador antes de enviar los datos. También se liberan las actividades que usan ese contador. Si usas un cartucho, introduce la fecha que muestra tu DS."
   },
   "ko": {
@@ -393,10 +393,10 @@
     "emulator": "이 PC의 melonDS",
     "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
     "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요.",
-    "tuck_title": "같은 날 다시 재우기",
-    "tuck_download": "중국어 Windows 도우미 다운로드",
+    "tuck_title": "재우기 제한 해제",
+    "tuck_download": "재우기 제한 해제",
     "tuck_setup": "게임에서 저장하고 melonDS를 종료하세요. Python 3.11 이상으로 도우미를 열고 melonDS 1.1, 평소 사용하는 게임, 같은 지역과 버전의 원본 게임, 최신 .sav 파일을 선택하세요. 다음부터는 새 폴더의 도우미를 여세요.",
-    "tuck_steps": "평소에는 平时游玩을 선택하세요. 申请入睡는 본체나 시계 변경으로 인한 대기 시간을 해제하고 원본 게임을 실행합니다. 깨울 때는 唤醒并领取를 선택하세요. 세 메뉴는 저장 파일 하나를 공유합니다. 도우미는 melonDS의 날짜도 확인해 같은 날 포켓몬을 다시 재울 수 있게 합니다.",
+    "tuck_steps": "평소에는 平时游玩을 선택하세요. 申请入睡는 본체나 시계 변경으로 인한 대기 시간을 해제하고 원본 게임을 실행합니다. 깨울 때는 唤醒并领取를 선택하세요. 세 메뉴는 저장 파일 하나를 공유합니다. 도우미는 melonDS의 날짜도 확인해 같은 날 포켓몬을 다시 재울 수 있게 합니다. 수정된 중국어판 화이트 2.1은 改用《白》汉化同步修复版에서 선택하세요.",
     "tuck_card": "실물 카트리지는 512 KiB 저장 파일을 추출하고 도우미로 만든 복사본을 복원하세요. 게임은 업로드 전에 대기 시간을 확인합니다. 같은 타이머를 쓰는 다른 활동도 함께 해제됩니다. 실물 카트리지는 DS에 표시되는 날짜를 입력하세요."
   }
 }

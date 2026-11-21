@@ -2,6 +2,7 @@
 import binascii
 import csv
 from datetime import date, datetime, timedelta
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,9 @@ from contextlib import contextmanager, ExitStack
 
 GAME = {b"IRA": 20, b"IRB": 21, b"IRD": 22, b"IRE": 23}
 CONFIG = "游玩配置.json"
+PROGRAM = "解除睡眠限制.pyw"
+OLD_PROGRAM = "中文游玩助手.pyw"
+REPAIRED_WHITE = "f96ba764ed6033f1f39e189a02eca579fb6369eb94fcaef916084b4a6c65903b"
 
 
 def available_sync_date(packed, today):
@@ -115,6 +119,22 @@ def game_code(path):
         return f.read(4)
 
 
+def is_repaired_white(path):
+    if game_code(path) != b"IRAJ" or path.stat().st_size != 0x10000000:
+        return False
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest() == REPAIRED_WHITE
+
+
+def use_repaired_white(work, path):
+    profile = work / CONFIG
+    cfg = json.loads(profile.read_text(encoding="utf-8"))
+    if game_code(Path(cfg["regular"])) != b"IRAJ" or not is_repaired_white(path):
+        raise ValueError("请选择为日版《白》简体中文 2.1 生成的游戏同步修复版。")
+    cfg.update(regular=str(path), sync=str(path), chinese_sync=True)
+    atomic_write(profile, json.dumps(cfg, ensure_ascii=False, indent=2).encode("utf-8"))
+
+
 def instance_settings(emulator):
     portable = emulator.parent / "portable"
     config = (portable if portable.is_dir() else emulator.parent) / "melonDS.toml"
@@ -150,18 +170,18 @@ def prepare(parent, emulator, regular, sync, saved):
             cleanup.callback(slot.unlink, missing_ok=True)
             f.write(data)
         profile = {"emulator": str(emulator), "regular": str(regular), "sync": str(sync),
-                   "rom": name, "save": str(slot)}
-        for path in (work / CONFIG, work / "中文游玩助手.pyw", work / "DreamWorld.cmd"):
+                   "rom": name, "save": str(slot), "chinese_sync": is_repaired_white(sync)}
+        for path in (work / CONFIG, work / PROGRAM, work / "DreamWorld.cmd"):
             cleanup.callback(path.unlink, missing_ok=True)
         (work / CONFIG).write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
-        shutil.copyfile(__file__, work / "中文游玩助手.pyw")
+        shutil.copyfile(__file__, work / PROGRAM)
         interpreter = Path(sys.executable).with_name("pythonw.exe")
         if not interpreter.is_file():
             interpreter = Path(sys.executable)
         command = str(interpreter).replace("%", "%%")
         (work / "DreamWorld.cmd").write_text(
             '@echo off\nsetlocal DisableDelayedExpansion\nchcp 65001 >nul\n'
-            f'start "" "{command}" "%~dp0中文游玩助手.pyw"\n',
+            f'start "" "{command}" "%~dp0{PROGRAM}"\n',
             encoding="utf-8", newline="\r\n")
         cleanup.pop_all()
     return work
@@ -179,7 +199,7 @@ def first_emulator():
         try:
             msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError as exc:
-            raise ValueError("请先保存并退出另一个游玩助手启动的游戏。") from exc
+            raise ValueError("请先保存并退出另一个窗口启动的游戏。") from exc
         try:
             result = subprocess.check_output(
                 ["tasklist.exe", "/FI", "IMAGENAME eq melonDS.exe", "/FO", "CSV", "/NH"],
@@ -248,10 +268,22 @@ def save_copy(root):
         messagebox.showinfo("已生成存档副本", "副本位置\n"+f.name, parent=root)
 
 
+def update_profile_program(folder):
+    cfg = json.loads((folder / CONFIG).read_text(encoding="utf-8"))
+    old, current = folder / OLD_PROGRAM, folder / PROGRAM
+    if not (old.is_file() or current.is_file()) or not (folder / "DreamWorld.cmd").is_file() or not Path(cfg["save"]).is_file():
+        raise ValueError("请选择之前设置过的游玩文件夹。")
+    atomic_write(current, Path(__file__).read_bytes())
+    if old.is_file():
+        # Older shortcuts and DreamWorld.cmd may still point to the first filename.
+        shim = f'from pathlib import Path\nimport runpy\nrunpy.run_path(str(Path(__file__).with_name("{PROGRAM}")), run_name="__main__")\n'
+        atomic_write(old, shim.encode("utf8"))
+
+
 def main():
     from tkinter import Tk, filedialog, messagebox, ttk
     root = Tk()
-    root.title("梦世界游玩助手")
+    root.title("解除睡眠限制")
     root.resizable(False, False)
     box = ttk.Frame(root, padding=18)
     box.pack()
@@ -299,13 +331,13 @@ def main():
         chosen = []
         for label, pattern in (("选择平时用的 melonDS.exe", "melonDS.exe"),
                                ("选择平时玩的游戏（可以是汉化版）", "*.nds"),
-                               ("选择能联网的同版本原版游戏", "*.nds"),
+                               ("选择能联网的同版本原版或汉化修复版", "*.nds"),
                                ("选择该玩家最新的游戏内存档", "*.sav")):
             picked = filedialog.askopenfilename(parent=root, title=label, filetypes=[(label, pattern)])
             if not picked:
                 return
             chosen.append(Path(picked))
-        parent = filedialog.askdirectory(parent=root, title="选择保存游玩助手和进度的文件夹")
+        parent = filedialog.askdirectory(parent=root, title="选择保存「解除睡眠限制」和游戏进度的文件夹")
         if parent:
             work = prepare(Path(parent), *chosen)
             messagebox.showinfo("共用进度已建立", "以后请从这个文件夹双击 DreamWorld.cmd\n"+str(work), parent=root)
@@ -317,13 +349,17 @@ def main():
         if not selected:
             return
         path = Path(selected)
-        cfg = json.loads((path / CONFIG).read_text(encoding="utf-8"))
-        launcher = path / "中文游玩助手.pyw"
-        if not launcher.is_file() or not (path / "DreamWorld.cmd").is_file() or not Path(cfg["save"]).is_file():
-            raise ValueError("请选择之前设置过的游玩文件夹。")
-        atomic_write(launcher, Path(__file__).read_bytes())
+        update_profile_program(path)
         work = path
         draw()
+
+    def choose_repair():
+        if playing:
+            raise ValueError("请先在游戏内保存并退出。")
+        choice = filedialog.askopenfilename(parent=root, title="选择《白》汉化同步修复版", filetypes=[("NDS 游戏", "*.nds")])
+        if choice:
+            use_repaired_white(work, Path(choice))
+            draw()
 
     def draw():
         for widget in box.winfo_children():
@@ -333,14 +369,18 @@ def main():
         def button(label, fn):
             ttk.Button(box, text=label, command=guard(fn)).pack(fill="x", pady=3)
         if (work / CONFIG).is_file():
+            cfg = json.loads((work / CONFIG).read_text(encoding="utf-8"))
+            sync_version = "汉化修复版" if cfg.get("chinese_sync") else "原版"
             note("三个入口共用一份进度。切换前，在游戏内保存并退出模拟器。")
             button("平时游玩（汉化版）", lambda: start_game("regular"))
-            button("申请入睡（原版）", lambda: start_game("sleep"))
-            button("唤醒并领取（原版）", lambda: start_game("wake"))
+            button(f"申请入睡（{sync_version}）", lambda: start_game("sleep"))
+            button(f"唤醒并领取（{sync_version}）", lambda: start_game("wake"))
+            if not cfg.get("chinese_sync") and Path(cfg["regular"]).is_file() and game_code(Path(cfg["regular"])) == b"IRAJ":
+                button("改用《白》汉化同步修复版", choose_repair)
         else:
             note("每位玩家选择自己的游戏和存档。首次设置会创建一份独立的游玩进度。")
             button("设置我的 melonDS 和存档", setup)
-            button("更新已有游玩助手", use_existing)
+            button("更新「解除睡眠限制」", use_existing)
         note("下屏 Wi-Fi → ゲームシンク（游戏同步）。はい＝是，いいえ＝否。\n"
              "レポート＝保存。ねかしつける／ねむらせる＝让宝可梦入睡。おこす＝唤醒。")
         note("「申请入睡」会按游戏日期解除当天再次入睡的限制，也会清除换机／改时钟等待。其他受同一计时器限制的活动也会解锁。"
