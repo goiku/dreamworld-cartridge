@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ t.four ~ ' · ' if four else '' }}{{ t.title }}</title>
+<link rel="stylesheet" href="{{ url_for('generations.static',filename='generations.css') }}"></head>
+<body><header><div class="wrap top"><a class="brand" href="/"><i aria-hidden="true"></i>{{ t.title }}</a>
+<a href="{{ url_for('site.languages', page='/gen4/' if four else '/') }}">{{ names[lang] }}</a></div></header>
+<main class="wrap">
+{% if not four %}
+<h1>{{ t.choose }}</h1>
+<nav class="cards" aria-label="{{ t.choose }}">
+<article class="card sinnoh"><a class="cover" href="/gen4/"><img src="/customize/preview/C008" alt=""><div><small>{{ t.region4 }}</small><h2>{{ t.four }}</h2><p>{{ t.games4 }}</p><strong>{{ t.services }} <span>→</span></strong></div></a><div class="shortcuts"><a href="/gen4/#club">{{ t.club }}</a><a href="/gen4/#gifts">{{ t.gift }}</a></div></article>
+<article class="card unova"><a class="cover" href="/gen5/"><img src="/customize/preview/C014" alt=""><div><small>{{ t.region5 }}</small><h2>{{ t.five }}</h2><p>{{ t.games5 }}</p><strong>Pokémon Global Link <span>→</span></strong></div></a><div class="shortcuts"><a href="/pdw/">{{ t.dream }}</a><a href="/islands/">{{ friends }}</a><a href="/campaign/">{{ t.events }}</a><a href="/practice/">{{ arcade }}</a></div></article>
+</nav><nav class="quick"><a href="/player-guide/#dns">{{ t.dns }} →</a></nav>
+{% else %}
+<a class="back" href="/">← {{ t.back }}</a><h1>{{ t.four }}</h1><p class="sub">{{ t.games4 }}</p>
+<section id="club"><h2>{{ t.club }}</h2><p>{{ t.club_help }}</p><a href="/player-guide/#dns">{{ t.dns }} →</a></section>
+<section id="gifts"><h2>{{ t.gift }}</h2><p>{{ t.instructions }}</p>
+<form method="get" action="/gen4/"><label>{{ t.version }}<select name="game">{% for id,name in versions.items() %}<option value="{{ id }}" {% if id == code[:3] %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+<label>{{ t.language }}<select name="language">{% for id,suffix in languages.items() %}<option value="{{ id }}" {% if suffix == code[3] %}selected{% endif %}>{{ names[id] }}</option>{% endfor %}</select></label><button>{{ t.show }}</button></form>
+<ol class="gifts">{% for number,name in cards %}<li><span class="number">№ {{ number }}</span> {{ name }}</li>{% endfor %}</ol>
+</section>{% endif %}</main></body></html>

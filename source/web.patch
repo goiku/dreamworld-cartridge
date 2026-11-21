@@ -310,6 +310,64 @@ index 0000000000000000000000000000000000000000..309595862dde1fea41bc181a3cec2ff0
 +            return _return("wonder", "invalid")
 +        gifts.merge_album(conn, card, album, signatures)
 +    return _return("wonder", "scanned")
+diff --git a/api/generations.py b/api/generations.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd55831e7ac539d2506bb4421e886098d31bdbb8
+--- /dev/null
++++ b/api/generations.py
+@@ -0,0 +1,52 @@
++"""Shared entry point for the Nintendo DS games and the Gen IV wireless catalog."""
++from flask import Blueprint, redirect, render_template, request
++
++from config import LANG, LANGUAGE_NAMES
++from utils import gen4_gifts, text
++from utils.data import load_json_data
++
++generations = Blueprint("generations", __name__, template_folder="../templates", static_folder="../static",
++                        static_url_path="/generation-assets")
++_labels = load_json_data("generation_portal")
++GAME_CODES = ("ADA", "APA", "CPU", "IPK", "IPG")
++LANG_CODES = {"ja": "J", "en": "E", "fr": "F", "it": "I", "de": "D", "es": "S", "ko": "K"}
++_ITEMS = {"OaksLetter": 452, "MemberCard": 454, "SecretKey": 467, "EnigmaStone": 536}
++_POKEMON = {"10AnnivMew": 151, "AshPikachu": 25, "GooneScizor": 212, "Jirachi_NightSky": 385,
++            "NZ_Jirachi": 385, "NZ_Manaphy": 490, "ShinyEntei": 244, "ShinyPichu": 172,
++            "ShinyRaikou": 243, "ShinySuicune": 245}
++
++
++def _card_title(filename, labels):
++    _, number, _, event = filename[:-4].split("_", 3)
++    if event in _ITEMS:
++        name = text.lookup_str("item", _ITEMS[event], language=LANG)
++    elif event in _POKEMON:
++        name = text.lookup_str("pokemon", _POKEMON[event], language=LANG)
++    else:
++        name = labels[event]
++    return number, name
++
++
++def page(four=False):
++    t = _labels[LANG]
++    version = request.args.get("game", "CPU")
++    language = request.args.get("language", LANG if LANG in LANG_CODES else "ja")
++    code = (version if version in GAME_CODES else "CPU") + LANG_CODES.get(language, "J")
++    archive = gen4_gifts.catalog()
++    cards = [archive["files"][key][1] for key in archive["games"][code]] if four else []
++    return render_template("generations.html", four=four, t=t, lang=LANG, names=LANGUAGE_NAMES, code=code,
++                           friends=load_json_data("offline_islands_ui")[LANG]["friends"],
++                           arcade=load_json_data("practice")[LANG]["title"],
++                           versions=dict(zip(GAME_CODES, t["versions"])), languages=LANG_CODES,
++                           cards=[_card_title(name, t) for name in cards])
++
++
++@generations.get("/gen4/")
++def gen4():
++    return page(True)
++
++
++@generations.get("/gen5/")
++def gen5():
++    # The archive uses root-relative and document-relative links on the same page.
++    return redirect("/index.html")
 diff --git a/api/gts_journal.py b/api/gts_journal.py
 index 0f820d760a91cf1a6fe81c56871951e36f97bead..0ac047e3206e7af4bb9db012feea1ae41180a375 100644
 --- a/api/gts_journal.py
@@ -3307,10 +3365,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..3f97eec70c8bb1809fa07b8d788a026dd59e0f64
+index 0000000000000000000000000000000000000000..c38b3ab5042ad8c37d3163590369398feb3b4ada
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,179 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3423,6 +3481,8 @@ index 0000000000000000000000000000000000000000..3f97eec70c8bb1809fa07b8d788a026d
 +
 +@player_guide.after_app_request
 +def insert_player_help(response: Response) -> Response:
++    if request.path == "/" and "p" not in request.args:
++        return response
 +    if response.mimetype != "text/html" or response.status_code not in (200, 400):
 +        return response
 +    path = request.path.removesuffix("index.html")
@@ -3606,10 +3666,10 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626b9c4205f 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..2869605c583742b3a1e7b336a596844b82cda356 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,30 @@ import atexit
+@@ -7,18 +7,31 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -3621,6 +3681,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
  from werkzeug.wrappers import Response as WerkzeugResponse
  
 +from api.distributions import campaigns
++from api import generations
 +from api.island_adventure import island_adventure
 +from api.island_peers import island_peers
 +from api.offline_friends import offline_friends
@@ -3644,7 +3705,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +50,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +51,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -3654,7 +3715,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +65,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +66,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -3667,17 +3728,17 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +98,83 @@ def api_post() -> Response:
+@@ -81,25 +99,86 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
-+_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
++_LANGUAGE_PAGES = {"/", "/gen5/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
 +                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
 +
 +
 +def _language_page() -> str:
 +    source = request.args.get("page") or urlsplit(request.referrer or "").path
-+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
++    allowed = _LANGUAGE_PAGES | {"/gen4/", "/index.html", "/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
 +    return source if source in allowed else "/"
 +
 +
@@ -3728,6 +3789,9 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
 +        response.headers["Cache-Control"] = "no-store"
 +        return response
 +
++    if not path and "p" not in request.args:
++        return current_app.make_response(generations.page())
++
      path = path.split("&")[0]
      full_path = f"/{path}"
  
@@ -3757,10 +3821,11 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..5647b3f949d95a55ee38f95173eb6626
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +196,16 @@ def create_app() -> Flask:
+@@ -121,6 +200,17 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
++    app.register_blueprint(generations.generations)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
@@ -4893,6 +4958,662 @@ index 0000000000000000000000000000000000000000..c98f6b3d75714b3de4367a64b07c8ed1
 +[240,248,69,0,["ENG"]],
 +[240,445,242,0,["ENG"]]
 +]
+diff --git a/json_data/gen4_wireless_gifts.json b/json_data/gen4_wireless_gifts.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..49c3fb37348d009fdd36d0cce85a3a8925de6a2b
+--- /dev/null
++++ b/json_data/gen4_wireless_gifts.json
+@@ -0,0 +1,650 @@
++{
++  "files": {
++    "0254ee5c41c33e47255529a1f9ed75460432ccae": [
++      "ADAS",
++      "SPN_060_ALL_ShinyEntei.myg"
++    ],
++    "0257990b7e35c53a30a646561d7754d5732a2efb": [
++      "ADAJ",
++      "JPN_066_ALL_NZ_Manaphy.myg"
++    ],
++    "02bdadeb79e95f0d51789cc2e64cbe28071000bf": [
++      "IPGF",
++      "FRA_053_HGSS_10AnnivMew.myg"
++    ],
++    "11b02f86fd55ae29dbb7faed0b9a257f52068e66": [
++      "ADAD",
++      "GER_024_ALL_Jirachi_NightSky.myg"
++    ],
++    "1692f7d2156089a952ee2f54f280c01e5550e06c": [
++      "IPGJ",
++      "JPN_054_HGSS_EnigmaStone.myg"
++    ],
++    "17aaf794a630b17e7e629f853be59c150ca82527": [
++      "IPGJ",
++      "JPN_051_HGSS_WinPath.myg"
++    ],
++    "1851e6110bad8dea97172d7fbc8a5892d1d04a44": [
++      "ADAJ",
++      "JPN_065_ALL_AshPikachu.myg"
++    ],
++    "1e86ddb68c3c0054a8b0516599af96f1670b5ecc": [
++      "CPUF",
++      "FRA_018_Plat_MemberCard.myg"
++    ],
++    "2090477c1c5c60ef9de887de554023698a37f765": [
++      "ADAF",
++      "FRA_060_ALL_ShinyEntei.myg"
++    ],
++    "20e39a3d988b8ca950e98040dfa4a5db99dba989": [
++      "CPUJ",
++      "JPN_036_Plat_MemberCard.myg"
++    ],
++    "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72": [
++      "ADAF",
++      "FRA_021_DPPt_ShinyPichu.myg"
++    ],
++    "258ba4c4b711aa88a3c267bf68d5c08d5922a91f": [
++      "ADAF",
++      "FRA_024_ALL_Jirachi_NightSky.myg"
++    ],
++    "284ec832db2f8bcdfcdfba9d712e1066544f4ff7": [
++      "IPGI",
++      "ITA_048_HGSS_YForest.myg"
++    ],
++    "2885baa358213092ccd7cd5e20b0796159be553e": [
++      "ADAK",
++      "KOR_065_ALL_AshPikachu.myg"
++    ],
++    "314fbfce031b57074fca5cc4753be501679c528f": [
++      "ADAI",
++      "ITA_061_ALL_ShinySuicune.myg"
++    ],
++    "31e0c045ed50de5bab7f8568a8ed526f5e8a67fa": [
++      "CPUD",
++      "GER_020_Plat_OaksLetter.myg"
++    ],
++    "346c9e9fee2f39f0ed50aefee8d6550a46d35047": [
++      "IPGD",
++      "GER_054_HGSS_EnigmaStone.myg"
++    ],
++    "39f6cfbce610b76c22b1e1865e883f8f1139ec97": [
++      "CPUJ",
++      "JPN_156_Plat_SecretKey.myg"
++    ],
++    "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9": [
++      "ADAE",
++      "ENG_060_ALL_ShinyEntei.myg"
++    ],
++    "3c808fc99f89e3ea6bd74ba47d8c7478ca5108ab": [
++      "CPUF",
++      "FRA_020_Plat_OaksLetter.myg"
++    ],
++    "3dd46699e438a9f0a792b1778c95653b7ef7fada": [
++      "IPGD",
++      "GER_048_HGSS_YForest.myg"
++    ],
++    "3f174f21453e8bd449874aa2d503a10b2a4f7839": [
++      "CPUJ",
++      "JPN_044_Plat_OaksLetter.myg"
++    ],
++    "3fae3fa964c502d3d5d5314e5d9c61219f387b5b": [
++      "ADAJ",
++      "JPN_053_ALL_10AnnivMew.myg"
++    ],
++    "4072b18f14b7f39117f09390eebd3b4a76ad44fe": [
++      "ADAS",
++      "SPN_061_ALL_ShinySuicune.myg"
++    ],
++    "464c68a10703bf2a9a1d6f8ba3bf010bde2b06dc": [
++      "CPUS",
++      "SPN_018_Plat_MemberCard.myg"
++    ],
++    "48537de6324fb90fffe9e1576d8c9197e3fa4e97": [
++      "CPUE",
++      "ENG_020_Plat_OaksLetter.myg"
++    ],
++    "492ae714d703c3b1e4e1eebc1b04838340b01f4e": [
++      "IPGS",
++      "SPN_048_HGSS_YForest.myg"
++    ],
++    "4c2a87f68ec9de14920371f889578dc732a18eea": [
++      "IPGE",
++      "ENG_054_HGSS_EnigmaStone.myg"
++    ],
++    "4f4a3f01790dca66df556476e1b44303b2db459b": [
++      "ADAF",
++      "FRA_061_ALL_ShinySuicune.myg"
++    ],
++    "54f0460a56821373e6ac48b214be68663a557e5f": [
++      "ADAF",
++      "FRA_059_ALL_ShinyRaikou.myg"
++    ],
++    "5d0f9bc2bba0386a88fdfdd7c28485bc3526a834": [
++      "CPUP",
++      "ENG_017_Plat_SecretKey.myg"
++    ],
++    "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058": [
++      "ADAE",
++      "ENG_061_ALL_ShinySuicune.myg"
++    ],
++    "5f90208a1f43fcc085520b56439a0c32cd1b009d": [
++      "CPUE",
++      "ENG_017_Plat_SecretKey.myg"
++    ],
++    "626bd10311f24c736bc25ba90815d28430b5d0c0": [
++      "IPGK",
++      "KOR_025_HGSS_WinPath.myg"
++    ],
++    "633f12458af4d2f32f6819ee68d4f76a291c6c0d": [
++      "IPGS",
++      "SPN_054_HGSS_EnigmaStone.myg"
++    ],
++    "6427b17b44ca2be31ed95b4e137e21ef508b9b6d": [
++      "IPGS",
++      "SPN_053_HGSS_10AnnivMew.myg"
++    ],
++    "69dbe55f83cb21a6d72a9437664fdc257ada894a": [
++      "ADAP",
++      "ENG_021_DPPt_ShinyPichu.myg"
++    ],
++    "6b7576062ddf49fa76daafc5bf3bd4337b806f41": [
++      "ADAD",
++      "GER_061_ALL_ShinySuicune.myg"
++    ],
++    "702ba22d8f1b45b68ad6d6fe4dc7064c5a82663f": [
++      "CPUS",
++      "SPN_020_Plat_OaksLetter.myg"
++    ],
++    "73308ed22b5de4dda5f3bd43aa2b5813a14d5f1a": [
++      "CPUI",
++      "ITA_017_Plat_SecretKey.myg"
++    ],
++    "73d78f00f03e27064f73e02bedf1a3260da81dda": [
++      "IPGE",
++      "ENG_053_HGSS_10AnnivMew.myg"
++    ],
++    "744fbacef88c67291f90a203c8bda833a6407e95": [
++      "CPUD",
++      "GER_018_Plat_MemberCard.myg"
++    ],
++    "7a2ba7d0731cf9cbd23a84d999e251573e155c13": [
++      "ADAD",
++      "GER_060_ALL_ShinyEntei.myg"
++    ],
++    "7e14fa1ab45ae4de2e81063f7b7d17443fc83d4c": [
++      "CPUI",
++      "ITA_020_Plat_OaksLetter.myg"
++    ],
++    "80ca068dff92e61d2ad839b3be159c0ad6d86e95": [
++      "CPUS",
++      "SPN_017_Plat_SecretKey.myg"
++    ],
++    "843e47532e0d41114daf7b77519f21df22d2a178": [
++      "IPGI",
++      "ITA_051_HGSS_WinPath.myg"
++    ],
++    "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c": [
++      "IPGI",
++      "ITA_054_HGSS_EnigmaStone.myg"
++    ],
++    "8b38d101b0420686e513b53dfeb927e890cd2959": [
++      "ADAJ",
++      "JPN_046_DPPt_NZ_Jirachi.myg"
++    ],
++    "8ceb90e434d852693cb42953f8f1d84af738d7a3": [
++      "IPGS",
++      "SPN_051_HGSS_WinPath.myg"
++    ],
++    "90122c8a5e08c3791c7b768187fd59c867ed8702": [
++      "ADAS",
++      "SPN_024_ALL_Jirachi_NightSky.myg"
++    ],
++    "90f531d37227aa2e2fa799bb9527264751e18877": [
++      "IPGD",
++      "GER_053_HGSS_10AnnivMew.myg"
++    ],
++    "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae": [
++      "ADAD",
++      "GER_021_DPPt_ShinyPichu.myg"
++    ],
++    "926cc9b89f23e0da7fa6a0b691ddae0255194dd0": [
++      "IPGE",
++      "ENG_048_HGSS_YForest.myg"
++    ],
++    "95f8ab8ad935da5ede1503cd3e335a6845227d97": [
++      "ADAI",
++      "ITA_021_DPPt_ShinyPichu.myg"
++    ],
++    "9bedee239241008454816f2e5bcddc0dbb99b4ab": [
++      "IPGD",
++      "GER_051_HGSS_WinPath.myg"
++    ],
++    "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58": [
++      "ADAE",
++      "ENG_059_ALL_ShinyRaikou.myg"
++    ],
++    "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf": [
++      "ADAD",
++      "GER_059_ALL_ShinyRaikou.myg"
++    ],
++    "aea86079290ea5f49b27cf5e102955721c2eda7b": [
++      "ADAI",
++      "ITA_060_ALL_ShinyEntei.myg"
++    ],
++    "b87ede4333c9abd56c0950aadd40a62d9ce3c93c": [
++      "ADAS",
++      "SPN_059_ALL_ShinyRaikou.myg"
++    ],
++    "bea709751be94f90b23e0b99aa3c4fa38ee5af34": [
++      "ADAE",
++      "ENG_021_DPPt_ShinyPichu.myg"
++    ],
++    "c4a9e977793351f559c04619e6978f8cfbce0b74": [
++      "CPUI",
++      "ITA_018_Plat_MemberCard.myg"
++    ],
++    "c4c5bd9c2a75595b3e6fe80e539eb44044951000": [
++      "ADAK",
++      "KOR_063_ALL_GooneScizor.myg"
++    ],
++    "c4fc52610992c939b7d728d42bcf1bcac8da115b": [
++      "ADAI",
++      "ITA_024_ALL_Jirachi_NightSky.myg"
++    ],
++    "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c": [
++      "IPGF",
++      "FRA_054_HGSS_EnigmaStone.myg"
++    ],
++    "c6114f4a366c4ffd738f6dd12a4d79913a571d97": [
++      "IPGI",
++      "ITA_053_HGSS_10AnnivMew.myg"
++    ],
++    "c7502ab463b277ec173681a5e4ba659fe0e8cbde": [
++      "ADAS",
++      "SPN_021_DPPt_ShinyPichu.myg"
++    ],
++    "c787779ebb4e0d4dfd77089652878b60bc378d7f": [
++      "ADAI",
++      "ITA_059_ALL_ShinyRaikou.myg"
++    ],
++    "cf15a136b7dd43deedfe640ffe22b1122a47d888": [
++      "CPUE",
++      "ENG_018_Plat_MemberCard.myg"
++    ],
++    "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9": [
++      "IPGK",
++      "KOR_022_HGSS_YForest.myg"
++    ],
++    "db9dc64679f123907bc0e65c053a02a444036966": [
++      "IPGK",
++      "KOR_026_HGSS_EnigmaStone.myg"
++    ],
++    "dc659fcfe6bf766c18df57d6c253393ecd98b55a": [
++      "IPGE",
++      "ENG_051_HGSS_WinPath.myg"
++    ],
++    "e04e630645a31c615a06a7e84b589d87e410bb07": [
++      "CPUF",
++      "FRA_017_Plat_SecretKey.myg"
++    ],
++    "e39fde33336d907ca0a389295385b7476b300f67": [
++      "IPGF",
++      "FRA_051_HGSS_WinPath.myg"
++    ],
++    "e5431c19ca9d40d8bb21a7a6974af2fc7d356225": [
++      "ADAJ",
++      "JPN_063_ALL_GooneScizor.myg"
++    ],
++    "ebf16178018b7b471c345f9359a99fe641f47409": [
++      "IPGJ",
++      "JPN_048_HGSS_YForest.myg"
++    ],
++    "ec09c043c32baaf306414da575246099bf720fa0": [
++      "ADAE",
++      "ENG_024_ALL_Jirachi_NightSky.myg"
++    ],
++    "edf54c826d5a91587e2cbd5ea5aaeacb374f929a": [
++      "CPUD",
++      "GER_017_Plat_SecretKey.myg"
++    ],
++    "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2": [
++      "IPGF",
++      "FRA_048_HGSS_YForest.myg"
++    ]
++  },
++  "games": {
++    "ADAD": [
++      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
++      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
++      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
++      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
++      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
++    ],
++    "ADAE": [
++      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "ADAF": [
++      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
++      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
++      "54f0460a56821373e6ac48b214be68663a557e5f",
++      "2090477c1c5c60ef9de887de554023698a37f765",
++      "4f4a3f01790dca66df556476e1b44303b2db459b"
++    ],
++    "ADAI": [
++      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
++      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
++      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
++      "aea86079290ea5f49b27cf5e102955721c2eda7b",
++      "314fbfce031b57074fca5cc4753be501679c528f"
++    ],
++    "ADAJ": [
++      "8b38d101b0420686e513b53dfeb927e890cd2959",
++      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
++      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
++      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
++      "0257990b7e35c53a30a646561d7754d5732a2efb"
++    ],
++    "ADAK": [
++      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
++      "2885baa358213092ccd7cd5e20b0796159be553e"
++    ],
++    "ADAP": [
++      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "ADAS": [
++      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
++      "90122c8a5e08c3791c7b768187fd59c867ed8702",
++      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
++      "0254ee5c41c33e47255529a1f9ed75460432ccae",
++      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
++    ],
++    "APAD": [
++      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
++      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
++      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
++      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
++      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
++    ],
++    "APAE": [
++      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "APAF": [
++      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
++      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
++      "54f0460a56821373e6ac48b214be68663a557e5f",
++      "2090477c1c5c60ef9de887de554023698a37f765",
++      "4f4a3f01790dca66df556476e1b44303b2db459b"
++    ],
++    "APAI": [
++      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
++      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
++      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
++      "aea86079290ea5f49b27cf5e102955721c2eda7b",
++      "314fbfce031b57074fca5cc4753be501679c528f"
++    ],
++    "APAJ": [
++      "8b38d101b0420686e513b53dfeb927e890cd2959",
++      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
++      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
++      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
++      "0257990b7e35c53a30a646561d7754d5732a2efb"
++    ],
++    "APAK": [
++      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
++      "2885baa358213092ccd7cd5e20b0796159be553e"
++    ],
++    "APAP": [
++      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "APAS": [
++      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
++      "90122c8a5e08c3791c7b768187fd59c867ed8702",
++      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
++      "0254ee5c41c33e47255529a1f9ed75460432ccae",
++      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
++    ],
++    "CPUD": [
++      "edf54c826d5a91587e2cbd5ea5aaeacb374f929a",
++      "744fbacef88c67291f90a203c8bda833a6407e95",
++      "31e0c045ed50de5bab7f8568a8ed526f5e8a67fa",
++      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
++      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
++      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
++      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
++      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
++    ],
++    "CPUE": [
++      "5f90208a1f43fcc085520b56439a0c32cd1b009d",
++      "cf15a136b7dd43deedfe640ffe22b1122a47d888",
++      "48537de6324fb90fffe9e1576d8c9197e3fa4e97",
++      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "CPUF": [
++      "e04e630645a31c615a06a7e84b589d87e410bb07",
++      "1e86ddb68c3c0054a8b0516599af96f1670b5ecc",
++      "3c808fc99f89e3ea6bd74ba47d8c7478ca5108ab",
++      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
++      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
++      "54f0460a56821373e6ac48b214be68663a557e5f",
++      "2090477c1c5c60ef9de887de554023698a37f765",
++      "4f4a3f01790dca66df556476e1b44303b2db459b"
++    ],
++    "CPUI": [
++      "73308ed22b5de4dda5f3bd43aa2b5813a14d5f1a",
++      "c4a9e977793351f559c04619e6978f8cfbce0b74",
++      "7e14fa1ab45ae4de2e81063f7b7d17443fc83d4c",
++      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
++      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
++      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
++      "aea86079290ea5f49b27cf5e102955721c2eda7b",
++      "314fbfce031b57074fca5cc4753be501679c528f"
++    ],
++    "CPUJ": [
++      "20e39a3d988b8ca950e98040dfa4a5db99dba989",
++      "3f174f21453e8bd449874aa2d503a10b2a4f7839",
++      "8b38d101b0420686e513b53dfeb927e890cd2959",
++      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
++      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
++      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
++      "0257990b7e35c53a30a646561d7754d5732a2efb",
++      "39f6cfbce610b76c22b1e1865e883f8f1139ec97"
++    ],
++    "CPUK": [
++      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
++      "2885baa358213092ccd7cd5e20b0796159be553e"
++    ],
++    "CPUP": [
++      "5d0f9bc2bba0386a88fdfdd7c28485bc3526a834",
++      "cf15a136b7dd43deedfe640ffe22b1122a47d888",
++      "48537de6324fb90fffe9e1576d8c9197e3fa4e97",
++      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "CPUS": [
++      "80ca068dff92e61d2ad839b3be159c0ad6d86e95",
++      "464c68a10703bf2a9a1d6f8ba3bf010bde2b06dc",
++      "702ba22d8f1b45b68ad6d6fe4dc7064c5a82663f",
++      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
++      "90122c8a5e08c3791c7b768187fd59c867ed8702",
++      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
++      "0254ee5c41c33e47255529a1f9ed75460432ccae",
++      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
++    ],
++    "IPGD": [
++      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
++      "3dd46699e438a9f0a792b1778c95653b7ef7fada",
++      "9bedee239241008454816f2e5bcddc0dbb99b4ab",
++      "90f531d37227aa2e2fa799bb9527264751e18877",
++      "346c9e9fee2f39f0ed50aefee8d6550a46d35047",
++      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
++      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
++      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
++    ],
++    "IPGE": [
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
++      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
++      "73d78f00f03e27064f73e02bedf1a3260da81dda",
++      "4c2a87f68ec9de14920371f889578dc732a18eea",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "IPGF": [
++      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
++      "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2",
++      "e39fde33336d907ca0a389295385b7476b300f67",
++      "02bdadeb79e95f0d51789cc2e64cbe28071000bf",
++      "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c",
++      "54f0460a56821373e6ac48b214be68663a557e5f",
++      "2090477c1c5c60ef9de887de554023698a37f765",
++      "4f4a3f01790dca66df556476e1b44303b2db459b"
++    ],
++    "IPGI": [
++      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
++      "284ec832db2f8bcdfcdfba9d712e1066544f4ff7",
++      "843e47532e0d41114daf7b77519f21df22d2a178",
++      "c6114f4a366c4ffd738f6dd12a4d79913a571d97",
++      "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c",
++      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
++      "aea86079290ea5f49b27cf5e102955721c2eda7b",
++      "314fbfce031b57074fca5cc4753be501679c528f"
++    ],
++    "IPGJ": [
++      "ebf16178018b7b471c345f9359a99fe641f47409",
++      "17aaf794a630b17e7e629f853be59c150ca82527",
++      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
++      "1692f7d2156089a952ee2f54f280c01e5550e06c",
++      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
++      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
++      "0257990b7e35c53a30a646561d7754d5732a2efb"
++    ],
++    "IPGK": [
++      "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9",
++      "626bd10311f24c736bc25ba90815d28430b5d0c0",
++      "db9dc64679f123907bc0e65c053a02a444036966",
++      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
++      "2885baa358213092ccd7cd5e20b0796159be553e"
++    ],
++    "IPGP": [
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
++      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
++      "73d78f00f03e27064f73e02bedf1a3260da81dda",
++      "4c2a87f68ec9de14920371f889578dc732a18eea",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "IPGS": [
++      "90122c8a5e08c3791c7b768187fd59c867ed8702",
++      "492ae714d703c3b1e4e1eebc1b04838340b01f4e",
++      "8ceb90e434d852693cb42953f8f1d84af738d7a3",
++      "6427b17b44ca2be31ed95b4e137e21ef508b9b6d",
++      "633f12458af4d2f32f6819ee68d4f76a291c6c0d",
++      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
++      "0254ee5c41c33e47255529a1f9ed75460432ccae",
++      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
++    ],
++    "IPKD": [
++      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
++      "3dd46699e438a9f0a792b1778c95653b7ef7fada",
++      "9bedee239241008454816f2e5bcddc0dbb99b4ab",
++      "90f531d37227aa2e2fa799bb9527264751e18877",
++      "346c9e9fee2f39f0ed50aefee8d6550a46d35047",
++      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
++      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
++      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
++    ],
++    "IPKE": [
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
++      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
++      "73d78f00f03e27064f73e02bedf1a3260da81dda",
++      "4c2a87f68ec9de14920371f889578dc732a18eea",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "IPKF": [
++      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
++      "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2",
++      "e39fde33336d907ca0a389295385b7476b300f67",
++      "02bdadeb79e95f0d51789cc2e64cbe28071000bf",
++      "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c",
++      "54f0460a56821373e6ac48b214be68663a557e5f",
++      "2090477c1c5c60ef9de887de554023698a37f765",
++      "4f4a3f01790dca66df556476e1b44303b2db459b"
++    ],
++    "IPKI": [
++      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
++      "284ec832db2f8bcdfcdfba9d712e1066544f4ff7",
++      "843e47532e0d41114daf7b77519f21df22d2a178",
++      "c6114f4a366c4ffd738f6dd12a4d79913a571d97",
++      "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c",
++      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
++      "aea86079290ea5f49b27cf5e102955721c2eda7b",
++      "314fbfce031b57074fca5cc4753be501679c528f"
++    ],
++    "IPKJ": [
++      "ebf16178018b7b471c345f9359a99fe641f47409",
++      "17aaf794a630b17e7e629f853be59c150ca82527",
++      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
++      "1692f7d2156089a952ee2f54f280c01e5550e06c",
++      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
++      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
++      "0257990b7e35c53a30a646561d7754d5732a2efb"
++    ],
++    "IPKK": [
++      "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9",
++      "626bd10311f24c736bc25ba90815d28430b5d0c0",
++      "db9dc64679f123907bc0e65c053a02a444036966",
++      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
++      "2885baa358213092ccd7cd5e20b0796159be553e"
++    ],
++    "IPKP": [
++      "ec09c043c32baaf306414da575246099bf720fa0",
++      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
++      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
++      "73d78f00f03e27064f73e02bedf1a3260da81dda",
++      "4c2a87f68ec9de14920371f889578dc732a18eea",
++      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
++      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
++      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
++    ],
++    "IPKS": [
++      "90122c8a5e08c3791c7b768187fd59c867ed8702",
++      "492ae714d703c3b1e4e1eebc1b04838340b01f4e",
++      "8ceb90e434d852693cb42953f8f1d84af738d7a3",
++      "6427b17b44ca2be31ed95b4e137e21ef508b9b6d",
++      "633f12458af4d2f32f6819ee68d4f76a291c6c0d",
++      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
++      "0254ee5c41c33e47255529a1f9ed75460432ccae",
++      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
++    ]
++  }
++}
 diff --git a/json_data/gen5_nickname_glyphs.json b/json_data/gen5_nickname_glyphs.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..d24d707adcb2ce8c6cd20d44a7a8002a491ff770
@@ -5045,6 +5766,262 @@ index 0000000000000000000000000000000000000000..d24d707adcb2ce8c6cd20d44a7a8002a
 +    "휀휄휑휘휙휜휠휨휩휫휭휴휵휸휼흄흇흉흐흑흔흖흗흘흙흠흡흣흥흩희흰흴흼흽힁히힉힌힐힘힙힛힝",
 +    "！＃＄％＆（）＊＋，－．／０１２３４５６７８９：；＜＝＞？＠ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ［＼］＾＿｀ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｛｜｝～｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ￠￡￢￣￥"
 +  ]
++}
+diff --git a/json_data/generation_portal.json b/json_data/generation_portal.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..c517cd94bd23bc5354aa3844c1e84b9dcec56a27
+--- /dev/null
++++ b/json_data/generation_portal.json
+@@ -0,0 +1,250 @@
++{
++  "zh": {
++    "title": "宝可梦联机中心",
++    "choose": "选择游戏世代",
++    "four": "第四世代",
++    "five": "第五世代",
++    "games4": "钻石／珍珠／白金／心金／魂银",
++    "games5": "黑／白／黑２／白２",
++    "services": "联网与神秘礼物",
++    "dream": "进入梦世界",
++    "events": "查看配信",
++    "version": "卡带版本",
++    "language": "卡带语言",
++    "gift": "神秘礼物",
++    "instructions": "在游戏标题菜单选择「神秘礼物」→「接收礼物」→「通过 Nintendo WFC 接收」。每次新连接会优先提供本机尚未下载的活动，全部下载后按顺序轮换。请在卡带的礼物卡册里确认是否已收到。",
++    "dns": "查看掌机 DNS",
++    "back": "回到联机中心",
++    "club": "好友对战与交换",
++    "club_help": "在宝可梦中心的 Wi-Fi 俱乐部与已经交换好友代码的玩家会合。进入 GTS 可以寄放、搜索或交换宝可梦。",
++    "show": "显示",
++    "versions": [
++      "钻石",
++      "珍珠",
++      "白金",
++      "心金",
++      "魂银"
++    ],
++    "region4": "神奥 · 城都",
++    "region5": "合众",
++    "YForest": "黄色森林",
++    "WinPath": "冠军之路"
++  },
++  "en": {
++    "title": "Pokémon Wi-Fi Center",
++    "choose": "Choose your generation",
++    "four": "Generation IV",
++    "five": "Generation V",
++    "games4": "Diamond / Pearl / Platinum / HeartGold / SoulSilver",
++    "games5": "Black / White / Black 2 / White 2",
++    "services": "Wi-Fi & Mystery Gift",
++    "dream": "Enter Dream World",
++    "events": "View distributions",
++    "version": "Game version",
++    "language": "Game language",
++    "gift": "Mystery Gift",
++    "instructions": "From the title menu, choose Mystery Gift → Receive Gift → Get via Nintendo WFC. Each new connection offers an event this console has not downloaded yet, then cycles through previous downloads. Check your Card Album to confirm receipt.",
++    "dns": "Find my DS DNS",
++    "back": "Back to Wi-Fi Center",
++    "club": "Friend battles and trades",
++    "club_help": "Exchange Friend Codes and meet in the Pokémon Center’s Wi-Fi Club. Visit the GTS to deposit, search for or trade Pokémon.",
++    "show": "Show",
++    "versions": [
++      "Diamond",
++      "Pearl",
++      "Platinum",
++      "HeartGold",
++      "SoulSilver"
++    ],
++    "region4": "Sinnoh · Johto",
++    "region5": "Unova",
++    "YForest": "Yellow Forest",
++    "WinPath": "Winner’s Path"
++  },
++  "ja": {
++    "title": "ポケモン通信センター",
++    "choose": "遊ぶ世代を選ぶ",
++    "four": "第4世代",
++    "five": "第5世代",
++    "games4": "ダイヤモンド／パール／プラチナ／ハートゴールド／ソウルシルバー",
++    "games5": "ブラック／ホワイト／ブラック２／ホワイト２",
++    "services": "通信・ふしぎなおくりもの",
++    "dream": "夢の世界へ",
++    "events": "配信を見る",
++    "version": "ソフト",
++    "language": "ソフトの言語",
++    "gift": "ふしぎなおくりもの",
++    "instructions": "タイトルメニューの「ふしぎなおくりもの」から「おくりものを うけとる」→「Wi-Fiで うけとる」を選びます。接続ごとに未ダウンロードの配信が優先され、一巡すると順に再配信されます。受け取りはゲーム内のカードアルバムで確認してください。",
++    "dns": "DSのDNSを確認",
++    "back": "通信センターに戻る",
++    "club": "ともだちとの対戦・交換",
++    "club_help": "ともだちコードを交換し、ポケモンセンターのWi-Fiクラブで待ち合わせます。GTSではポケモンを預けたり、探したり、交換したりできます。",
++    "show": "表示",
++    "versions": [
++      "ダイヤモンド",
++      "パール",
++      "プラチナ",
++      "ハートゴールド",
++      "ソウルシルバー"
++    ],
++    "region4": "シンオウ・ジョウト",
++    "region5": "イッシュ",
++    "YForest": "きいろのもり",
++    "WinPath": "チャンプのみち"
++  },
++  "fr": {
++    "title": "Centre Wi-Fi Pokémon",
++    "choose": "Choisissez une génération",
++    "four": "Génération IV",
++    "five": "Génération V",
++    "games4": "Diamant / Perle / Platine / Or HeartGold / Argent SoulSilver",
++    "games5": "Noir / Blanc / Noir 2 / Blanc 2",
++    "services": "Wi-Fi et cadeaux",
++    "dream": "Entrer dans le Dream World",
++    "events": "Voir les distributions",
++    "version": "Version",
++    "language": "Langue du jeu",
++    "gift": "Cadeau Mystère",
++    "instructions": "Au menu du titre, ouvrez Cadeau Mystère et choisissez de recevoir un cadeau via la CWF Nintendo. Chaque nouvelle connexion donne priorité aux cadeaux encore à télécharger, puis le cycle recommence. Vérifiez la réception dans votre album.",
++    "dns": "DNS de ma DS",
++    "back": "Retour au centre Wi-Fi",
++    "club": "Combats et échanges",
++    "club_help": "Échangez vos codes ami et retrouvez-vous au Club Wi-Fi du Centre Pokémon. À la GTS, vous pouvez déposer, chercher ou échanger des Pokémon.",
++    "show": "Afficher",
++    "versions": [
++      "Diamant",
++      "Perle",
++      "Platine",
++      "Or HeartGold",
++      "Argent SoulSilver"
++    ],
++    "region4": "Sinnoh · Johto",
++    "region5": "Unys",
++    "YForest": "Forêt Jaune",
++    "WinPath": "Chemin Victoire"
++  },
++  "de": {
++    "title": "Pokémon Wi-Fi-Zentrale",
++    "choose": "Generation auswählen",
++    "four": "Generation IV",
++    "five": "Generation V",
++    "games4": "Diamant / Perl / Platin / HeartGold / SoulSilver",
++    "games5": "Schwarz / Weiß / Schwarz 2 / Weiß 2",
++    "services": "Wi-Fi und Geheimgeschehen",
++    "dream": "Zur Traumwelt",
++    "events": "Verteilungen ansehen",
++    "version": "Spielversion",
++    "language": "Spielsprache",
++    "gift": "Geheimgeschehen",
++    "instructions": "Öffne im Titelmenü das Geheimgeschehen und empfange ein Geschenk über die Nintendo WFC. Jede neue Verbindung bevorzugt noch ausstehende Downloads und beginnt danach wieder von vorn. Prüfe den Empfang im Kartenalbum.",
++    "dns": "DNS für meinen DS",
++    "back": "Zur Wi-Fi-Zentrale",
++    "club": "Kämpfe und Tauschen",
++    "club_help": "Tauscht Freundescodes aus und trefft euch im Wi-Fi-Klub des Pokémon-Centers. In der GTS könnt ihr Pokémon anbieten, suchen und tauschen.",
++    "show": "Anzeigen",
++    "versions": [
++      "Diamant",
++      "Perl",
++      "Platin",
++      "HeartGold",
++      "SoulSilver"
++    ],
++    "region4": "Sinnoh · Johto",
++    "region5": "Einall",
++    "YForest": "Goldgelber Wald",
++    "WinPath": "Siegerstraße"
++  },
++  "es": {
++    "title": "Centro Wi-Fi Pokémon",
++    "choose": "Elige una generación",
++    "four": "Cuarta generación",
++    "five": "Quinta generación",
++    "games4": "Diamante / Perla / Platino / Oro HeartGold / Plata SoulSilver",
++    "games5": "Negro / Blanco / Negro 2 / Blanco 2",
++    "services": "Wi-Fi y regalos",
++    "dream": "Entrar en Dream World",
++    "events": "Ver distribuciones",
++    "version": "Versión",
++    "language": "Idioma del juego",
++    "gift": "Regalo Misterioso",
++    "instructions": "En el menú del título, abre Regalo Misterioso y recibe un regalo mediante la CWF de Nintendo. Cada conexión nueva ofrece primero los eventos pendientes de descarga y después repite el ciclo. Comprueba la recepción en el álbum de tarjetas.",
++    "dns": "Ver el DNS de mi DS",
++    "back": "Volver al centro Wi-Fi",
++    "club": "Combates e intercambios",
++    "club_help": "Intercambiad claves de amigo y reuníos en el Club Wi-Fi del Centro Pokémon. En la GTS podéis depositar, buscar e intercambiar Pokémon.",
++    "show": "Mostrar",
++    "versions": [
++      "Diamante",
++      "Perla",
++      "Platino",
++      "Oro HeartGold",
++      "Plata SoulSilver"
++    ],
++    "region4": "Sinnoh · Johto",
++    "region5": "Teselia",
++    "YForest": "Bosque Amarillo",
++    "WinPath": "Ruta del Campeón"
++  },
++  "it": {
++    "title": "Centro Wi-Fi Pokémon",
++    "choose": "Scegli una generazione",
++    "four": "Quarta generazione",
++    "five": "Quinta generazione",
++    "games4": "Diamante / Perla / Platino / Oro HeartGold / Argento SoulSilver",
++    "games5": "Nero / Bianco / Nero 2 / Bianco 2",
++    "services": "Wi-Fi e doni",
++    "dream": "Entra nel Dream World",
++    "events": "Vedi le distribuzioni",
++    "version": "Versione",
++    "language": "Lingua del gioco",
++    "gift": "Dono Segreto",
++    "instructions": "Dal menu iniziale scegli Dono Segreto e ricevi un dono tramite la Nintendo WFC. Ogni nuova connessione dà la precedenza agli eventi ancora da scaricare e poi ripete il ciclo. Controlla la ricezione nell’album delle schede.",
++    "dns": "DNS del mio DS",
++    "back": "Torna al centro Wi-Fi",
++    "club": "Lotte e scambi",
++    "club_help": "Scambiate i codici amico e incontratevi nel Wi-Fi Club del Centro Pokémon. Alla GTS potete depositare, cercare e scambiare Pokémon.",
++    "show": "Mostra",
++    "versions": [
++      "Diamante",
++      "Perla",
++      "Platino",
++      "Oro HeartGold",
++      "Argento SoulSilver"
++    ],
++    "region4": "Sinnoh · Johto",
++    "region5": "Unima",
++    "YForest": "Bosco Giallo",
++    "WinPath": "Via dei Campioni"
++  },
++  "ko": {
++    "title": "포켓몬 Wi-Fi 센터",
++    "choose": "게임 세대 선택",
++    "four": "4세대",
++    "five": "5세대",
++    "games4": "디아루가 / 펄기아 / 기라티나 / 하트골드 / 소울실버",
++    "games5": "블랙 / 화이트 / 블랙 2 / 화이트 2",
++    "services": "통신과 이상한 소포",
++    "dream": "드림월드 입장",
++    "events": "배포 목록",
++    "version": "게임 버전",
++    "language": "게임 언어",
++    "gift": "이상한 소포",
++    "instructions": "타이틀 메뉴에서 이상한 소포 → 선물 받기 → 닌텐도 Wi-Fi 커넥션으로 받기를 선택하세요. 새로 연결하면 아직 내려받지 않은 선물부터 제공하고 모두 받은 뒤에는 순서대로 반복합니다. 수령 여부는 게임의 카드 앨범에서 확인하세요.",
++    "dns": "내 DS의 DNS 확인",
++    "back": "Wi-Fi 센터로",
++    "club": "친구 대전과 교환",
++    "club_help": "친구 코드를 교환하고 포켓몬센터의 Wi-Fi 클럽에서 만나세요. GTS에서는 포켓몬을 맡기거나 검색하고 교환할 수 있습니다.",
++    "show": "보기",
++    "versions": [
++      "디아루가",
++      "펄기아",
++      "기라티나",
++      "하트골드",
++      "소울실버"
++    ],
++    "region4": "신오 · 성도",
++    "region5": "하나",
++    "YForest": "노란숲",
++    "WinPath": "챔프의 길"
++  }
 +}
 diff --git a/json_data/gift_cards.json b/json_data/gift_cards.json
 new file mode 100644
@@ -17622,6 +18599,30 @@ index 0000000000000000000000000000000000000000..64401ac302588b0e63ac74464701304d
 +  document.addEventListener("visibilitychange", refresh);
 +  window.addEventListener("pageshow", event => { if (event.persisted) refresh(); });
 +})();
+diff --git a/static/generations.css b/static/generations.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..87854232eaa159ccdbb9ea4fe6c625cb3661acaa
+--- /dev/null
++++ b/static/generations.css
+@@ -0,0 +1,18 @@
++:root{font-family:Inter,"Segoe UI","Yu Gothic",system-ui,sans-serif;color:#172e36;background:#f4f4ed;line-height:1.5;color-scheme:light}
++*{box-sizing:border-box}body{margin:0}.wrap{width:min(68rem,91%);margin:auto}
++header{border-bottom:1px solid #c9d2c8;background:#fffefa}.top{min-height:4.3rem;display:flex;justify-content:space-between;align-items:center;gap:.8rem}
++a{color:#194f52;text-underline-offset:.2em}.brand{display:flex;align-items:center;gap:.7rem;text-decoration:none;font-weight:750;color:#183d42}
++.brand i{width:1.45rem;height:1.45rem;border:2px solid currentColor;border-radius:50%;display:grid;place-items:center;background:linear-gradient(to bottom,#fb825f 45%,#183d42 45% 55%,white 55%)}
++.brand i:after{content:"";width:.32rem;height:.32rem;border-radius:50%;border:2px solid #183d42;background:white}
++main{padding:clamp(2rem,6vw,5rem) 0}h1,h2,p{margin:0}h1{font-size:clamp(2.3rem,6vw,4.5rem);line-height:1.1;letter-spacing:-.045em;margin-bottom:1.6rem}
++.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2rem}
++.card{display:flex;flex-direction:column;position:relative;overflow:hidden;text-decoration:none;border-radius:1.15rem;color:#fff;background:#24565c;box-shadow:0 6px 22px #16393a14}
++.card img{width:100%;height:clamp(10rem,19vw,16rem);object-fit:contain;image-rendering:auto;padding:1.1rem;background:radial-gradient(ellipse at 50% 100%,#d5efa7,#81c9b0 75%)}.unova{background:#393c60}.unova img{background:radial-gradient(ellipse at 50% 100%,#d3cae4,#a0a9d3 75%)}
++.card div{padding:1.2rem 1.6rem 1.5rem;flex:1;display:flex;flex-direction:column}.card small{font-weight:600;color:#ecf6ea}.card h2{font-size:clamp(1.8rem,4vw,2.75rem);line-height:1.2;margin:.25rem 0}.card p{font-size:1rem;margin:.3rem 0 1.3rem}.card strong{display:flex;justify-content:space-between;padding-top:1rem;margin-top:auto;border-top:1px solid #ffffff65}
++.cover{color:inherit;text-decoration:none;display:flex;flex-direction:column;flex:1}.cover:hover strong{text-decoration:underline}
++.card .shortcuts{padding:0 1.6rem 1.1rem;display:flex;flex-flow:row wrap;gap:.5rem 1.1rem;flex:none}.shortcuts a{color:#fff;font-size:.9rem}
++.quick{display:flex;flex-wrap:wrap;gap:1.6rem;padding:1.6rem 0}.back{display:inline-block;margin-bottom:1.1rem}.sub{margin:-.65rem 0 1.5rem}
++section{padding:1.5rem clamp(1rem,4vw,2rem);border:1px solid #cad4cc;border-radius:1rem;background:#fffefa;margin:1rem 0}section p{margin:.6rem 0 1rem;max-width:52rem}
++form{display:flex;align-items:end;flex-wrap:wrap;gap:1rem}label{display:grid;gap:.25rem}select,button{font:inherit;padding:.45rem .8rem;border:1px solid #677e76;border-radius:.4rem}button{background:#24565c;color:white;cursor:pointer}
++.gifts{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:.15rem 1.25rem}.gifts li{padding:.45rem 0;border-top:1px solid #dce1d7}.number{font: .83rem ui-monospace,monospace;color:#435b61;margin-right:.35rem}
++:focus-visible{outline:3px solid #b14913;outline-offset:4px}@media(max-width:640px){.cards{grid-template-columns:1fr}.card img{height:9rem}.card div{padding:1rem 1.2rem}.card h2{font-size:1.7rem}.card p{margin-bottom:.7rem}}
 diff --git a/static/island-adventure.css b/static/island-adventure.css
 new file mode 100644
 index 0000000000000000000000000000000000000000..f74828f1dce8703863c41c4b640630512ba3e8d4
@@ -18973,6 +19974,34 @@ index 0000000000000000000000000000000000000000..74c4128ecaf290912000acafa55e7f89
 +{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}{% if row.event=='cafe' %}<label>{{ t.sex }} <select name="gender"><option value="1">♀</option><option value="0">♂</option></select></label>{% endif %} <button type="submit">{{ t.claim }}</button>{% if row.event=="berries" %} <button name="destination" value="chest">{{ t.chest }}</button>{% endif %}</form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
 +{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for(endpoint,kind=kind,filter=mode,page=page-1,q=search,version=version) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for(endpoint,kind=kind,filter=mode,page=page+1,q=search,version=version) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
 +<footer>{% if card and japanese %}<p><a href="/customize/">{{ t.customize }}</a></p>{% endif %}<a href="/languages/?page={{ url_for(endpoint) }}">Language · 日本語 · 简体中文</a></footer></main></body></html>
+diff --git a/templates/generations.html b/templates/generations.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..c118b63e1751195d637e235105bee0f6b1708db8
+--- /dev/null
++++ b/templates/generations.html
+@@ -0,0 +1,22 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
++<title>{{ t.four ~ ' · ' if four else '' }}{{ t.title }}</title>
++<link rel="stylesheet" href="{{ url_for('generations.static',filename='generations.css') }}"></head>
++<body><header><div class="wrap top"><a class="brand" href="/"><i aria-hidden="true"></i>{{ t.title }}</a>
++<a href="{{ url_for('site.languages', page='/gen4/' if four else '/') }}">{{ names[lang] }}</a></div></header>
++<main class="wrap">
++{% if not four %}
++<h1>{{ t.choose }}</h1>
++<nav class="cards" aria-label="{{ t.choose }}">
++<article class="card sinnoh"><a class="cover" href="/gen4/"><img src="/customize/preview/C008" alt=""><div><small>{{ t.region4 }}</small><h2>{{ t.four }}</h2><p>{{ t.games4 }}</p><strong>{{ t.services }} <span>→</span></strong></div></a><div class="shortcuts"><a href="/gen4/#club">{{ t.club }}</a><a href="/gen4/#gifts">{{ t.gift }}</a></div></article>
++<article class="card unova"><a class="cover" href="/gen5/"><img src="/customize/preview/C014" alt=""><div><small>{{ t.region5 }}</small><h2>{{ t.five }}</h2><p>{{ t.games5 }}</p><strong>Pokémon Global Link <span>→</span></strong></div></a><div class="shortcuts"><a href="/pdw/">{{ t.dream }}</a><a href="/islands/">{{ friends }}</a><a href="/campaign/">{{ t.events }}</a><a href="/practice/">{{ arcade }}</a></div></article>
++</nav><nav class="quick"><a href="/player-guide/#dns">{{ t.dns }} →</a></nav>
++{% else %}
++<a class="back" href="/">← {{ t.back }}</a><h1>{{ t.four }}</h1><p class="sub">{{ t.games4 }}</p>
++<section id="club"><h2>{{ t.club }}</h2><p>{{ t.club_help }}</p><a href="/player-guide/#dns">{{ t.dns }} →</a></section>
++<section id="gifts"><h2>{{ t.gift }}</h2><p>{{ t.instructions }}</p>
++<form method="get" action="/gen4/"><label>{{ t.version }}<select name="game">{% for id,name in versions.items() %}<option value="{{ id }}" {% if id == code[:3] %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
++<label>{{ t.language }}<select name="language">{% for id,suffix in languages.items() %}<option value="{{ id }}" {% if suffix == code[3] %}selected{% endif %}>{{ names[id] }}</option>{% endfor %}</select></label><button>{{ t.show }}</button></form>
++<ol class="gifts">{% for number,name in cards %}<li><span class="number">№ {{ number }}</span> {{ name }}</li>{% endfor %}</ol>
++</section>{% endif %}</main></body></html>
 diff --git a/templates/guide_home_link.html b/templates/guide_home_link.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..f8837cfbbb6d69871436d6c3a63108160f8406c4
@@ -20203,6 +21232,137 @@ index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf
 +        assert sleeper[labels["pokemon_no"]] == species
 +        assert labels["pokemon_nickname"] not in sleeper
 +    assert content["sleeper"]["pokemon_nickname"] == "A汉"
+diff --git a/tests/test_generation_portal.py b/tests/test_generation_portal.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..464ba59d8d9b8065341cd1cc1f6ac68e863af2dd
+--- /dev/null
++++ b/tests/test_generation_portal.py
+@@ -0,0 +1,125 @@
++import base64
++import hashlib
++import struct
++from types import SimpleNamespace
++
++from flask import Flask
++
++from api import generations
++from api.server import create_app
++from game_sync_server.entralinked.model.save_file import _crypt_array
++from game_sync_server.entralinked.network.http import gts_handler
++from game_sync_server.entralinked.network.http.dls_handler import DlsHandler
++from game_sync_server.entralinked.utility.db_manager import DBManager
++from game_sync_server.entralinked.utility.url_encoded_form import encode_form
++from utils import gen4_gifts
++
++
++def test_generation_links_and_compatible_gifts(monkeypatch):
++    client = create_app().test_client()
++    for locale, t in generations._labels.items():
++        monkeypatch.setattr(generations, "LANG", locale)
++        home = client.get("/?from=bookmark").get_data(as_text=True)
++        assert 'href="/gen4/"' in home and 'href="/gen5/"' in home and t["choose"] in home
++        assert "dw-player-help" not in home and "_ruffle" not in home
++        for code in generations.GAME_CODES:
++            page = client.get("/gen4/", query_string={"game":code, "language":"ja"}).get_data(as_text=True)
++            assert t["gift"] in page and page.count('class="number"') == len(gen4_gifts.catalog()["games"][code+"J"])
++    assert client.get("/gen5/").location == "/index.html"
++    assert b"_ruffle" in client.get("/index.html").data
++    assert client.get("/languages/en/?page=/gen4/").location.endswith(":8080/gen4/")
++    assert client.get("/customize/preview/C008").status_code == client.get("/customize/preview/C014").status_code == 200
++
++
++def test_native_gift_list_isolated_by_session_game_and_owner(tmp_path, monkeypatch):
++    store = DBManager(tmp_path / "gifts.db")
++    monkeypatch.setattr(gen4_gifts, "db", store)
++    monkeypatch.setattr(gen4_gifts, "_payload", lambda _: b"a" * 936)
++    owners = {"a1":"one", "a2":"one", "b":"two"}
++    users = SimpleNamespace(get_service_session=lambda token, service:
++                            SimpleNamespace(user=SimpleNamespace(id=owners[token])) if token in owners else None)
++    app = Flask(__name__)
++    app.register_blueprint(DlsHandler(SimpleNamespace(dlc_list=None, user_manager=users)).blueprint())
++    client = app.test_client()
++
++    def download(action, token="a1", game="CPUJ", **extra):
++        return client.post("/download", data=encode_form(dict(action=action, token=token, gamecd=game, **extra)))
++
++    assert download("count",token="other").status_code == 401
++    assert download("count").data == b"1"
++    first = download("list").data
++    file = first.split(b"\t")[0].decode()
++    assert first.endswith(b"\t\t\t\t\t936\r\n") and download("list", offset="1").data == b"\r\n"
++    assert download("contents",game="IPKJ",contents=file).status_code == 400
++    for _ in range(2):
++        assert download("contents",contents=file).data == b"a"*936
++        assert download("list").data == first
++    assert download("list","a2").data != first
++    assert download("list","b").data == first
++    store.close()
++
++
++def _gen4_party(species, wanted):
++    record = bytearray(292)
++    core = bytearray(128)
++    struct.pack_into("<H", core, 0, species)
++    checksum = sum(struct.unpack("<64H", core)) & 65535
++    struct.pack_into("<H", record, 6, checksum)
++    _crypt_array(core, checksum)
++    record[8:136] = core
++    tail = bytearray(100)
++    tail[4] = 10
++    _crypt_array(tail, 0)
++    record[136:236] = tail
++    struct.pack_into("<HBBHBBB", record, 236, species, 1, 10, wanted, 3, 0, 0)
++    record[0x122:0x124] = bytes((12, 1))
++    return bytes(record)
++
++
++def test_gen4_native_gts_trade_retries_and_separate_store(tmp_path, monkeypatch):
++    monkeypatch.setattr(gts_handler, "SAVE_DIR", tmp_path)
++    store5 = DBManager(tmp_path / "gen5.db")
++    monkeypatch.setattr(gts_handler, "db", store5)
++    users = SimpleNamespace(gts_peer_profile=lambda ip: {"127.0.0.2":2,"127.0.0.3":3}.get(ip))
++    service = gts_handler.GtsHandler(SimpleNamespace(user_manager=users))
++    app = Flask(__name__)
++    app.register_blueprint(service.blueprint())
++    client = app.test_client()
++
++    def call(pid, action, data=b""):
++        path = f"/pokemondpds/worldexchange/{action}.asp"
++        source = {"REMOTE_ADDR": f"127.0.0.{pid}"}
++        token = client.get(path, query_string={"pid":pid}, environ_overrides=source).data
++        assert len(token) == 32
++        packet = struct.pack("<I", pid) + data
++        total = sum(packet)
++        seed = (total & 65535) * 65537
++        wire = bytearray(struct.pack(">I", total ^ 0x4a3b2c1d))
++        for byte in packet:
++            seed = (69 * seed + 4369) % (2**31)
++            wire.append(byte ^ (seed >> 16 & 255))
++        query = {"pid":pid,"hash":hashlib.sha1(b"sAdeqWo3voLeC5r16DYv"+token).hexdigest(),
++                 "data":base64.urlsafe_b64encode(wire).decode()}
++        result = client.get(path, query_string=query, environ_overrides=source)
++        assert result.status_code == 200
++        return result.data
++
++    a, b = _gen4_party(25, 133), _gen4_party(133, 25)
++    ok = b"\1\0"
++    assert call(2, "info") == ok and call(2, "result") == b"\5\0"
++    assert call(2, "post", a) == ok
++    assert call(2, "post_finish", bytes(8)) == ok
++    assert call(2, "result") == b"\4\0"
++    assert service.station.dispatch("result", 2, b"") == b"\5\0"
++    listing = call(3, "search", struct.pack("<H5B", 25,3,0,0,0,7))
++    assert len(listing) == 292 and listing[:236] == a[:236]
++    for _ in range(2):
++        assert call(3, "exchange", b+struct.pack("<I", 2)) == listing
++    for _ in range(2):
++        assert call(3, "exchange_finish", bytes(8)) == ok
++    arrived = call(2, "result")
++    assert arrived[:236] == b[:236] and arrived[0x121] == 1
++    assert call(2, "delete") == call(2, "delete") == ok
++    assert call(2, "result") == b"\5\0"
++    store5.close()
++    service.gen4.db.close()
 diff --git a/tests/test_gts_names.py b/tests/test_gts_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..4b415507b05be4b13990d266883b5df7ab23c417
@@ -22648,6 +23808,108 @@ index 0000000000000000000000000000000000000000..96f90911370dd1d7472bc552f9798cf8
 +                         (token, identities[0]["card"], gift.key, now + 3600))
 +            return f"DW{gift.digest[:12]}.bin\t\tMYSTERY_{language}\t{gift.mask << 16:x}\t\t720\r\n", 200
 +    return b"", 400
+diff --git a/utils/gen4_gifts.py b/utils/gen4_gifts.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8250f5abc69b183c2b21681675ebbdf8200445a6
+--- /dev/null
++++ b/utils/gen4_gifts.py
+@@ -0,0 +1,96 @@
++"""Fourth-generation Nintendo WFC distributions, scoped to the WFC user and game."""
++import hashlib
++import time
++from functools import cache
++from http.client import HTTPException
++from urllib.request import urlopen
++
++from game_sync_server.entralinked.utility.db_manager import db
++from utils.data import load_json_data
++
++ARCHIVE = "https://raw.githubusercontent.com/ubergeek77/dwc_network_server_emulator/68fcdb2989e57a10ec8cf8398ff7506c4c73d390/dlc/"
++SIZE = 936
++
++
++@cache
++def catalog():
++    return load_json_data("gen4_wireless_gifts")
++
++
++def game_code(form):
++    for field in ("rhgamecd", "gamecd"):
++        code = form.get(field)
++        if code in catalog()["games"]:
++            return code
++    return None
++
++
++def _schema(conn):
++    conn.execute("""CREATE TABLE IF NOT EXISTS gen4_gift_list (
++        ticket BLOB PRIMARY KEY, owner TEXT, game TEXT, gift TEXT, until INTEGER, sent INTEGER DEFAULT 0)""")
++    conn.execute("""CREATE TABLE IF NOT EXISTS gen4_gift_download (
++        owner TEXT, game TEXT, gift TEXT, last_sent INTEGER, PRIMARY KEY(owner,game,gift))""")
++    conn.execute("CREATE TABLE IF NOT EXISTS gen4_gift_cache (gift TEXT PRIMARY KEY, content BLOB)")
++
++
++def _payload(gift):
++    with db.transaction() as conn:
++        cached = conn.execute("SELECT content FROM gen4_gift_cache WHERE gift=?", (gift,)).fetchone()
++    if cached:
++        return cached[0]
++    game, name = catalog()["files"][gift]
++    with urlopen(f"{ARCHIVE}{game}/{name}", timeout=5) as response:
++        raw = response.read(SIZE + 1)
++    if len(raw) != SIZE or hashlib.sha1(b"blob 936\0" + raw).hexdigest() != gift:
++        raise ValueError("The archived distribution does not match its catalog entry")
++    with db.transaction() as conn:
++        conn.execute("INSERT OR IGNORE INTO gen4_gift_cache VALUES(?,?)", (gift, raw))
++    return raw
++
++
++def download(owner, form, game):
++    action = form.get("action")
++    ticket = hashlib.sha256(form["token"].encode("latin-1")).digest()
++    now = int(time.time())
++    with db.transaction() as conn:
++        _schema(conn)
++        conn.execute("DELETE FROM gen4_gift_list WHERE until<?", (now,))
++        selected = conn.execute(
++            "SELECT game,gift FROM gen4_gift_list WHERE ticket=? AND owner=?", (ticket, owner)
++        ).fetchone()
++        if selected and game and selected["game"] != game:
++            return b"", 400
++        if action == "contents":
++            if not selected:
++                return b"", 404
++            game, gift = selected
++            if form.get("contents") != catalog()["files"][gift][1]:
++                return b"", 404
++        elif action in ("list", "count") and game:
++            if action == "count":
++                return "1", 200
++            if form.get("offset", "0") not in ("", "0") or form.get("num") == "0":
++                return "\r\n", 200
++            if selected:
++                gift = selected["gift"]
++            else:
++                sent = dict(conn.execute(
++                    "SELECT gift,last_sent FROM gen4_gift_download WHERE owner=? AND game=?", (owner, game)
++                ))
++                gift = min(catalog()["games"][game], key=lambda key: sent.get(key, 0))
++                conn.execute("INSERT INTO gen4_gift_list(ticket,owner,game,gift,until) VALUES(?,?,?,?,?)",
++                             (ticket, owner, game, gift, now+3600))
++            name = catalog()["files"][gift][1]
++            return f"{name}\t\t\t\t\t{SIZE}\r\n", 200
++        else:
++            return b"", 400
++    try:
++        raw = _payload(gift)
++    except (OSError, HTTPException, ValueError):
++        return b"", 503
++    with db.transaction() as conn:
++        first = conn.execute("UPDATE gen4_gift_list SET sent=1 WHERE ticket=? AND sent=0", (ticket,))
++        if first.rowcount:
++            conn.execute("""INSERT INTO gen4_gift_download VALUES(?,?,?,?) ON CONFLICT(owner,game,gift)
++                            DO UPDATE SET last_sent=excluded.last_sent""", (owner, game, gift, time.time_ns()))
++    return raw, 200
 diff --git a/utils/gen5_names.py b/utils/gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..92d876090bddb74dccc19e874a127529bef25601

@@ -110,6 +110,8 @@ def _wake_panel(data: bytes, t: dict) -> bytes | None:
 
 @player_guide.after_app_request
 def insert_player_help(response: Response) -> Response:
+    if request.path == "/" and "p" not in request.args:
+        return response
     if response.mimetype != "text/html" or response.status_code not in (200, 400):
         return response
     path = request.path.removesuffix("index.html")

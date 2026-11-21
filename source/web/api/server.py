@@ -13,6 +13,7 @@ from flask import Blueprint, Flask, Response, current_app, redirect, render_temp
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from api.distributions import campaigns
+from api import generations
 from api.island_adventure import island_adventure
 from api.island_peers import island_peers
 from api.offline_friends import offline_friends
@@ -98,13 +99,13 @@ def api_post() -> Response:
 # Site files
 # ---------------
 
-_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
+_LANGUAGE_PAGES = {"/", "/gen5/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
                    "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
 
 
 def _language_page() -> str:
     source = request.args.get("page") or urlsplit(request.referrer or "").path
-    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
+    allowed = _LANGUAGE_PAGES | {"/gen4/", "/index.html", "/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
     return source if source in allowed else "/"
 
 
@@ -155,6 +156,9 @@ def catch_all(path: str) -> Response:
         response.headers["Cache-Control"] = "no-store"
         return response
 
+    if not path and "p" not in request.args:
+        return current_app.make_response(generations.page())
+
     path = path.split("&")[0]
     full_path = f"/{path}"
 
@@ -196,6 +200,7 @@ def create_app() -> Flask:
     app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
     app.secret_key = get_secret_key()
     app.register_blueprint(signup)
+    app.register_blueprint(generations.generations)
     app.register_blueprint(campaigns)
     app.register_blueprint(player_guide)
     app.register_blueprint(practice)

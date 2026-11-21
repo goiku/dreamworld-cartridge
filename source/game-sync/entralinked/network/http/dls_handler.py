@@ -9,7 +9,7 @@ from http import HTTPStatus
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 
-from utils import distributions, pwt_archive
+from utils import distributions, gen4_gifts, pwt_archive
 
 from ...context import Context
 from ...model.dlc.dlc import dlc_list_string
@@ -51,13 +51,14 @@ class DlsHandler:
         """Handle a download server request."""
         try:
             form = decode_form(request.get_data(as_text=True))
+            gen4 = gen4_gifts.game_code(form)
             dlc_type, _, language = form.get("attr1", "").partition("_")  # "CGEAR2_E"
             dls_request = DlsRequest(
                 token=form["token"],
                 action=form["action"],
                 dlc_type=dlc_type,
                 language=language or None,
-                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type not in ("MYSTERY", "WBT") else None,
+                dlc_index=int(form["attr2"]) if form.get("attr2") and not gen4 and dlc_type not in ("MYSTERY", "WBT") else None,
                 dlc_name=form.get("contents"),
             )
         except (KeyError, ValueError):
@@ -71,7 +72,9 @@ class DlsHandler:
             logger.debug("Rejecting DLS request because the service session has expired")
             return "", HTTPStatus.UNAUTHORIZED
 
-        if dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
+        if gen4 or (dls_request.dlc_name or "").endswith(".myg"):
+            content, status = gen4_gifts.download(session.user.id, form, gen4)
+        elif dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
             content, status = pwt_archive.wireless_download(form)
         elif dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
             content, status = distributions.download(session.user.id, form)

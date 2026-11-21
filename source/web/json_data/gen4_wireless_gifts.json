@@ -1,0 +1,650 @@
+{
+  "files": {
+    "0254ee5c41c33e47255529a1f9ed75460432ccae": [
+      "ADAS",
+      "SPN_060_ALL_ShinyEntei.myg"
+    ],
+    "0257990b7e35c53a30a646561d7754d5732a2efb": [
+      "ADAJ",
+      "JPN_066_ALL_NZ_Manaphy.myg"
+    ],
+    "02bdadeb79e95f0d51789cc2e64cbe28071000bf": [
+      "IPGF",
+      "FRA_053_HGSS_10AnnivMew.myg"
+    ],
+    "11b02f86fd55ae29dbb7faed0b9a257f52068e66": [
+      "ADAD",
+      "GER_024_ALL_Jirachi_NightSky.myg"
+    ],
+    "1692f7d2156089a952ee2f54f280c01e5550e06c": [
+      "IPGJ",
+      "JPN_054_HGSS_EnigmaStone.myg"
+    ],
+    "17aaf794a630b17e7e629f853be59c150ca82527": [
+      "IPGJ",
+      "JPN_051_HGSS_WinPath.myg"
+    ],
+    "1851e6110bad8dea97172d7fbc8a5892d1d04a44": [
+      "ADAJ",
+      "JPN_065_ALL_AshPikachu.myg"
+    ],
+    "1e86ddb68c3c0054a8b0516599af96f1670b5ecc": [
+      "CPUF",
+      "FRA_018_Plat_MemberCard.myg"
+    ],
+    "2090477c1c5c60ef9de887de554023698a37f765": [
+      "ADAF",
+      "FRA_060_ALL_ShinyEntei.myg"
+    ],
+    "20e39a3d988b8ca950e98040dfa4a5db99dba989": [
+      "CPUJ",
+      "JPN_036_Plat_MemberCard.myg"
+    ],
+    "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72": [
+      "ADAF",
+      "FRA_021_DPPt_ShinyPichu.myg"
+    ],
+    "258ba4c4b711aa88a3c267bf68d5c08d5922a91f": [
+      "ADAF",
+      "FRA_024_ALL_Jirachi_NightSky.myg"
+    ],
+    "284ec832db2f8bcdfcdfba9d712e1066544f4ff7": [
+      "IPGI",
+      "ITA_048_HGSS_YForest.myg"
+    ],
+    "2885baa358213092ccd7cd5e20b0796159be553e": [
+      "ADAK",
+      "KOR_065_ALL_AshPikachu.myg"
+    ],
+    "314fbfce031b57074fca5cc4753be501679c528f": [
+      "ADAI",
+      "ITA_061_ALL_ShinySuicune.myg"
+    ],
+    "31e0c045ed50de5bab7f8568a8ed526f5e8a67fa": [
+      "CPUD",
+      "GER_020_Plat_OaksLetter.myg"
+    ],
+    "346c9e9fee2f39f0ed50aefee8d6550a46d35047": [
+      "IPGD",
+      "GER_054_HGSS_EnigmaStone.myg"
+    ],
+    "39f6cfbce610b76c22b1e1865e883f8f1139ec97": [
+      "CPUJ",
+      "JPN_156_Plat_SecretKey.myg"
+    ],
+    "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9": [
+      "ADAE",
+      "ENG_060_ALL_ShinyEntei.myg"
+    ],
+    "3c808fc99f89e3ea6bd74ba47d8c7478ca5108ab": [
+      "CPUF",
+      "FRA_020_Plat_OaksLetter.myg"
+    ],
+    "3dd46699e438a9f0a792b1778c95653b7ef7fada": [
+      "IPGD",
+      "GER_048_HGSS_YForest.myg"
+    ],
+    "3f174f21453e8bd449874aa2d503a10b2a4f7839": [
+      "CPUJ",
+      "JPN_044_Plat_OaksLetter.myg"
+    ],
+    "3fae3fa964c502d3d5d5314e5d9c61219f387b5b": [
+      "ADAJ",
+      "JPN_053_ALL_10AnnivMew.myg"
+    ],
+    "4072b18f14b7f39117f09390eebd3b4a76ad44fe": [
+      "ADAS",
+      "SPN_061_ALL_ShinySuicune.myg"
+    ],
+    "464c68a10703bf2a9a1d6f8ba3bf010bde2b06dc": [
+      "CPUS",
+      "SPN_018_Plat_MemberCard.myg"
+    ],
+    "48537de6324fb90fffe9e1576d8c9197e3fa4e97": [
+      "CPUE",
+      "ENG_020_Plat_OaksLetter.myg"
+    ],
+    "492ae714d703c3b1e4e1eebc1b04838340b01f4e": [
+      "IPGS",
+      "SPN_048_HGSS_YForest.myg"
+    ],
+    "4c2a87f68ec9de14920371f889578dc732a18eea": [
+      "IPGE",
+      "ENG_054_HGSS_EnigmaStone.myg"
+    ],
+    "4f4a3f01790dca66df556476e1b44303b2db459b": [
+      "ADAF",
+      "FRA_061_ALL_ShinySuicune.myg"
+    ],
+    "54f0460a56821373e6ac48b214be68663a557e5f": [
+      "ADAF",
+      "FRA_059_ALL_ShinyRaikou.myg"
+    ],
+    "5d0f9bc2bba0386a88fdfdd7c28485bc3526a834": [
+      "CPUP",
+      "ENG_017_Plat_SecretKey.myg"
+    ],
+    "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058": [
+      "ADAE",
+      "ENG_061_ALL_ShinySuicune.myg"
+    ],
+    "5f90208a1f43fcc085520b56439a0c32cd1b009d": [
+      "CPUE",
+      "ENG_017_Plat_SecretKey.myg"
+    ],
+    "626bd10311f24c736bc25ba90815d28430b5d0c0": [
+      "IPGK",
+      "KOR_025_HGSS_WinPath.myg"
+    ],
+    "633f12458af4d2f32f6819ee68d4f76a291c6c0d": [
+      "IPGS",
+      "SPN_054_HGSS_EnigmaStone.myg"
+    ],
+    "6427b17b44ca2be31ed95b4e137e21ef508b9b6d": [
+      "IPGS",
+      "SPN_053_HGSS_10AnnivMew.myg"
+    ],
+    "69dbe55f83cb21a6d72a9437664fdc257ada894a": [
+      "ADAP",
+      "ENG_021_DPPt_ShinyPichu.myg"
+    ],
+    "6b7576062ddf49fa76daafc5bf3bd4337b806f41": [
+      "ADAD",
+      "GER_061_ALL_ShinySuicune.myg"
+    ],
+    "702ba22d8f1b45b68ad6d6fe4dc7064c5a82663f": [
+      "CPUS",
+      "SPN_020_Plat_OaksLetter.myg"
+    ],
+    "73308ed22b5de4dda5f3bd43aa2b5813a14d5f1a": [
+      "CPUI",
+      "ITA_017_Plat_SecretKey.myg"
+    ],
+    "73d78f00f03e27064f73e02bedf1a3260da81dda": [
+      "IPGE",
+      "ENG_053_HGSS_10AnnivMew.myg"
+    ],
+    "744fbacef88c67291f90a203c8bda833a6407e95": [
+      "CPUD",
+      "GER_018_Plat_MemberCard.myg"
+    ],
+    "7a2ba7d0731cf9cbd23a84d999e251573e155c13": [
+      "ADAD",
+      "GER_060_ALL_ShinyEntei.myg"
+    ],
+    "7e14fa1ab45ae4de2e81063f7b7d17443fc83d4c": [
+      "CPUI",
+      "ITA_020_Plat_OaksLetter.myg"
+    ],
+    "80ca068dff92e61d2ad839b3be159c0ad6d86e95": [
+      "CPUS",
+      "SPN_017_Plat_SecretKey.myg"
+    ],
+    "843e47532e0d41114daf7b77519f21df22d2a178": [
+      "IPGI",
+      "ITA_051_HGSS_WinPath.myg"
+    ],
+    "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c": [
+      "IPGI",
+      "ITA_054_HGSS_EnigmaStone.myg"
+    ],
+    "8b38d101b0420686e513b53dfeb927e890cd2959": [
+      "ADAJ",
+      "JPN_046_DPPt_NZ_Jirachi.myg"
+    ],
+    "8ceb90e434d852693cb42953f8f1d84af738d7a3": [
+      "IPGS",
+      "SPN_051_HGSS_WinPath.myg"
+    ],
+    "90122c8a5e08c3791c7b768187fd59c867ed8702": [
+      "ADAS",
+      "SPN_024_ALL_Jirachi_NightSky.myg"
+    ],
+    "90f531d37227aa2e2fa799bb9527264751e18877": [
+      "IPGD",
+      "GER_053_HGSS_10AnnivMew.myg"
+    ],
+    "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae": [
+      "ADAD",
+      "GER_021_DPPt_ShinyPichu.myg"
+    ],
+    "926cc9b89f23e0da7fa6a0b691ddae0255194dd0": [
+      "IPGE",
+      "ENG_048_HGSS_YForest.myg"
+    ],
+    "95f8ab8ad935da5ede1503cd3e335a6845227d97": [
+      "ADAI",
+      "ITA_021_DPPt_ShinyPichu.myg"
+    ],
+    "9bedee239241008454816f2e5bcddc0dbb99b4ab": [
+      "IPGD",
+      "GER_051_HGSS_WinPath.myg"
+    ],
+    "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58": [
+      "ADAE",
+      "ENG_059_ALL_ShinyRaikou.myg"
+    ],
+    "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf": [
+      "ADAD",
+      "GER_059_ALL_ShinyRaikou.myg"
+    ],
+    "aea86079290ea5f49b27cf5e102955721c2eda7b": [
+      "ADAI",
+      "ITA_060_ALL_ShinyEntei.myg"
+    ],
+    "b87ede4333c9abd56c0950aadd40a62d9ce3c93c": [
+      "ADAS",
+      "SPN_059_ALL_ShinyRaikou.myg"
+    ],
+    "bea709751be94f90b23e0b99aa3c4fa38ee5af34": [
+      "ADAE",
+      "ENG_021_DPPt_ShinyPichu.myg"
+    ],
+    "c4a9e977793351f559c04619e6978f8cfbce0b74": [
+      "CPUI",
+      "ITA_018_Plat_MemberCard.myg"
+    ],
+    "c4c5bd9c2a75595b3e6fe80e539eb44044951000": [
+      "ADAK",
+      "KOR_063_ALL_GooneScizor.myg"
+    ],
+    "c4fc52610992c939b7d728d42bcf1bcac8da115b": [
+      "ADAI",
+      "ITA_024_ALL_Jirachi_NightSky.myg"
+    ],
+    "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c": [
+      "IPGF",
+      "FRA_054_HGSS_EnigmaStone.myg"
+    ],
+    "c6114f4a366c4ffd738f6dd12a4d79913a571d97": [
+      "IPGI",
+      "ITA_053_HGSS_10AnnivMew.myg"
+    ],
+    "c7502ab463b277ec173681a5e4ba659fe0e8cbde": [
+      "ADAS",
+      "SPN_021_DPPt_ShinyPichu.myg"
+    ],
+    "c787779ebb4e0d4dfd77089652878b60bc378d7f": [
+      "ADAI",
+      "ITA_059_ALL_ShinyRaikou.myg"
+    ],
+    "cf15a136b7dd43deedfe640ffe22b1122a47d888": [
+      "CPUE",
+      "ENG_018_Plat_MemberCard.myg"
+    ],
+    "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9": [
+      "IPGK",
+      "KOR_022_HGSS_YForest.myg"
+    ],
+    "db9dc64679f123907bc0e65c053a02a444036966": [
+      "IPGK",
+      "KOR_026_HGSS_EnigmaStone.myg"
+    ],
+    "dc659fcfe6bf766c18df57d6c253393ecd98b55a": [
+      "IPGE",
+      "ENG_051_HGSS_WinPath.myg"
+    ],
+    "e04e630645a31c615a06a7e84b589d87e410bb07": [
+      "CPUF",
+      "FRA_017_Plat_SecretKey.myg"
+    ],
+    "e39fde33336d907ca0a389295385b7476b300f67": [
+      "IPGF",
+      "FRA_051_HGSS_WinPath.myg"
+    ],
+    "e5431c19ca9d40d8bb21a7a6974af2fc7d356225": [
+      "ADAJ",
+      "JPN_063_ALL_GooneScizor.myg"
+    ],
+    "ebf16178018b7b471c345f9359a99fe641f47409": [
+      "IPGJ",
+      "JPN_048_HGSS_YForest.myg"
+    ],
+    "ec09c043c32baaf306414da575246099bf720fa0": [
+      "ADAE",
+      "ENG_024_ALL_Jirachi_NightSky.myg"
+    ],
+    "edf54c826d5a91587e2cbd5ea5aaeacb374f929a": [
+      "CPUD",
+      "GER_017_Plat_SecretKey.myg"
+    ],
+    "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2": [
+      "IPGF",
+      "FRA_048_HGSS_YForest.myg"
+    ]
+  },
+  "games": {
+    "ADAD": [
+      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
+      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
+      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
+      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
+      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
+    ],
+    "ADAE": [
+      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "ADAF": [
+      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
+      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
+      "54f0460a56821373e6ac48b214be68663a557e5f",
+      "2090477c1c5c60ef9de887de554023698a37f765",
+      "4f4a3f01790dca66df556476e1b44303b2db459b"
+    ],
+    "ADAI": [
+      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
+      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
+      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
+      "aea86079290ea5f49b27cf5e102955721c2eda7b",
+      "314fbfce031b57074fca5cc4753be501679c528f"
+    ],
+    "ADAJ": [
+      "8b38d101b0420686e513b53dfeb927e890cd2959",
+      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
+      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
+      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
+      "0257990b7e35c53a30a646561d7754d5732a2efb"
+    ],
+    "ADAK": [
+      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
+      "2885baa358213092ccd7cd5e20b0796159be553e"
+    ],
+    "ADAP": [
+      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "ADAS": [
+      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
+      "90122c8a5e08c3791c7b768187fd59c867ed8702",
+      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
+      "0254ee5c41c33e47255529a1f9ed75460432ccae",
+      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
+    ],
+    "APAD": [
+      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
+      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
+      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
+      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
+      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
+    ],
+    "APAE": [
+      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "APAF": [
+      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
+      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
+      "54f0460a56821373e6ac48b214be68663a557e5f",
+      "2090477c1c5c60ef9de887de554023698a37f765",
+      "4f4a3f01790dca66df556476e1b44303b2db459b"
+    ],
+    "APAI": [
+      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
+      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
+      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
+      "aea86079290ea5f49b27cf5e102955721c2eda7b",
+      "314fbfce031b57074fca5cc4753be501679c528f"
+    ],
+    "APAJ": [
+      "8b38d101b0420686e513b53dfeb927e890cd2959",
+      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
+      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
+      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
+      "0257990b7e35c53a30a646561d7754d5732a2efb"
+    ],
+    "APAK": [
+      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
+      "2885baa358213092ccd7cd5e20b0796159be553e"
+    ],
+    "APAP": [
+      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "APAS": [
+      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
+      "90122c8a5e08c3791c7b768187fd59c867ed8702",
+      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
+      "0254ee5c41c33e47255529a1f9ed75460432ccae",
+      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
+    ],
+    "CPUD": [
+      "edf54c826d5a91587e2cbd5ea5aaeacb374f929a",
+      "744fbacef88c67291f90a203c8bda833a6407e95",
+      "31e0c045ed50de5bab7f8568a8ed526f5e8a67fa",
+      "91461b1235ff3e0c3103ac1aa9feb0cabf96e1ae",
+      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
+      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
+      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
+      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
+    ],
+    "CPUE": [
+      "5f90208a1f43fcc085520b56439a0c32cd1b009d",
+      "cf15a136b7dd43deedfe640ffe22b1122a47d888",
+      "48537de6324fb90fffe9e1576d8c9197e3fa4e97",
+      "bea709751be94f90b23e0b99aa3c4fa38ee5af34",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "CPUF": [
+      "e04e630645a31c615a06a7e84b589d87e410bb07",
+      "1e86ddb68c3c0054a8b0516599af96f1670b5ecc",
+      "3c808fc99f89e3ea6bd74ba47d8c7478ca5108ab",
+      "252ae5801ce5c0a8ded8ff7aac8b684c28c5af72",
+      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
+      "54f0460a56821373e6ac48b214be68663a557e5f",
+      "2090477c1c5c60ef9de887de554023698a37f765",
+      "4f4a3f01790dca66df556476e1b44303b2db459b"
+    ],
+    "CPUI": [
+      "73308ed22b5de4dda5f3bd43aa2b5813a14d5f1a",
+      "c4a9e977793351f559c04619e6978f8cfbce0b74",
+      "7e14fa1ab45ae4de2e81063f7b7d17443fc83d4c",
+      "95f8ab8ad935da5ede1503cd3e335a6845227d97",
+      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
+      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
+      "aea86079290ea5f49b27cf5e102955721c2eda7b",
+      "314fbfce031b57074fca5cc4753be501679c528f"
+    ],
+    "CPUJ": [
+      "20e39a3d988b8ca950e98040dfa4a5db99dba989",
+      "3f174f21453e8bd449874aa2d503a10b2a4f7839",
+      "8b38d101b0420686e513b53dfeb927e890cd2959",
+      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
+      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
+      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
+      "0257990b7e35c53a30a646561d7754d5732a2efb",
+      "39f6cfbce610b76c22b1e1865e883f8f1139ec97"
+    ],
+    "CPUK": [
+      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
+      "2885baa358213092ccd7cd5e20b0796159be553e"
+    ],
+    "CPUP": [
+      "5d0f9bc2bba0386a88fdfdd7c28485bc3526a834",
+      "cf15a136b7dd43deedfe640ffe22b1122a47d888",
+      "48537de6324fb90fffe9e1576d8c9197e3fa4e97",
+      "69dbe55f83cb21a6d72a9437664fdc257ada894a",
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "CPUS": [
+      "80ca068dff92e61d2ad839b3be159c0ad6d86e95",
+      "464c68a10703bf2a9a1d6f8ba3bf010bde2b06dc",
+      "702ba22d8f1b45b68ad6d6fe4dc7064c5a82663f",
+      "c7502ab463b277ec173681a5e4ba659fe0e8cbde",
+      "90122c8a5e08c3791c7b768187fd59c867ed8702",
+      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
+      "0254ee5c41c33e47255529a1f9ed75460432ccae",
+      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
+    ],
+    "IPGD": [
+      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
+      "3dd46699e438a9f0a792b1778c95653b7ef7fada",
+      "9bedee239241008454816f2e5bcddc0dbb99b4ab",
+      "90f531d37227aa2e2fa799bb9527264751e18877",
+      "346c9e9fee2f39f0ed50aefee8d6550a46d35047",
+      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
+      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
+      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
+    ],
+    "IPGE": [
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
+      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
+      "73d78f00f03e27064f73e02bedf1a3260da81dda",
+      "4c2a87f68ec9de14920371f889578dc732a18eea",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "IPGF": [
+      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
+      "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2",
+      "e39fde33336d907ca0a389295385b7476b300f67",
+      "02bdadeb79e95f0d51789cc2e64cbe28071000bf",
+      "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c",
+      "54f0460a56821373e6ac48b214be68663a557e5f",
+      "2090477c1c5c60ef9de887de554023698a37f765",
+      "4f4a3f01790dca66df556476e1b44303b2db459b"
+    ],
+    "IPGI": [
+      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
+      "284ec832db2f8bcdfcdfba9d712e1066544f4ff7",
+      "843e47532e0d41114daf7b77519f21df22d2a178",
+      "c6114f4a366c4ffd738f6dd12a4d79913a571d97",
+      "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c",
+      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
+      "aea86079290ea5f49b27cf5e102955721c2eda7b",
+      "314fbfce031b57074fca5cc4753be501679c528f"
+    ],
+    "IPGJ": [
+      "ebf16178018b7b471c345f9359a99fe641f47409",
+      "17aaf794a630b17e7e629f853be59c150ca82527",
+      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
+      "1692f7d2156089a952ee2f54f280c01e5550e06c",
+      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
+      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
+      "0257990b7e35c53a30a646561d7754d5732a2efb"
+    ],
+    "IPGK": [
+      "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9",
+      "626bd10311f24c736bc25ba90815d28430b5d0c0",
+      "db9dc64679f123907bc0e65c053a02a444036966",
+      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
+      "2885baa358213092ccd7cd5e20b0796159be553e"
+    ],
+    "IPGP": [
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
+      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
+      "73d78f00f03e27064f73e02bedf1a3260da81dda",
+      "4c2a87f68ec9de14920371f889578dc732a18eea",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "IPGS": [
+      "90122c8a5e08c3791c7b768187fd59c867ed8702",
+      "492ae714d703c3b1e4e1eebc1b04838340b01f4e",
+      "8ceb90e434d852693cb42953f8f1d84af738d7a3",
+      "6427b17b44ca2be31ed95b4e137e21ef508b9b6d",
+      "633f12458af4d2f32f6819ee68d4f76a291c6c0d",
+      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
+      "0254ee5c41c33e47255529a1f9ed75460432ccae",
+      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
+    ],
+    "IPKD": [
+      "11b02f86fd55ae29dbb7faed0b9a257f52068e66",
+      "3dd46699e438a9f0a792b1778c95653b7ef7fada",
+      "9bedee239241008454816f2e5bcddc0dbb99b4ab",
+      "90f531d37227aa2e2fa799bb9527264751e18877",
+      "346c9e9fee2f39f0ed50aefee8d6550a46d35047",
+      "a60b5cd99c26b7f2fad2d9a2fd1b39f5c9d12bcf",
+      "7a2ba7d0731cf9cbd23a84d999e251573e155c13",
+      "6b7576062ddf49fa76daafc5bf3bd4337b806f41"
+    ],
+    "IPKE": [
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
+      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
+      "73d78f00f03e27064f73e02bedf1a3260da81dda",
+      "4c2a87f68ec9de14920371f889578dc732a18eea",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "IPKF": [
+      "258ba4c4b711aa88a3c267bf68d5c08d5922a91f",
+      "fcc32cffb66dca88845134bdee2a45a0eb6fd5c2",
+      "e39fde33336d907ca0a389295385b7476b300f67",
+      "02bdadeb79e95f0d51789cc2e64cbe28071000bf",
+      "c54d09ba25ecc1c8babe6b88300f8aaa9ac7741c",
+      "54f0460a56821373e6ac48b214be68663a557e5f",
+      "2090477c1c5c60ef9de887de554023698a37f765",
+      "4f4a3f01790dca66df556476e1b44303b2db459b"
+    ],
+    "IPKI": [
+      "c4fc52610992c939b7d728d42bcf1bcac8da115b",
+      "284ec832db2f8bcdfcdfba9d712e1066544f4ff7",
+      "843e47532e0d41114daf7b77519f21df22d2a178",
+      "c6114f4a366c4ffd738f6dd12a4d79913a571d97",
+      "8a2d9a1f80801eecd37d1f99eae86eafffbbe32c",
+      "c787779ebb4e0d4dfd77089652878b60bc378d7f",
+      "aea86079290ea5f49b27cf5e102955721c2eda7b",
+      "314fbfce031b57074fca5cc4753be501679c528f"
+    ],
+    "IPKJ": [
+      "ebf16178018b7b471c345f9359a99fe641f47409",
+      "17aaf794a630b17e7e629f853be59c150ca82527",
+      "3fae3fa964c502d3d5d5314e5d9c61219f387b5b",
+      "1692f7d2156089a952ee2f54f280c01e5550e06c",
+      "e5431c19ca9d40d8bb21a7a6974af2fc7d356225",
+      "1851e6110bad8dea97172d7fbc8a5892d1d04a44",
+      "0257990b7e35c53a30a646561d7754d5732a2efb"
+    ],
+    "IPKK": [
+      "d1bb4949e714ec4a38cc5ac9f05887d1c4bbceb9",
+      "626bd10311f24c736bc25ba90815d28430b5d0c0",
+      "db9dc64679f123907bc0e65c053a02a444036966",
+      "c4c5bd9c2a75595b3e6fe80e539eb44044951000",
+      "2885baa358213092ccd7cd5e20b0796159be553e"
+    ],
+    "IPKP": [
+      "ec09c043c32baaf306414da575246099bf720fa0",
+      "926cc9b89f23e0da7fa6a0b691ddae0255194dd0",
+      "dc659fcfe6bf766c18df57d6c253393ecd98b55a",
+      "73d78f00f03e27064f73e02bedf1a3260da81dda",
+      "4c2a87f68ec9de14920371f889578dc732a18eea",
+      "a181502f1fb5dd86d3f321ef8783ed3f6df4ac58",
+      "3ab338aa430f2e67b39011ef92d4e4501e3b6cf9",
+      "5d15b2e94b5f25f83cfdb55370b4a9d77b35f058"
+    ],
+    "IPKS": [
+      "90122c8a5e08c3791c7b768187fd59c867ed8702",
+      "492ae714d703c3b1e4e1eebc1b04838340b01f4e",
+      "8ceb90e434d852693cb42953f8f1d84af738d7a3",
+      "6427b17b44ca2be31ed95b4e137e21ef508b9b6d",
+      "633f12458af4d2f32f6819ee68d4f76a291c6c0d",
+      "b87ede4333c9abd56c0950aadd40a62d9ce3c93c",
+      "0254ee5c41c33e47255529a1f9ed75460432ccae",
+      "4072b18f14b7f39117f09390eebd3b4a76ad44fe"
+    ]
+  }
+}

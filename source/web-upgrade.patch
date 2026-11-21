@@ -56,10 +56,10 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626b9c4205f 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..2869605c583742b3a1e7b336a596844b82cda356 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -9,16 +9,28 @@ import logging
+@@ -9,16 +9,29 @@ import logging
  from pathlib import Path
  from urllib.parse import parse_qs, urlsplit
  
@@ -68,6 +68,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
  from werkzeug.wrappers import Response as WerkzeugResponse
  
 +from api.distributions import campaigns
++from api import generations
 +from api.island_adventure import island_adventure
 +from api.island_peers import island_peers
 +from api.offline_friends import offline_friends
@@ -89,7 +90,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -53,6 +65,12 @@ def _params(data: str) -> Query:
+@@ -53,6 +66,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -102,25 +103,25 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -80,13 +98,14 @@ def api_post() -> Response:
+@@ -80,13 +99,14 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
 -_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html",
 -                   "/report/", "/customize/", "/campaign/", "/help/"}
-+_LANGUAGE_PAGES = {"/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
++_LANGUAGE_PAGES = {"/", "/gen5/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
 +                   "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
  
  
  def _language_page() -> str:
      source = request.args.get("page") or urlsplit(request.referrer or "").path
 -    return source if source in _LANGUAGE_PAGES else "/"
-+    allowed = _LANGUAGE_PAGES | {"/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
++    allowed = _LANGUAGE_PAGES | {"/gen4/", "/index.html", "/campaign/japan/tournaments/", "/campaign/queue/", "/information/", "/player-guide/pictures/"} | {f"/practice/{n}/" for n in range(1,13)}
 +    return source if source in allowed else "/"
  
  
  @site.get("/languages/")
-@@ -107,7 +126,11 @@ def change_language(code: str) -> Response:
+@@ -107,7 +127,11 @@ def change_language(code: str) -> Response:
      language = normalize_language(code)
      if language not in WEB_PORTS:
          return not_found(request.path)
@@ -133,7 +134,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
      target = _language_page()
      return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
  
-@@ -126,6 +149,12 @@ def login_available() -> Response:
+@@ -126,6 +150,15 @@ def login_available() -> Response:
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
      """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
@@ -143,10 +144,13 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
 +        response.headers["Cache-Control"] = "no-store"
 +        return response
 +
++    if not path and "p" not in request.args:
++        return current_app.make_response(generations.page())
++
      path = path.split("&")[0]
      full_path = f"/{path}"
  
-@@ -136,7 +165,10 @@ def catch_all(path: str) -> Response:
+@@ -136,7 +169,10 @@ def catch_all(path: str) -> Response:
              override = path_inside(SITE_DIR, path)
              if override and override.is_file():
                  return serve_file(override)
@@ -158,10 +162,11 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..5647b3f949d95a55ee38f95173eb6626
  
      # find first HTML file inside given directory
      for dir_path in site_directories(path):
-@@ -164,6 +196,16 @@ def create_app() -> Flask:
+@@ -164,6 +200,17 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
++    app.register_blueprint(generations.generations)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)

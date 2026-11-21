@@ -6,6 +6,16 @@ A community restoration of the Generation V Dream World. Play on a computer, bef
 
 [Dream World player guide](docs/gameplay.en.md)
 
+## Choose a DS generation
+
+Start the server and open the [English home page](http://127.0.0.1:8080/) on the host PC. The Generation V card opens the original Pokémon Global Link and links directly to the [Dream World](http://127.0.0.1:8080/pdw/), Dream Pals, promotions and minigames. Existing Dream World bookmarks still work.
+
+1. For Diamond, Pearl, Platinum, HeartGold or SoulSilver, open [Generation IV](http://127.0.0.1:8080/gen4/). Connect the DS and host PC to the same network. Open the handheld DNS guide, enter the displayed primary DNS in the game's Nintendo Wi-Fi Connection settings and run the connection test.
+2. Use the in-game GTS to deposit, search for or trade Pokémon. To meet in the Wi-Fi Club, exchange Friend Codes, add each other, then enter the club.
+3. Select the edition and language of your cartridge on the Generation IV page to see its gifts. On the title menu, choose **Mystery Gift → Receive Gift → Get via Nintendo WFC**. A new connection prioritizes gifts this WFC user has yet to download for this edition and region. Retrying in the same session returns the same card. Check the game's card album to confirm receipt.
+
+The server downloads and verifies each 936-byte distribution file on first use, then serves it from its local cache. GTS trades, friend-room communication and gift delivery have been tested with protocol clients. End-to-end Generation IV cartridge verification is pending. Wi-Fi Plaza, Battle Videos and Battle Tower downloads are still pending implementation. [Wireless distribution archive](https://github.com/ubergeek77/dwc_network_server_emulator/tree/68fcdb2989e57a10ec8cf8398ff7506c4c73d390/dlc) · [Generation IV GTS reference](https://github.com/mm201/pkmn-classic-framework/blob/ff2fb9d57b93727f46f38c613f7b8d4534db4e57/gts/pokemondpds.ashx.cs)
+
 Updating an existing installation? After applying the source update, rebuild the Chinese game artwork and illustrated tutorials with the following command. It reuses your installed archive and Ruffle.
 
 ```powershell

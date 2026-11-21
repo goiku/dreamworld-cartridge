@@ -146,12 +146,57 @@ index 0000000000000000000000000000000000000000..6e9e7518f5ea3650c44313601d21bd17
 +    if key:
 +        conn.execute("INSERT OR IGNORE INTO wfc_profile_keys(pid,identity) VALUES(?,?)", (pid, key))
 +    return key
+diff --git a/entralinked/model/gen4_gts.py b/entralinked/model/gen4_gts.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..c0305d70ff8b48c6649843522373b113a7cba865
+--- /dev/null
++++ b/entralinked/model/gen4_gts.py
+@@ -0,0 +1,39 @@
++"""Generation IV's 236-byte party Pokémon and 292-byte exchange records."""
++import json
++import struct
++
++from .gts import EITHER, GlobalTradeStation
++from .save_file import _crypt_array, _decrypt_pkm
++
++
++class Gen4TradeStation(GlobalTradeStation):
++    record_size = 292
++    max_species = 493
++    country_offset = 0x11e
++    traded_offset = 0x121
++    search_prefix = b""
++
++    @staticmethod
++    def listing_profile(conn, pid, record):
++        # Generation IV has no Global Link account or Dream World journal.
++        return None
++
++    def _validated_record(self, conn, pid, action, data):
++        if len(data) != self.record_size + (4 if action == "exchange" else 0):
++            raise ValueError("Invalid Generation IV offer length")
++        record = data[:self.record_size]
++        core = _decrypt_pkm(record[:136])
++        tail = bytearray(record[136:236])
++        _crypt_array(tail, int.from_bytes(core[:4], "little"))
++        species, gender, level, wanted, sex, low, high = struct.unpack_from("<HBBHBBB", record, 0xec)
++        if (sum(struct.unpack_from("<64H", core, 8)) & 0xffff != int.from_bytes(core[6:8], "little")
++                or core[4:6] != bytes(2) or core[0x3b] & 0x40 or tail[5] != 0
++                or not 1 <= species <= 493 or species != int.from_bytes(core[8:10], "little")
++                or not 1 <= level <= 100 or level != tail[4] or gender != 1 + ((core[0x40] >> 1) & 3)
++                or not 1 <= wanted <= 493 or sex not in (1, 2, EITHER) or low > (high or 100) or high > 100):
++            return None
++        return record
++
++    def _log_trade(self, conn, depositor, pid, previous, incoming):
++        pairs = [struct.unpack_from("<HBB", row, 0xec) for row in (previous, incoming)]
++        conn.execute("INSERT INTO gts_journal(side_a,side_b) VALUES(?,?)", tuple(map(json.dumps, pairs)))
 diff --git a/entralinked/model/gts.py b/entralinked/model/gts.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6cb79900ee
+index 0000000000000000000000000000000000000000..a25d5ae01dd9ca77cd2840ba0af108d96b3077b2
 --- /dev/null
 +++ b/entralinked/model/gts.py
-@@ -0,0 +1,235 @@
+@@ -0,0 +1,252 @@
 +"""Generation V Global Trade Station records and durable two-phase exchanges."""
 +import hashlib
 +import json
@@ -232,6 +277,13 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +
 +
 +class GlobalTradeStation:
++    record_size = RECORD_SIZE
++    max_species = 649
++    country_offset = 0x120
++    traded_offset = 0x123
++    search_prefix = OK
++    listing_profile = staticmethod(_record_profile)
++
 +    def __init__(self, db: DBManager) -> None:
 +        self.db = db
 +
@@ -296,7 +348,7 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +        if len(data) not in (7, 8):
 +            raise ValueError("Invalid search length")
 +        species, sex, low, high, _, count = struct.unpack_from("<HBBBBB", data)
-+        if not 1 <= species <= 649 or sex not in (1, 2, EITHER):
++        if not 1 <= species <= self.max_species or sex not in (1, 2, EITHER):
 +            raise ValueError("Invalid search criteria")
 +        country = data[7] if len(data) == 8 else 0
 +        rows = conn.execute("""SELECT id,record FROM gts_slots WHERE state='listed' AND owner<>?
@@ -305,19 +357,25 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +            (pid, species, sex, sex, low, high or 100, country, country, min(count, 7))).fetchall()
 +        conn.execute("DELETE FROM gts_seen WHERE viewer=?", (pid,))
 +        conn.executemany("INSERT INTO gts_seen(viewer,slot) VALUES(?,?)", ((pid, row["id"]) for row in rows))
-+        return OK + b"".join(row["record"] for row in rows)
++        return self.search_prefix + b"".join(row["record"] for row in rows)
 +
-+    def _offer(self, conn: sqlite3.Connection, pid: int, action: str, data: bytes, slot: sqlite3.Row | None) -> bytes:
++    def _validated_record(self, conn, pid, action, data):
 +        if len(data) != 432:
 +            raise ValueError("Invalid offer length")
 +        record = data[:RECORD_SIZE]
 +        try:
 +            core, pokemon = pokemon_core(record)
 +        except ValueError:
-+            return INELIGIBLE
++            return None
 +        receipt = conn.execute("SELECT 1 FROM gts_validation WHERE ticket=? AND pid=? AND pokemon=? AND expires>=?",
 +            (hashlib.sha256(data[300:428]).digest(), pid, hashlib.sha256(core).digest(), int(time.time()))).fetchone()
 +        if not receipt or not record_is_valid(record, pokemon):
++            return None
++        return record
++
++    def _offer(self, conn: sqlite3.Connection, pid: int, action: str, data: bytes, slot: sqlite3.Row | None) -> bytes:
++        record = self._validated_record(conn, pid, action, data)
++        if record is None:
 +            return INELIGIBLE
 +        record_key = hashlib.sha256(record).digest()
 +        if action == "post":
@@ -326,16 +384,17 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +            listing = bytearray(record)
 +            listing[0xf8:0x108] = ds_timestamp() + bytes(8)
 +            struct.pack_into("<I", listing, 0x108, pid)
-+            listing[0x123] = 0
++            listing[self.traded_offset] = 0
 +            created = conn.execute("""INSERT INTO gts_slots(owner,state,record,origin,species,gender,level,country)
 +                VALUES (?,'draft',?,?,?,?,?,?)""",
-+                (pid, listing, record_key, pokemon.natdex, record[0xee], pokemon.level, record[0x120]))
-+            key = _record_profile(conn, pid, listing)
++                (pid, listing, record_key, int.from_bytes(record[0xec:0xee], "little"),
++                 record[0xee], record[0xef], record[self.country_offset]))
++            key = self.listing_profile(conn, pid, listing)
 +            if key:
 +                conn.execute("INSERT INTO gts_listing_identity(slot,identity) VALUES(?,?)", (created.lastrowid, key))
 +            self._remember(conn, pid, action)
 +            return OK
-+        target, = struct.unpack_from("<I", data, RECORD_SIZE)
++        target, = struct.unpack_from("<I", data, self.record_size)
 +        if target == pid:
 +            return UNAVAILABLE
 +        listing = conn.execute("SELECT * FROM gts_slots WHERE owner=?", (target,)).fetchone()
@@ -370,23 +429,26 @@ index 0000000000000000000000000000000000000000..b55aa518fae711a0fffb63a25785ae6c
 +            previous = held["record"]
 +            incoming = held["incoming"]
 +            depositor = held["owner"]
-+            journal = conn.execute("INSERT INTO gts_journal(side_a,side_b) VALUES(?,?)",
-+                                   (journal_summary(previous), journal_summary(incoming)))
-+            conn.execute("""INSERT INTO gts_profile_events(trade_id,pid_a,pid_b,key_a,key_b,
-+                            details_a,details_b,traded_at) VALUES(?,?,?,?,?,?,?,?)""",
-+                         (journal.lastrowid, depositor, pid, _record_profile(conn, depositor, previous),
-+                          _record_profile(conn, pid, incoming), json.dumps(private_summary(previous)),
-+                          json.dumps(private_summary(incoming)), int(time.time())))
++            self._log_trade(conn, depositor, pid, previous, incoming)
 +            arrival = bytearray(held["incoming"])
 +            arrival[0xec:0xf5] = previous[0xec:0xf5]
 +            arrival[0xf8:0x100] = previous[0xf8:0x100]
 +            arrival[0x100:0x108] = ds_timestamp()
 +            arrival[0x108:0x10c] = previous[0x108:0x10c]
-+            arrival[0x123] = 1
++            arrival[self.traded_offset] = 1
 +            conn.execute("""UPDATE gts_slots SET state='received',record=?,partner=NULL,
 +                incoming=NULL,partner_key=NULL WHERE id=?""", (arrival, held["id"]))
 +        self._remember(conn, pid, action)
 +        return OK
++
++    def _log_trade(self, conn, depositor, pid, previous, incoming):
++        journal = conn.execute("INSERT INTO gts_journal(side_a,side_b) VALUES(?,?)",
++                               (journal_summary(previous), journal_summary(incoming)))
++        conn.execute("""INSERT INTO gts_profile_events(trade_id,pid_a,pid_b,key_a,key_b,
++                        details_a,details_b,traded_at) VALUES(?,?,?,?,?,?,?,?)""",
++                     (journal.lastrowid, depositor, pid, _record_profile(conn, depositor, previous),
++                      _record_profile(conn, pid, incoming), json.dumps(private_summary(previous)),
++                      json.dumps(private_summary(incoming)), int(time.time())))
 diff --git a/entralinked/model/pkmn/pkmn_info.py b/entralinked/model/pkmn/pkmn_info.py
 index ccae651e66ab3727a7d5669c2c51e40f68170b28..557d4240acdc4a72598f09ecd070b1f980bffe26 100644
 --- a/entralinked/model/pkmn/pkmn_info.py
@@ -1514,7 +1576,7 @@ index a0380387951fa293ebfce026ef57777a64d9eca9..25f3bd18acba7a7a904b2373ebce3b82
          if self.server_thread is not None:
              self.server_thread.join()
 diff --git a/entralinked/network/http/dls_handler.py b/entralinked/network/http/dls_handler.py
-index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa3751f02957 100644
+index ab6ac2ae69843749de45d7252e6ad684fdd7b543..62aaaed4882bd119b5bc138b118a08bd677b8aea 100644
 --- a/entralinked/network/http/dls_handler.py
 +++ b/entralinked/network/http/dls_handler.py
 @@ -6,9 +6,11 @@ import logging
@@ -1525,7 +1587,7 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa37
 +from flask import Blueprint, Response, request
  from flask.typing import ResponseReturnValue
  
-+from utils import distributions, pwt_archive
++from utils import distributions, gen4_gifts, pwt_archive
 +
  from ...context import Context
  from ...model.dlc.dlc import dlc_list_string
@@ -1539,12 +1601,19 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa37
  @dataclass
  class DlsRequest:
      token: str
-@@ -53,27 +57,36 @@ class DlsHandler:
+@@ -47,33 +51,45 @@ class DlsHandler:
+         """Handle a download server request."""
+         try:
+             form = decode_form(request.get_data(as_text=True))
++            gen4 = gen4_gifts.game_code(form)
+             dlc_type, _, language = form.get("attr1", "").partition("_")  # "CGEAR2_E"
+             dls_request = DlsRequest(
+                 token=form["token"],
                  action=form["action"],
                  dlc_type=dlc_type,
                  language=language or None,
 -                dlc_index=int(form["attr2"]) if form.get("attr2") else None,
-+                dlc_index=int(form["attr2"]) if form.get("attr2") and dlc_type not in ("MYSTERY", "WBT") else None,
++                dlc_index=int(form["attr2"]) if form.get("attr2") and not gen4 and dlc_type not in ("MYSTERY", "WBT") else None,
                  dlc_name=form.get("contents"),
              )
          except (KeyError, ValueError):
@@ -1566,7 +1635,9 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa37
 -            return "", HTTPStatus.BAD_REQUEST
 -
 -        return handler(dls_request)
-+        if dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
++        if gen4 or (dls_request.dlc_name or "").endswith(".myg"):
++            content, status = gen4_gifts.download(session.user.id, form, gen4)
++        elif dlc_type == "WBT" or (not dlc_type and dls_request.dlc_name == pwt_archive.WBT_NAME):
 +            content, status = pwt_archive.wireless_download(form)
 +        elif dlc_type == "MYSTERY" or (not dlc_type and (dls_request.dlc_name or "").startswith("DW")):
 +            content, status = distributions.download(session.user.id, form)
@@ -1587,10 +1658,10 @@ index ab6ac2ae69843749de45d7252e6ad684fdd7b543..a3547cfdcc4c120aaca5cc81a4c7aa37
          """List the DLC of a type."""
 diff --git a/entralinked/network/http/gts_handler.py b/entralinked/network/http/gts_handler.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b061535da296e4
+index 0000000000000000000000000000000000000000..09c2d5801017bb30c359ad9f108a65e4248689e7
 --- /dev/null
 +++ b/entralinked/network/http/gts_handler.py
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,148 @@
 +"""Retail Generation V GTS transport, backed by this private server's WFC identities."""
 +import base64
 +from dataclasses import dataclass
@@ -1604,10 +1675,13 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +from flask import Blueprint, Response, abort, request
 +
 +from ...context import Context
++from ...model.gen4_gts import Gen4TradeStation
 +from ...model.gts import GlobalTradeStation, pokemon_core
-+from ...utility.db_manager import db
++from ...paths import SAVE_DIR
++from ...utility.db_manager import DBManager, db
 +
 +GAME_ID = b"HZEdGCzcGGLvguqUEKQN"
++GEN4_GAME_ID = b"sAdeqWo3voLeC5r16DYv"
 +WORLD_ACTIONS = frozenset({
 +    "info", "result", "get", "delete", "return", "post", "post_finish",
 +    "search", "exchange", "exchange_finish",
@@ -1628,10 +1702,31 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +    return Response(data, content_type="application/octet-stream", headers={"Cache-Control": "no-store"})
 +
 +
++def _request_body(raw: bytes, pid: int, fourth: bool) -> bytes:
++    if len(raw) < (8 if fourth else 12):
++        raise ValueError("Incomplete GTS request")
++    check, = struct.unpack_from(">I", raw)
++    if fourth:
++        total = check ^ 0x4a3b2c1d
++        state = ((total & 0xffff) << 16) | (total & 0xffff)
++        decoded = bytearray(raw[4:])
++        for i in range(len(decoded)):
++            state = (state * 0x45 + 0x1111) & 0x7fffffff
++            decoded[i] ^= (state >> 16) & 255
++        if total != sum(decoded) or int.from_bytes(decoded[:4], "little") != pid:
++            raise ValueError("Invalid Generation IV envelope")
++        return bytes(decoded[4:])
++    encoded_pid, length = struct.unpack_from("<II", raw, 4)
++    if check != (sum(raw[4:]) ^ 0x2db842b2) or pid != encoded_pid or length != len(raw) - 12:
++        raise ValueError("Invalid Generation V envelope")
++    return raw[12:]
++
++
 +class GtsHandler:
 +    def __init__(self, context: Context) -> None:
 +        self.users = context.user_manager
 +        self.station = GlobalTradeStation(db)
++        self.gen4 = Gen4TradeStation(DBManager(SAVE_DIR / "gen4-gts.sqlite3"))
 +        self.challenges: dict[str, Challenge] = {}
 +        self.lock = threading.Lock()
 +
@@ -1641,6 +1736,10 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +        api.add_url_rule("/syachi2ds/web/common/setProfile.asp", view_func=self.gamestats,
 +                         defaults={"action": "setProfile"}, methods=["GET", "POST"])
 +        api.add_url_rule("/pokemon/validate", view_func=self.validate, methods=["POST"])
++        api.add_url_rule("/pokemondpds/worldexchange/<action>.asp", view_func=self.gamestats,
++                         defaults={"fourth": True}, methods=["GET", "POST"])
++        api.add_url_rule("/pokemondpds/common/setProfile.asp", view_func=self.gamestats,
++                         defaults={"action": "setProfile", "fourth": True}, methods=["GET", "POST"])
 +        return api
 +
 +    def validate(self) -> Response:
@@ -1665,7 +1764,7 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +            return _binary(b"\1\0\0\0\x3c" + bytes(128))
 +        return _binary(bytes(5) + self.station.validation_ticket(pid, core))
 +
-+    def gamestats(self, action: str) -> Response:
++    def gamestats(self, action: str, fourth: bool = False) -> Response:
 +        if action != "setProfile" and action not in WORLD_ACTIONS:
 +            abort(404)
 +        form = request.form if request.method == "POST" else request.args
@@ -1676,12 +1775,14 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +        if peer is None or self.users.gts_peer_profile(peer) != pid:
 +            abort(403)
 +        key, encoded = form.get("hash"), form.get("data")
++        game_id = GEN4_GAME_ID if fourth else GAME_ID
++        station = self.gen4 if fourth else self.station
 +        with self.lock:
 +            now = time.monotonic()
 +            if key is None and encoded is None:
 +                self.challenges = {k: value for k, value in self.challenges.items() if value.deadline > now}
 +                token = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32)).encode("ascii")
-+                self.challenges[hashlib.sha1(GAME_ID + token).hexdigest()] = Challenge(now + 600, pid, request.path, peer)
++                self.challenges[hashlib.sha1(game_id + token).hexdigest()] = Challenge(now + 600, pid, request.path, peer)
 +                return _binary(token)
 +            challenge = self.challenges.get(key or "")
 +            if (not challenge or challenge.pid != pid or challenge.path != request.path
@@ -1689,27 +1790,23 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +                abort(400)
 +            try:
 +                raw = base64.b64decode(encoded, altchars=b"-_", validate=True)
-+                if len(raw) < 12:
-+                    abort(400)
-+                check, = struct.unpack_from(">I", raw)
-+                encoded_pid, length = struct.unpack_from("<II", raw, 4)
-+                if check != (sum(raw[4:]) ^ 0x2db842b2) or pid != encoded_pid or length != len(raw) - 12:
-+                    abort(400)
++                payload = _request_body(raw, pid, fourth)
 +                digest = hashlib.sha256(raw).digest()
 +                if challenge.reply is not None:
 +                    if challenge.request_digest != digest:
 +                        abort(400)
 +                    return _binary(challenge.reply)
 +                if action == "setProfile":
-+                    if length != 100:
++                    if len(payload) != 100:
 +                        abort(400)
-+                    self.station.remember_profile(pid, raw[12:])
++                    if not fourth:
++                        self.station.remember_profile(pid, payload)
 +                    body = bytes(8)
 +                else:
-+                    body = self.station.dispatch(action, pid, raw[12:])
++                    body = station.dispatch(action, pid, payload)
 +            except ValueError:
 +                abort(400)
-+            checksum = hashlib.sha1(GAME_ID + base64.urlsafe_b64encode(body) + GAME_ID).hexdigest().encode("ascii")
++            checksum = b"" if fourth else hashlib.sha1(GAME_ID + base64.urlsafe_b64encode(body) + GAME_ID).hexdigest().encode("ascii")
 +            challenge.request_digest = digest
 +            challenge.reply = body + checksum
 +            return _binary(challenge.reply)
@@ -3000,11 +3097,11 @@ index 0000000000000000000000000000000000000000..dde01d1ff5f5c898071da298c01a10be
 +    return bytes(result)
 diff --git a/entralinked/network/matchmaking/directory.py b/entralinked/network/matchmaking/directory.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..0385c9e3482d918bc6ef6df8e939880d0e04e47c
+index 0000000000000000000000000000000000000000..93b4d4c7ac04eecbed5033c7ca5dc0af666b02d9
 --- /dev/null
 +++ b/entralinked/network/matchmaking/directory.py
-@@ -0,0 +1,99 @@
-+"""Short-lived records for Generation V room discovery and NAT negotiation."""
+@@ -0,0 +1,101 @@
++"""Short-lived records for Generation IV and V room discovery and NAT negotiation."""
 +import ast
 +import operator
 +import re
@@ -3015,6 +3112,7 @@ index 0000000000000000000000000000000000000000..0385c9e3482d918bc6ef6df8e939880d
 +Endpoint = tuple[str, int]
 +GAME = "syachi2ds"
 +GAME_KEY = b"tXH2sN"
++GAME_KEYS = {GAME: GAME_KEY, "pokemondpds": b"1vTlwb", "pokemonplatds": b"IIup73"}
 +
 +
 +@dataclass
@@ -3043,6 +3141,7 @@ index 0000000000000000000000000000000000000000..0385c9e3482d918bc6ef6df8e939880d
 +    touched: float = field(default_factory=monotonic)
 +    last_sent: float = 0.0
 +    version: int = 4
++    game: str = GAME
 +
 +
 +class MatchDirectory:
@@ -3395,17 +3494,17 @@ index 0000000000000000000000000000000000000000..f46ae94958163d8a62ff03392eb1504a
 +        return c
 diff --git a/entralinked/network/matchmaking/nat.py b/entralinked/network/matchmaking/nat.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..95b28123035e22b1a5decac639cd4637e4e744cb
+index 0000000000000000000000000000000000000000..4dc83a27071c659858324a93b0e543b97a2ccffc
 --- /dev/null
 +++ b/entralinked/network/matchmaking/nat.py
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,97 @@
 +"""Match two signed-in friends' observed UDP sockets for the private Wi-Fi Club."""
 +import socket
 +import struct
 +from time import monotonic
 +
 +from .addresses import visible_endpoint
-+from .directory import GAME, Negotiator, Pairing
++from .directory import GAME_KEYS, Negotiator, Pairing
 +from .rooms import NAT
 +
 +
@@ -3469,13 +3568,16 @@ index 0000000000000000000000000000000000000000..95b28123035e22b1a5decac639cd4637
 +                    if player.profile == profile and player.control_port == peer:
 +                        player.acknowledged = True
 +            return
-+        if op != 0 or len(body) < 10 or body[9:].rstrip(b"\0") != GAME.encode():
++        if op != 0 or len(body) < 10:
++            return
++        game = body[9:].rstrip(b"\0").decode("ascii")
++        if game not in GAME_KEYS:
 +            return
 +        port_type, index, use_game = body[:3]
 +        if index > 1 or port_type > 3 or use_game > 1:
 +            return
-+        pair = directory.pairings.setdefault(cookie, Pairing(version=version))
-+        if pair.version != version:
++        pair = directory.pairings.setdefault(cookie, Pairing(version=version, game=game))
++        if pair.version != version or pair.game != game:
 +            return
 +        player = pair.peers.get(index)
 +        other = pair.peers.get(1 - index)
@@ -3495,10 +3597,10 @@ index 0000000000000000000000000000000000000000..95b28123035e22b1a5decac639cd4637
 +        _offer(directory, cookie, pair, pair.touched)
 diff --git a/entralinked/network/matchmaking/rooms.py b/entralinked/network/matchmaking/rooms.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f533d272cdf
+index 0000000000000000000000000000000000000000..1c51f84503aa460df2ef69d09d9a5b18fe4152c1
 --- /dev/null
 +++ b/entralinked/network/matchmaking/rooms.py
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,180 @@
 +"""The standard QR2 and Server Browser replies used by the fifth-generation Wi-Fi Club."""
 +import base64
 +import hmac
@@ -3509,7 +3611,7 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +from time import monotonic
 +
 +from .addresses import rewrite_match_data, visible_endpoint
-+from .directory import GAME, GAME_KEY, Room, room_filter
++from .directory import GAME_KEY, GAME_KEYS, Room, room_filter
 +from .enctypex import EncTypeX
 +
 +QR = b"\xfe\xfd"
@@ -3518,11 +3620,11 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +          0x20, 0x40, 0x41, 0x52, 0x53, 0x54, 0x55}
 +
 +
-+def qr_proof(challenge):
++def qr_proof(challenge, game_key=GAME_KEY):
 +    state = list(range(256))
 +    j = 0
 +    for i in range(256):
-+        j = (j + state[i] + GAME_KEY[i % len(GAME_KEY)]) & 255
++        j = (j + state[i] + game_key[i % len(game_key)]) & 255
 +        state[i], state[j] = state[j], state[i]
 +    i = j = 0
 +    out = bytearray()
@@ -3538,7 +3640,7 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +    if not 5 <= len(data) <= 4096:
 +        return
 +    op, session, body = data[0], data[1:5], data[5:]
-+    if op == 9 and body.rstrip(b"\x00") == GAME.encode():
++    if op == 9 and body.rstrip(b"\x00").decode("ascii") in GAME_KEYS:
 +        sock.sendto(QR + bytes((9, 0, 0, 0, 0)), peer)
 +        return
 +    directory = context.matcher
@@ -3553,7 +3655,8 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +                    break
 +                fields[key.decode("ascii")] = value.decode("latin1")
 +            same_session = room is not None and room.session == session
-+            if fields.get("gamename", room.fields.get("gamename") if same_session else None) != GAME:
++            game = fields.get("gamename", room.fields["gamename"] if same_session else None)
++            if game not in GAME_KEYS or (same_session and game != room.fields["gamename"]):
 +                return
 +            live_pid = context.user_manager.gts_peer_profile(peer[0])
 +            given = fields.get("dwc_pid")
@@ -3578,7 +3681,7 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +                sock.sendto(QR + b"\x01" + session + room.challenge + b"\x00", peer)
 +        elif room and room.session == session:
 +            room.touched = monotonic()
-+            if op == 1 and hmac.compare_digest(body.rstrip(b"\x00"), qr_proof(room.challenge)):
++            if op == 1 and hmac.compare_digest(body.rstrip(b"\x00"), qr_proof(room.challenge, GAME_KEYS[room.fields["gamename"]])):
 +                room.registered = True
 +                sock.sendto(QR + b"\x0a" + session, peer)
 +            elif op == 7:
@@ -3598,7 +3701,8 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +    if len(packet) < 20:
 +        return
 +    query_game, game, rest = packet[9:].split(b"\x00", 2)
-+    if query_game != GAME.encode() or game != query_game or len(rest) < 14:
++    game_name = query_game.decode("ascii")
++    if game_name not in GAME_KEYS or game != query_game or len(rest) < 14:
 +        return
 +    challenge = rest[:8]
 +    expression, field_list, tail = rest[8:].split(b"\x00", 2)
@@ -3624,7 +3728,7 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +        with directory.lock:
 +            directory.expire()
 +            for room in directory.rooms.values():
-+                if not limit or not _is_visible(context, caller, room) or not predicate(room.fields):
++                if not limit or room.fields["gamename"] != game_name or not _is_visible(context, caller, room) or not predicate(room.fields):
 +                    continue
 +                dest = visible_endpoint(room.address)
 +                if dest is None:
@@ -3639,7 +3743,7 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +                    out.extend(b"\xff" + room.fields.get(key, "").encode("latin1") + b"\0")
 +                limit -= 1
 +        out.extend(b"\x00\xff\xff\xff\xff")
-+    return bytes(EncTypeX().encrypt(GAME_KEY, challenge, out))
++    return bytes(EncTypeX().encrypt(GAME_KEYS[game_name], challenge, out))
 +
 +
 +def forward_reservation(context, packet, peer):
@@ -3663,7 +3767,8 @@ index 0000000000000000000000000000000000000000..889e08291e9648ec739239c4ad906f53
 +        rooms = list(directory.rooms.values())
 +        dest = next((room for room in rooms if visible_endpoint(room.address) == target), None)
 +        source = next((room for room in rooms if room.profile == caller and room.registered), None)
-+        if not source or not dest or dest.profile == caller or not _is_visible(context, caller, dest):
++        if (not source or not dest or source.fields["gamename"] != dest.fields["gamename"]
++                or dest.profile == caller or not _is_visible(context, caller, dest)):
 +            return
 +        if not cookie:
 +            public = visible_endpoint(source.address)

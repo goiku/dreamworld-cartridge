@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "8b8ce20545d832621c7da8d4f2204f579e9d8db6c66aa503f4841656dab59c2c",
+    "patch_sha256": "e96ce2a59dcae7e447f6d26f23abbebbf3bd25e4fe233a7fb5cd662601d2becc",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -33,6 +33,10 @@
           "d3e1ff378d8f050f979f3b39a404defc8904df02ff83771db6acc00948adf88f",
           "f86ec89565e56e62783fcdd67ce56e1142308cd5f3a136f2b90337d29114d433"
         ]
+      },
+      "api/generations.py": {
+        "before": null,
+        "after": "af08987b6ccfba15009564f7234080e8a102e95be7daad836264541a175c064e"
       },
       "api/gts_journal.py": {
         "before": "a4a3d2028f49250a44a374b53143817a53781e5e0e3097b65ad2489c68ed2bdc",
@@ -143,7 +147,7 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "b363d29915ff146f355899226d259bb84746de11455aaddc4a57958884eaa952",
+        "after": "6b4728bbbfe5d2b9437d738d6c46b3d16a788214e4dac0bc153fe79012322771",
         "previous": [
           "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
@@ -152,6 +156,7 @@
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
           "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49",
           "a5c149056f327cbcfcdd93be4bd727a8dea30215b770c5f36819e440674bb279",
+          "b363d29915ff146f355899226d259bb84746de11455aaddc4a57958884eaa952",
           "c5021a3607a5fc6e8645093f7c99d49927a37d803054519d76af657a4fe70a0c",
           "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e"
         ]
@@ -162,10 +167,11 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "29e220658ee3cf6bdd13b386a1cbaaf27ab686c7638cc89f1a0a10a4ccca727c",
+        "after": "1f9f72973eaaea387b78cae26dc17f307841571ebd4869eafcffd18c4cd8e7c4",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
+          "29e220658ee3cf6bdd13b386a1cbaaf27ab686c7638cc89f1a0a10a4ccca727c",
           "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "afacddd724074ef1cc97b026c381cf4504373ba14c56fde33b59293653952bcb",
@@ -229,9 +235,17 @@
           "8be7e46a7d0b7f7847e31fc72ab3bf2f014916680d0ee7b7b364769703633b55"
         ]
       },
+      "json_data/gen4_wireless_gifts.json": {
+        "before": null,
+        "after": "5bf49aa4f332296797726fd791c01c3462d4175744b7c282d14faddbd9263648"
+      },
       "json_data/gen5_nickname_glyphs.json": {
         "before": null,
         "after": "65b513d14f048bc799e0df810c6ec1a4ff8c95eea614138df560c5fbeb1cb9d7"
+      },
+      "json_data/generation_portal.json": {
+        "before": null,
+        "after": "012a8ea630c18214a1b87d1635c4a6e3768b8e58ff703f50849a854177b45783"
       },
       "json_data/gift_cards.json": {
         "before": null,
@@ -468,6 +482,10 @@
         "before": null,
         "after": "dcebcef6b4e7f2cfc53f01a4097e161e60628355afc8f094cc43e1708a128679"
       },
+      "static/generations.css": {
+        "before": null,
+        "after": "6e80498d86f18565712328ab2edef909bb2ba111f479bd014fd979a4e32c7fb9"
+      },
       "static/island-adventure.css": {
         "before": null,
         "after": "93a066d29f4ea9b3a3fec044c1b2c69133c3198b6c0b1ffcce2d5d11c87e44a5",
@@ -568,6 +586,10 @@
           "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763",
           "b7434332b09b6eb8c617fb7c7e602626daa5825e2fca71ba7da5324990ebd43a"
         ]
+      },
+      "templates/generations.html": {
+        "before": null,
+        "after": "9ff8c1164289290dc0559dcdf5b6009f3031183f07e6c51009e92d8a476f138d"
       },
       "templates/guide_home_link.html": {
         "before": null,
@@ -688,6 +710,10 @@
         "before": null,
         "after": "c9ef2608f98a50d3b9ff6a0ed2022781763d74dddeda8965603d990d9e12a702"
       },
+      "tests/test_generation_portal.py": {
+        "before": null,
+        "after": "1b7b9db27f0ce5c244ed6fc0c18006b960d516e0d1a9c4c549568a6cbe7e6ae0"
+      },
       "tests/test_gts_names.py": {
         "before": null,
         "after": "71c8fb8e9ba9671fb09f900abcfa0047f3221657b9260c0cc2a03cef6ab412a8"
@@ -795,6 +821,10 @@
           "e3fa2cf4dbb7eebc9a13f3d2c9b12c0dcbda11a58a02ea49f516eccadd95f870",
           "f8777a5a9679321994898f3f6813fa44639016c9cb2bd660cd187713dbb895a6"
         ]
+      },
+      "utils/gen4_gifts.py": {
+        "before": null,
+        "after": "eae48d2b77e7a58b0487d0de9e7ba550205c6a0feba478534de24208085a89f6"
       },
       "utils/gen5_names.py": {
         "before": null,
@@ -958,7 +988,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "d48c654d96f9067cd4403d2afeb80b727d95cb7cb9279476f3b2d8dc3cadb0e7",
+      "sha256": "e536125b8a6e1114bfda59a4f90f1279c9635a293f68821d72ea80ede9860c46",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -968,7 +998,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "e6bddfd371182b4a30ec567ffddd8c2e0819be8fa921ae21082a404551fdaa1d",
+    "patch_sha256": "f5f5fa37826eca5a2d5a8778a8bf34cdf7723eeadd5554157861812305f62aee",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -982,9 +1012,16 @@
         "before": null,
         "after": "4cb0d77a6e64f4b93e0f0ab0411093f8ad9b1cecc29381de40977f9c23fdd80c"
       },
+      "entralinked/model/gen4_gts.py": {
+        "before": null,
+        "after": "569edea4546ee08301e2c8f4750ce2bb7ba59c8471835d69aa3ea966aadc6e0b"
+      },
       "entralinked/model/gts.py": {
         "before": null,
-        "after": "ea50fcfbb7479a90d63b327c831c3b884cdb93ef69cc0eb52d09cbb7f879fca4"
+        "after": "016a8e27a1e8d65eb819a3f2be7609926b40bd208f97a4f1882a77893f7c43de",
+        "previous": [
+          "ea50fcfbb7479a90d63b327c831c3b884cdb93ef69cc0eb52d09cbb7f879fca4"
+        ]
       },
       "entralinked/model/pkmn/pkmn_info.py": {
         "before": "be525a430c396aa3861cf81e1d7b793bc6d7e02af924521dbc473575867d812f",
@@ -1053,15 +1090,19 @@
       },
       "entralinked/network/http/dls_handler.py": {
         "before": "27ba0af63526528eb019692b2d559b20bfd94755454afaf7867d51ac02882d08",
-        "after": "b281985bbb02c0a114878b4b02ce55ef7ce635690961bcc33973c4bb5d91aa5a",
+        "after": "309f9624fc36edcda5a46b63877d637d4d9db23358aa310331361eca701ff0ff",
         "previous": [
           "11b9c8998f740e16e06140980d3e6a2eb3c61bc0655956ab959fda1354d41ec4",
-          "1d5dedc7eadc16c980c7224854fd930588f3985181f0f4a83375e4aa6a7b4f68"
+          "1d5dedc7eadc16c980c7224854fd930588f3985181f0f4a83375e4aa6a7b4f68",
+          "b281985bbb02c0a114878b4b02ce55ef7ce635690961bcc33973c4bb5d91aa5a"
         ]
       },
       "entralinked/network/http/gts_handler.py": {
         "before": null,
-        "after": "642383a0634d86237508be6213f812c552c9a91915a3a7afcaaf107f9d461b48"
+        "after": "8075df7d2f78f89a7b608ae67e54b2ab6ce3fe301c0f97e0cab19de91f1f388b",
+        "previous": [
+          "642383a0634d86237508be6213f812c552c9a91915a3a7afcaaf107f9d461b48"
+        ]
       },
       "entralinked/network/http/http_server.py": {
         "before": "1129df4de258fbf52f4a1395f6db3b12841cf5cfa281f01159c4675d65749685",
@@ -1098,7 +1139,10 @@
       },
       "entralinked/network/matchmaking/directory.py": {
         "before": null,
-        "after": "96e976e705833f9aad333cc9696d9f14fe3c93778da0712aa1c2433efe67930c"
+        "after": "a387b9c2bd6ba220b1aea1ff71558ac8006dbf68907ed06c17e124df8d8a93f6",
+        "previous": [
+          "96e976e705833f9aad333cc9696d9f14fe3c93778da0712aa1c2433efe67930c"
+        ]
       },
       "entralinked/network/matchmaking/enctypex.py": {
         "before": null,
@@ -1106,11 +1150,17 @@
       },
       "entralinked/network/matchmaking/nat.py": {
         "before": null,
-        "after": "c1d7cff0119dd231c0680d2a04d5cf2fa064dbe5081039d01f9bb89c122046bb"
+        "after": "4e762f9616aab0ddcb3891d42121ffeac48aec547fe5b14591965d24e8e85229",
+        "previous": [
+          "c1d7cff0119dd231c0680d2a04d5cf2fa064dbe5081039d01f9bb89c122046bb"
+        ]
       },
       "entralinked/network/matchmaking/rooms.py": {
         "before": null,
-        "after": "92c31bcaf31c0da44f49deacfea20a4af68154176df7b145995ca98734194c3e"
+        "after": "f4c9a4fe3ae98fd51cceb31c7639f842bbc3523f63e6842a01b56548e6ecbd20",
+        "previous": [
+          "92c31bcaf31c0da44f49deacfea20a4af68154176df7b145995ca98734194c3e"
+        ]
       },
       "entralinked/network/matchmaking/server.py": {
         "before": null,

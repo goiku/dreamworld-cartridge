@@ -1,0 +1,18 @@
+:root{font-family:Inter,"Segoe UI","Yu Gothic",system-ui,sans-serif;color:#172e36;background:#f4f4ed;line-height:1.5;color-scheme:light}
+*{box-sizing:border-box}body{margin:0}.wrap{width:min(68rem,91%);margin:auto}
+header{border-bottom:1px solid #c9d2c8;background:#fffefa}.top{min-height:4.3rem;display:flex;justify-content:space-between;align-items:center;gap:.8rem}
+a{color:#194f52;text-underline-offset:.2em}.brand{display:flex;align-items:center;gap:.7rem;text-decoration:none;font-weight:750;color:#183d42}
+.brand i{width:1.45rem;height:1.45rem;border:2px solid currentColor;border-radius:50%;display:grid;place-items:center;background:linear-gradient(to bottom,#fb825f 45%,#183d42 45% 55%,white 55%)}
+.brand i:after{content:"";width:.32rem;height:.32rem;border-radius:50%;border:2px solid #183d42;background:white}
+main{padding:clamp(2rem,6vw,5rem) 0}h1,h2,p{margin:0}h1{font-size:clamp(2.3rem,6vw,4.5rem);line-height:1.1;letter-spacing:-.045em;margin-bottom:1.6rem}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2rem}
+.card{display:flex;flex-direction:column;position:relative;overflow:hidden;text-decoration:none;border-radius:1.15rem;color:#fff;background:#24565c;box-shadow:0 6px 22px #16393a14}
+.card img{width:100%;height:clamp(10rem,19vw,16rem);object-fit:contain;image-rendering:auto;padding:1.1rem;background:radial-gradient(ellipse at 50% 100%,#d5efa7,#81c9b0 75%)}.unova{background:#393c60}.unova img{background:radial-gradient(ellipse at 50% 100%,#d3cae4,#a0a9d3 75%)}
+.card div{padding:1.2rem 1.6rem 1.5rem;flex:1;display:flex;flex-direction:column}.card small{font-weight:600;color:#ecf6ea}.card h2{font-size:clamp(1.8rem,4vw,2.75rem);line-height:1.2;margin:.25rem 0}.card p{font-size:1rem;margin:.3rem 0 1.3rem}.card strong{display:flex;justify-content:space-between;padding-top:1rem;margin-top:auto;border-top:1px solid #ffffff65}
+.cover{color:inherit;text-decoration:none;display:flex;flex-direction:column;flex:1}.cover:hover strong{text-decoration:underline}
+.card .shortcuts{padding:0 1.6rem 1.1rem;display:flex;flex-flow:row wrap;gap:.5rem 1.1rem;flex:none}.shortcuts a{color:#fff;font-size:.9rem}
+.quick{display:flex;flex-wrap:wrap;gap:1.6rem;padding:1.6rem 0}.back{display:inline-block;margin-bottom:1.1rem}.sub{margin:-.65rem 0 1.5rem}
+section{padding:1.5rem clamp(1rem,4vw,2rem);border:1px solid #cad4cc;border-radius:1rem;background:#fffefa;margin:1rem 0}section p{margin:.6rem 0 1rem;max-width:52rem}
+form{display:flex;align-items:end;flex-wrap:wrap;gap:1rem}label{display:grid;gap:.25rem}select,button{font:inherit;padding:.45rem .8rem;border:1px solid #677e76;border-radius:.4rem}button{background:#24565c;color:white;cursor:pointer}
+.gifts{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:.15rem 1.25rem}.gifts li{padding:.45rem 0;border-top:1px solid #dce1d7}.number{font: .83rem ui-monospace,monospace;color:#435b61;margin-right:.35rem}
+:focus-visible{outline:3px solid #b14913;outline-offset:4px}@media(max-width:640px){.cards{grid-template-columns:1fr}.card img{height:9rem}.card div{padding:1rem 1.2rem}.card h2{font-size:1.7rem}.card p{margin-bottom:.7rem}}
