@@ -38,6 +38,8 @@ In **Promotions → Japanese catalog → Pokémon World Tournament**, download a
 
 ### Remove the tuck-in limit
 
+**Original DS cartridge with only a DNS change.** A private server can accept another tuck-in immediately after a wake. I verified two uploads around a confirmed wake for all four games using test saves. On the cartridge, Game Sync compares its saved date with the DS clock before requesting the list of Pokémon it can send. The normal wake reply contains no setting to reset that date. You can keep the same Pokémon asleep and return to its Dream World from the website until you choose to wake it.
+
 Save in-game and close melonDS. In the website’s **Remove the tuck-in limit** panel, enter the date shown on the DS. Choose the melonDS save folder, select your save, then choose **Back up and update selected save**. Alternatively, select one 512 KiB .sav and download the unlocked copy. Use the copy as your emulator save or restore it to your cartridge. The browser processes it on your device. The server cannot change the clock check inside a stock cartridge over Wi-Fi. [Open the web tool](http://127.0.0.1:8080/player-guide/#tuck-in)
 
 The DNS guide shows the address to enter even with the DS turned off. From your own profile, the playable Dream World status now opens the game. The sign at your house shows the trainer on the selected cartridge.
@@ -189,7 +191,7 @@ After both gateways report `Battle hub confirmed the connection`, set each conso
 
 If GTS deposit stopped with error 13265 on an older server, update the host and re-enter GTS. The server now answers the name check that follows Pokémon validation. Check the current deposit before submitting another offer.
 
-I tested this across two networks. I deposited a level 15 Panpour in Pokémon White on melonDS, then used a DS on a separate hotspot to trade a level 10 Panpour for it. The server recorded one completed exchange.
+I tested this across two networks. I deposited a level 15 Panpour in Pokémon White on melonDS, then used a DS on a separate hotspot to trade a level 10 Panpour for it. The server recorded one completed exchange and the depositing game subsequently confirmed collection.
 
 ### Visit a friend's Dream World and take your rewards home
 
