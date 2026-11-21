@@ -23,3 +23,15 @@ for name,which in [('tokubetsunnahome_cgea_resiramu.jpg','莱希拉姆'),('tokub
  panel(name,'小游戏通关！',['当年的电影活动曾送出','「'+which+'」C装置皮肤。','要查看现有皮肤，请到主页','打开“自定义”。'],which)
 panel('tokubetsunnahome_cgea_secound.jpg','再次打开了宝箱！',['你已经完成过这次挑战。','最初的电影活动以特别C装置皮肤作为通关纪念。','在主页的“自定义”中可以查看现有皮肤。'])
 
+
+# The café boards share their layout but use different original artwork.
+for name in ("campaign_image_1.jpg", "campaign_image_2.jpg"):
+    with Image.open(d/name) as source:
+        picture = source.convert("RGB")
+    from game_art_zh import lettering
+    lettering(picture, (111, 5, 574, 86), "宝可梦咖啡馆", maximum=55, background="#fff8df")
+    lettering(picture, (6, 90, 574, 117), "活动时间：2011年5月25日至8月30日 16:00", maximum=18, background="#fff8df")
+    lettering(picture, (16, 125, 233, 194), "藤藤蛇、暖暖猪和水水獭也来了！\n进咖啡馆，看看特别的家具吧。", maximum=15, background="#fff8df")
+    lettering(picture, (244, 125, 564, 174), "从咖啡馆出发，前往特别的梦之岛。\n和伊布、蚊香蝌蚪、图图犬或结草儿做朋友！", maximum=15, background="#fff8df")
+    lettering(picture, (7, 291, 573, 334), "这次活动还有咖啡馆主题的 C 装置壁纸和家具。", maximum=18, background="#fff8df")
+    picture.save(out/name, quality=93, subsampling=0)

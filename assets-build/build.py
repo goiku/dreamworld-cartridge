@@ -154,6 +154,8 @@ def main():
     parser.add_argument("web_root", type=Path)
     parser.add_argument("--font", type=Path, help="Local Noto Sans SC variable TrueType font")
     parser.add_argument("--ruffle-archive", type=Path, help="Local pinned Ruffle 0.7.1 ZIP")
+    parser.add_argument("--update-game-text", action="store_true",
+                        help="Update Chinese minigames and tutorials in an existing installation")
     args = parser.parse_args()
     root = args.web_root.resolve(strict=True)
     assets = root / "dreamworld_assets"
@@ -166,12 +168,19 @@ def main():
         font = font_file(args.font, temporary)
         env = {**os.environ, "DW_BUILD_ROOT": str(root), "DW_BUILD_FONT": str(font),
                "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
+        game_text = ("zhmoviecards.py", "zhgames.py", "game_art_zh.py", "tutorial_art_zh.py")
+        if args.update_game_text:
+            if not (assets / "zh.pokemon-gl.com/src/swf/pdw/assets/ja/xml/tutorial_strings.xml").is_file():
+                parser.error("Run full setup once before updating the existing Chinese assets.")
+            for name in game_text:
+                subprocess.run([sys.executable, str(HERE / "recipes" / name)], env=env, check=True)
+            return
         localize_text(assets)
         patch_client(root, assets)
         block = assets / "shared.pokemon-gl.com/src/swf/report/images/block.png"
         write_file(assets / "ko.pokemon-gl.com/src/swf/assets/global/images/block.png", block.read_bytes())
         for name in ("korean_report.py", "zhopening.py", "zhmoviecards.py",
-                     "report-zh-sprites.py", "zhgames.py", "build_fonts.py"):
+                     "report-zh-sprites.py", "zhgames.py", "game_art_zh.py", "tutorial_art_zh.py", "build_fonts.py"):
             print(f"Building {name.removesuffix('.py')}", flush=True)
             subprocess.run([sys.executable, str(HERE / "recipes" / name)], env=env, check=True)
         install_ruffle(assets, args.ruffle_archive, temporary)

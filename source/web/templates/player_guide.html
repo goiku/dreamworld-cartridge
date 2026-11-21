@@ -22,6 +22,7 @@
       <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
       <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
       <a href="#tuck-in">{{ t.tuck_title }}</a><a href="#distributions">{{ gifts.title }}</a>
+      {% if arcade.instructions %}<a href="#minigames">{{ arcade.help_title }}</a>{% endif %}
     </nav>
     <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
              data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-emulator-offline="{{ t.emulator_offline }}" data-checking="{{ t.checking }}">
@@ -75,7 +76,15 @@
       <p><a download="{{ '解除睡眠限制.py' if lang == 'zh' else 'remove-tuck-in-limit.py' }}" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
       <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p></details>
     </section>
-    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
+    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p>
+      {% if t.dream_steps %}<ol>{% for step in t.dream_steps %}<li>{{ step }}</li>{% endfor %}</ol>
+      <p><a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
+    </section>
+    {% if arcade.instructions %}
+    <section id="minigames"><h2>{{ arcade.help_title }}</h2>
+      {% for steps in arcade.instructions %}<details class="console-model"><summary>{{ arcade.games[loop.index0] }}</summary>
+      {% for step in steps %}<p>{{ step }}</p>{% endfor %}<p><a href="{{ url_for('practice.arcade',number=loop.index) }}">{{ arcade.practice_one }}</a></p></details>{% endfor %}
+    </section>{% endif %}
     <section id="distributions">
       <h2>{{ gifts.title }}</h2>
       {% for kind in ('dream','wonder') %}

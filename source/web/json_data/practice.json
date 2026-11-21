@@ -8,6 +8,57 @@
     "done": "本局已结束。",
     "error": "小游戏加载失败，请重新打开本局。",
     "replay": "再玩一次",
+    "help_title": "小游戏玩法",
+    "instructions": [
+      [
+        "看清开场给出的宝可梦名字。点击路口的箭头换场景，点击正在摇晃的草丛、树木或石头，查看藏在里面的宝可梦。",
+        "点击“仔细听”。叫声越清楚，目标就越近。发现闪光先点击拾取失物，再搜索附近摇晃的地方。"
+      ],
+      [
+        "选择树果后，在左边的冰淇淋盒里按住鼠标，让冰淇淋球慢慢变大。保持按住，把球拖到碗上方，松手放下。",
+        "对照画面上的参考大小，轮换三种口味，从碗中央开始堆。时间结束时会结算高度、大小和口味搭配。"
+      ],
+      [
+        "移动鼠标控制手旗，宝可梦会朝手旗飞。用剩余时间和距离判断路线，在倒计时结束前飞到终点。",
+        "避开云朵和弱点属性标记。收集与伙伴相同的属性标记，集齐三个可以加速。按空格键暂停。"
+      ],
+      [
+        "左右移动鼠标控制吼鲸王的位置。让下落的宝可梦对准喷水孔，点击鼠标喷出水柱，把它弹回空中。",
+        "瞄准和宝可梦图案相配的彩球。留意下一只落下的伙伴，连续击破彩球能得到连击奖励。"
+      ],
+      [
+        "看客人头上的气泡，记下饮料的颜色。点击取饮料，让哎呀球菇端着托盘跟随铃铛移动。",
+        "在点了这杯饮料的宝可梦面前点击送出。可以同时拿几杯，但移动太快会倾斜或洒出饮料。"
+      ],
+      [
+        "移动光球引导比克提尼飞行，绕开岩石，沿路收集属性能量。吃到马卡龙能暂时强化。",
+        "积攒能量，在宝箱前与莱希拉姆或捷克罗姆合力发动特别攻击。正式活动的 C 装置壁纸可到主页“自定义”查看。"
+      ],
+      [
+        "轮到你时，点击一排横向相连的烛火，再点“吹灭”。一次可以选一根或多根，中间不能越过已经熄灭的蜡烛。",
+        "吹灭最后一簇火的一方会输。设法把最后一根留给对手，时间用完前还可以继续挑战。"
+      ],
+      [
+        "勾魂眼坐矿车来到岔路时，按住鼠标，照着想走的那条轨道上的图案一笔画完，再松开。",
+        "先看两条路上有什么，选宝石多的那条。碰到高山植物会震落已经收集的宝石。"
+      ],
+      [
+        "点击想去的冰格，宝可梦就会向那里滑行。观察甜点落点，抢在其他宝可梦前面捡起来。",
+        "冰面经过或停留后会开裂。及时离开裂纹多的格子，掉进水里要等一会儿才能回到场上。"
+      ],
+      [
+        "选好滑板和搭乘的宝可梦。看准能量槽接近满格时点击，再点击确定起跳角度。",
+        "在合适的时机点击跳起，飞行中移动鼠标调整滑板角度。跟随风向箭头、踩中蹦床，争取飞过 1500 米。"
+      ],
+      [
+        "先看客人想喝哪种饮料。点击柜台取杯，用铃铛引导哎呀球菇，把托盘送到点单的宝可梦面前。",
+        "缓慢移动保持平衡，到客人面前点击交杯。留意杯子的颜色，尽量在时间结束前完成订单。"
+      ],
+      [
+        "移动光球，喷火龙会跟着它飞行。收集沿途的属性能量，注意绕开岩石。",
+        "拿到强化道具后可以撞碎岩石。抵达宝箱时用积蓄的能量发动特别攻击。"
+      ]
+    ],
     "games": [
       "寻找宝可梦",
       "堆冰淇淋",
@@ -21,7 +72,10 @@
       "滑板飞越湖面",
       "宝可梦餐厅·送饮料",
       "喷火龙的宝箱"
-    ]
+    ],
+    "all_help": "查看全部小游戏的操作说明",
+    "practice_one": "试玩这款小游戏",
+    "language_label": "语言"
   },
   "ja": {
     "title": "ミニゲーム体験",
@@ -45,7 +99,61 @@
       "ボード遊び",
       "ポケモンビストロ・ドリンク運び",
       "リザードンの宝箱"
-    ]
+    ],
+    "help_title": "ミニゲームの遊び方",
+    "instructions": [
+      [
+        "最初に迷子のポケモンの名前を覚えよう。矢印で場所を移動し、揺れる草むらや木、岩をクリックして調べよう。",
+        "「耳をすます」で鳴き声が大きければ、迷子は近くにいるよ。光る落とし物を拾って、その周りを探そう。"
+      ],
+      [
+        "きのみを選び、アイスの容器でマウスを長押しして玉を大きくしよう。そのまま器の上まで運び、ボタンを離すと置けるよ。",
+        "お手本の大きさに合わせて、3種類の味を組み合わせよう。器の真ん中から積むと安定するよ。"
+      ],
+      [
+        "マウスで旗を動かすとポケモンが追いかけるよ。残り時間と距離を見ながらゴールを目指そう。",
+        "雲や苦手なタイプの印をよけて、同じタイプの印を3つ集めて加速しよう。スペースキーで一時停止できるよ。"
+      ],
+      [
+        "マウスを左右に動かして、落ちてくるポケモンの下にホエルオーを移動しよう。クリックで潮を吹くよ。",
+        "ポケモンを弾ませて、絵柄が合うボールを狙おう。次に落ちてくる仲間にも注目しよう。"
+      ],
+      [
+        "お客さんの吹き出しで注文を確認しよう。クリックで飲み物を取り、ベルを動かしてタマゲタケを案内しよう。",
+        "その飲み物を頼んだお客さんの前でクリックすると渡せるよ。トレイを傾けすぎないよう、ゆっくり動かそう。"
+      ],
+      [
+        "光の玉を動かしてビクティニを案内しよう。岩をよけながらタイプのエネルギーを集め、マカロンでパワーアップしよう。",
+        "宝箱でレシラムかゼクロムと力を合わせよう。本編のキャンペーンをクリアしたら、カスタマイズでCギアスキンを確認できるよ。"
+      ],
+      [
+        "自分の番に、横一列につながっている炎を1つ以上選び、吹き消すボタンを押そう。消えたろうそくを飛び越えては選べないよ。",
+        "最後の炎を消したほうが負け。相手に最後の1本を残そう。"
+      ],
+      [
+        "トロッコが分かれ道に来たら、行きたい線路のマークをマウスのボタンを押したまま一筆でなぞり、ボタンを離そう。",
+        "線路の先を見て宝石が多い道へ。障害物にぶつかると、集めた宝石が落ちてしまうよ。"
+      ],
+      [
+        "行きたい氷をクリックして滑ろう。お菓子の落ちる場所を見て、ほかのポケモンより先に取ろう。",
+        "氷にひびが広がったら場所を変えよう。水に落ちると戻るまでに時間がかかるよ。"
+      ],
+      [
+        "ボードと乗るポケモンを選ぼう。パワーゲージが高いところでクリックし、次のクリックで角度を決めよう。",
+        "タイミングよくジャンプし、空中ではマウスでボードの傾きを調整しよう。風やトランポリンを利用して1500メートルを目指そう。"
+      ],
+      [
+        "吹き出しを見て注文を確認し、カウンターをクリックして飲み物を取ろう。ベルでタマゲタケをお客さんの前まで案内しよう。",
+        "ゆっくり動かしてからクリックで手渡そう。制限時間内に正しい飲み物をたくさん届けよう。"
+      ],
+      [
+        "光の玉を動かすとリザードンがついてくるよ。岩をよけながらタイプのエネルギーを集めよう。",
+        "パワーアップ中は岩を壊せるよ。宝箱まで来たら、集めたエネルギーで大技を出そう。"
+      ]
+    ],
+    "all_help": "ミニゲームの遊び方を一覧で見る",
+    "practice_one": "このゲームを体験する",
+    "language_label": "言語"
   },
   "en": {
     "title": "Minigame practice",
@@ -69,7 +177,61 @@
       "Skip Across the Lake",
       "Pokémon Bistro · Serve Drinks",
       "Charizard’s Treasure Box"
-    ]
+    ],
+    "help_title": "How to play",
+    "instructions": [
+      [
+        "Remember the missing Pokémon’s name. Follow the arrows to change areas and click shaking grass, trees or rocks to look inside.",
+        "Use Listen to hear its cry. A louder cry means you are closer. Pick up the sparkling lost item and search nearby."
+      ],
+      [
+        "Choose a Berry. Hold the mouse button over an ice cream tub to grow a scoop, then drag it over the dish and release.",
+        "Aim for the sample size. Mix the three flavours and start near the middle so the tower stays upright."
+      ],
+      [
+        "Move the flag with the mouse. Your Pokémon follows it. Reach the finish before time runs out.",
+        "Avoid clouds and weakness symbols. Collect three matching type symbols to boost your speed. Press Space to pause."
+      ],
+      [
+        "Move Wailord beneath a falling Pokémon. Click to send up a waterspout and bounce it back into the air.",
+        "Aim at a balloon showing that Pokémon. Keep watching for the next Pokémon to fall and chain hits for a bonus."
+      ],
+      [
+        "Read each customer’s order in its bubble. Click to pick up a drink and move the bell to guide Foongus with the tray.",
+        "Click in front of the customer who ordered that drink. Move smoothly so that drinks stay on the tray."
+      ],
+      [
+        "Guide Victini with the light. Avoid rocks and collect type energy. A macaron gives a temporary power-up.",
+        "At the chest, use the stored energy with Reshiram or Zekrom. After completing the regular promotion, check Customize for its C-Gear skin."
+      ],
+      [
+        "Click one or more lit candles in an unbroken horizontal row, then confirm to blow them out.",
+        "The player who puts out the last flame loses. Try to leave the last one for your opponent."
+      ],
+      [
+        "At a fork, hold the mouse button and trace the symbol above your chosen track in one stroke. Release to choose it.",
+        "Look ahead for gems. Hitting an obstacle can knock gems out of your cart."
+      ],
+      [
+        "Click a patch of ice to skate towards it. Watch where sweets land and collect them before your opponents.",
+        "Change direction as the ice cracks. Falling in the water costs time."
+      ],
+      [
+        "Choose a board and rider. Click when the power gauge is near full, then click to set the angle.",
+        "Time your jump and move the mouse in the air to tilt the board. Use the wind and trampolines as you aim for 1,500 m."
+      ],
+      [
+        "Check the colours of the orders. Click the counter for a drink and guide Foongus to the waiting customer.",
+        "Move gently. Click to hand over the right cup and complete as many orders as possible before time runs out."
+      ],
+      [
+        "Move the light to guide Charizard. Collect type energy and steer around rocks.",
+        "Use a power-up to break rocks. At the treasure chest, use the energy you have collected."
+      ]
+    ],
+    "all_help": "All minigame instructions",
+    "practice_one": "Practice this game",
+    "language_label": "Language"
   },
   "fr": {
     "title": "Mini-jeux en libre accès",
@@ -93,6 +255,60 @@
       "Traverser le lac",
       "Bistrot Pokémon · servir des boissons",
       "Le coffre de Dracaufeu"
+    ],
+    "language_label": "Langue",
+    "help_title": "Comment jouer",
+    "all_help": "Tous les mini-jeux",
+    "practice_one": "Essayer ce mini-jeu",
+    "instructions": [
+      [
+        "Retiens le nom du Pokémon perdu. Suis les flèches et clique sur les herbes, les arbres ou les rochers qui bougent.",
+        "Écoute son cri. Plus il est fort, plus le Pokémon est proche. Ramasse l’objet qui brille et fouille les environs."
+      ],
+      [
+        "Choisis une Baie. Maintiens le bouton de la souris dans un bac pour former une boule de glace, puis dépose-la dans la coupe.",
+        "Essaie de reproduire la taille du modèle. Alterne les trois parfums et commence au centre de la coupe."
+      ],
+      [
+        "Déplace le drapeau avec la souris pour guider ton Pokémon jusqu’à l’arrivée avant la fin du temps imparti.",
+        "Évite les nuages et les symboles de faiblesse. Trois symboles du bon type te font accélérer. La barre d’espace met le jeu en pause."
+      ],
+      [
+        "Déplace Wailord sous le Pokémon qui tombe. Clique pour lancer un jet d’eau et le faire rebondir.",
+        "Vise un ballon à son effigie. Surveille le Pokémon suivant et enchaîne les touches pour marquer un bonus."
+      ],
+      [
+        "Regarde la couleur de la boisson dans la bulle du client. Clique pour prendre un verre, puis guide Trompignon avec la clochette.",
+        "Clique devant le client qui a commandé cette boisson. Déplace la souris doucement pour garder le plateau en équilibre."
+      ],
+      [
+        "Guide Victini avec la lumière. Évite les rochers, collecte de l’énergie et prends un macaron pour obtenir un bonus temporaire.",
+        "Devant le coffre, utilise l’énergie avec Reshiram ou Zekrom. Après avoir terminé la campagne, ouvre la personnalisation du C-Gear pour retrouver ton habillage."
+      ],
+      [
+        "Sélectionne une ou plusieurs flammes voisines sur la même ligne, puis clique pour les éteindre.",
+        "Celui qui éteint la dernière flamme perd. Essaie de la laisser à ton adversaire."
+      ],
+      [
+        "À la bifurcation, maintiens le bouton et trace le symbole de la voie choisie d’un seul trait. Relâche pour prendre cette voie.",
+        "Regarde où se trouvent les gemmes. Un obstacle peut en faire tomber de ton wagon."
+      ],
+      [
+        "Clique sur une case de glace pour y glisser. Repère les friandises qui tombent et ramasse-les avant les autres.",
+        "Quitte la glace qui se fissure. Si tu tombes à l’eau, tu perds du temps."
+      ],
+      [
+        "Choisis une planche et un Pokémon. Clique quand la jauge est presque pleine, puis clique pour régler l’angle.",
+        "Saute au bon moment et incline la planche avec la souris. Profite du vent et des tremplins pour atteindre 1 500 m."
+      ],
+      [
+        "Lis les commandes dans les bulles. Clique sur le comptoir pour prendre une boisson et guide Trompignon vers le client.",
+        "Avance doucement puis clique pour servir le bon verre. Essaie de servir le plus de clients possible avant la fin."
+      ],
+      [
+        "Déplace la lumière pour guider Dracaufeu. Ramasse de l’énergie et contourne les rochers.",
+        "Le bonus permet de briser les rochers. Utilise l’énergie accumulée quand tu arrives au coffre."
+      ]
     ]
   },
   "de": {
@@ -117,6 +333,60 @@
       "Über den See gleiten",
       "Pokémon-Bistro · Getränke servieren",
       "Gluraks Schatztruhe"
+    ],
+    "language_label": "Sprache",
+    "help_title": "Spielanleitung",
+    "all_help": "Alle Minispiel-Anleitungen",
+    "practice_one": "Dieses Spiel ausprobieren",
+    "instructions": [
+      [
+        "Merke dir den Namen des vermissten Pokémon. Wechsle mit den Pfeilen das Gebiet und klicke auf wackelndes Gras, Bäume oder Felsen.",
+        "Lausche seinem Ruf. Je lauter er ist, desto näher bist du. Sammle den funkelnden Gegenstand ein und suche in der Nähe weiter."
+      ],
+      [
+        "Wähle eine Beere. Halte die Maustaste über einer Eissorte gedrückt, ziehe die Kugel über den Becher und lass los.",
+        "Orientiere dich an der Größe der Musterkugel. Wechsle zwischen den drei Sorten und beginne in der Mitte."
+      ],
+      [
+        "Steuere die Fahne mit der Maus. Dein Pokémon folgt ihr. Erreiche das Ziel vor Ablauf der Zeit.",
+        "Weiche Wolken und Symbolen für Typschwächen aus. Drei passende Typsymbole erhöhen dein Tempo. Mit der Leertaste pausierst du."
+      ],
+      [
+        "Bewege Wailord unter das fallende Pokémon. Klicke, um es mit einer Wasserfontäne nach oben zu schleudern.",
+        "Ziele auf einen Ballon mit dem passenden Bild. Achte auf das nächste Pokémon und triff mehrere Ballons hintereinander."
+      ],
+      [
+        "Schau in die Sprechblase des Gasts. Nimm per Klick das passende Getränk und führe Tarnpignon mit der Glocke zum Tisch.",
+        "Klicke vor dem richtigen Gast, um zu servieren. Bewege die Maus langsam, damit nichts vom Tablett rutscht."
+      ],
+      [
+        "Führe Victini mit dem Licht, weiche Felsen aus und sammle Typ-Energie. Ein Macaron verstärkt Victini vorübergehend.",
+        "Nutze die Energie an der Truhe zusammen mit Reshiram oder Zekrom. Nach Abschluss der regulären Aktion findest du den C-Gear-Hintergrund in der Individualisierung."
+      ],
+      [
+        "Klicke eine oder mehrere benachbarte Flammen in derselben Reihe an. Bestätige, um sie auszublasen.",
+        "Wer die letzte Flamme löscht, verliert. Versuche, sie deinem Gegner zu überlassen."
+      ],
+      [
+        "Halte an einer Abzweigung die Maustaste gedrückt. Zeichne das Zeichen über dem gewünschten Gleis in einem Zug nach und lass los.",
+        "Schau, auf welchem Gleis Edelsteine liegen. Stößt die Lore gegen ein Hindernis, können gesammelte Steine herausfallen."
+      ],
+      [
+        "Klicke auf ein Eisfeld, um dorthin zu gleiten. Sammle die Süßigkeiten vor den anderen Pokémon ein.",
+        "Verlasse rissige Felder rechtzeitig. Fällst du ins Wasser, kostet das Zeit."
+      ],
+      [
+        "Wähle Brett und Pokémon. Klicke bei fast voller Kraftanzeige und dann erneut, um den Winkel einzustellen.",
+        "Springe im richtigen Moment. Neige das Brett in der Luft mit der Maus und nutze Wind und Trampoline für die 1.500 Meter."
+      ],
+      [
+        "Achte auf die Farbe der bestellten Getränke. Klicke auf die Theke und führe Tarnpignon mit der Glocke zum Gast.",
+        "Bewege das Tablett vorsichtig. Klicke vor dem Gast, um den richtigen Becher abzugeben, bevor die Zeit abläuft."
+      ],
+      [
+        "Bewege das Licht, damit Glurak ihm folgt. Sammle Typ-Energie und fliege um die Felsen herum.",
+        "Mit der Verstärkung kannst du Felsen durchbrechen. Setze die gesammelte Energie an der Schatztruhe ein."
+      ]
     ]
   },
   "es": {
@@ -141,6 +411,60 @@
       "Cruza el lago",
       "Bistró Pokémon · servir bebidas",
       "El cofre de Charizard"
+    ],
+    "language_label": "Idioma",
+    "help_title": "Cómo jugar",
+    "all_help": "Instrucciones de todos los minijuegos",
+    "practice_one": "Probar este minijuego",
+    "instructions": [
+      [
+        "Recuerda el nombre del Pokémon perdido. Usa las flechas para cambiar de zona y haz clic en la hierba, los árboles o las rocas que se muevan.",
+        "Escucha su grito. Cuanto más fuerte suene, más cerca estará. Recoge el objeto brillante y busca a su alrededor."
+      ],
+      [
+        "Elige una Baya. Mantén pulsado el ratón sobre una cubeta para formar una bola de helado, arrástrala sobre la copa y suéltala.",
+        "Intenta igualar el tamaño de la muestra. Alterna los tres sabores y empieza a apilar en el centro."
+      ],
+      [
+        "Mueve la bandera con el ratón para guiar a tu Pokémon. Llega a la meta antes de que se acabe el tiempo.",
+        "Evita las nubes y los símbolos de debilidad. Reúne tres símbolos de tu tipo para acelerar. Pulsa espacio para pausar."
+      ],
+      [
+        "Coloca a Wailord debajo del Pokémon que cae. Haz clic para lanzar un chorro de agua y hacerlo rebotar.",
+        "Apunta al globo que lleve su imagen. Vigila al siguiente Pokémon y encadena aciertos para conseguir puntos extra."
+      ],
+      [
+        "Mira el color de la bebida que aparece en el pedido. Haz clic para recogerla y guía a Foongus con la campanilla.",
+        "Haz clic delante del cliente que la pidió. Mueve el ratón con suavidad para que no se caigan las bebidas."
+      ],
+      [
+        "Guía a Victini con la luz. Esquiva las rocas y recoge energía. Un macaron le dará un impulso temporal.",
+        "Junto al cofre, usa la energía con Reshiram o Zekrom. Al terminar la promoción, visita la sección de personalización para elegir el fondo del C-Gear."
+      ],
+      [
+        "Selecciona una o más llamas contiguas de la misma fila y confirma para apagarlas.",
+        "Pierde quien apague la última llama. Intenta dejársela a tu rival."
+      ],
+      [
+        "En una bifurcación, mantén pulsado el ratón y dibuja de un trazo el símbolo de la vía que quieras tomar. Suelta para elegirla.",
+        "Mira por qué vía hay más gemas. Si la vagoneta choca con un obstáculo, puedes perder algunas."
+      ],
+      [
+        "Haz clic en una casilla de hielo para deslizarte hasta ella. Mira dónde caen los dulces y recógelos antes que los demás.",
+        "Aléjate del hielo agrietado. Si caes al agua, tardarás en volver."
+      ],
+      [
+        "Elige una tabla y un Pokémon. Haz clic cuando el indicador esté casi lleno y vuelve a hacer clic para fijar el ángulo.",
+        "Salta en el momento justo e inclina la tabla en el aire con el ratón. Usa el viento y los trampolines para llegar a los 1500 m."
+      ],
+      [
+        "Fíjate en los colores de los pedidos. Haz clic en el mostrador para recoger una bebida y guía a Foongus hasta su cliente.",
+        "Lleva la bandeja despacio y haz clic para entregar el vaso correcto. Atiende tantos pedidos como puedas antes del final."
+      ],
+      [
+        "Mueve la luz para guiar a Charizard. Recoge energía y esquiva las rocas.",
+        "Con el potenciador podrás romper rocas. Al llegar al cofre, usa la energía que has reunido."
+      ]
     ]
   },
   "it": {
@@ -165,6 +489,60 @@
       "Attraversa il lago",
       "Bistrot Pokémon · servi le bevande",
       "Lo scrigno di Charizard"
+    ],
+    "language_label": "Lingua",
+    "help_title": "Come si gioca",
+    "all_help": "Istruzioni di tutti i minigiochi",
+    "practice_one": "Prova questo minigioco",
+    "instructions": [
+      [
+        "Ricorda il nome del Pokémon smarrito. Usa le frecce per spostarti e clicca su erba, alberi o rocce che si muovono.",
+        "Ascolta il verso: più è forte, più sei vicino. Raccogli l’oggetto luccicante e cerca nei dintorni."
+      ],
+      [
+        "Scegli una Bacca. Tieni premuto il pulsante del mouse su una vaschetta per formare una pallina, trascinala sulla coppa e rilascia.",
+        "Segui le dimensioni del modello. Alterna i tre gusti e inizia a impilare al centro della coppa."
+      ],
+      [
+        "Muovi la bandierina con il mouse per guidare il Pokémon. Raggiungi il traguardo prima che scada il tempo.",
+        "Evita le nuvole e i simboli dei tipi a cui sei debole. Raccogli tre simboli del tuo tipo per accelerare. Premi spazio per una pausa."
+      ],
+      [
+        "Sposta Wailord sotto il Pokémon in caduta. Clicca per sollevarlo con un getto d’acqua.",
+        "Mira al palloncino con la sua immagine. Tieni d’occhio il Pokémon successivo e colpisci più palloncini di fila."
+      ],
+      [
+        "Guarda il colore della bevanda nel fumetto del cliente. Clicca per prenderla e guida Foongus con la campanella.",
+        "Clicca davanti al cliente che l’ha ordinata. Muovi lentamente il mouse per tenere in equilibrio il vassoio."
+      ],
+      [
+        "Guida Victini con la luce. Evita le rocce, raccogli energia e prendi un macaron per potenziarti per un po’.",
+        "Davanti allo scrigno usa l’energia insieme a Reshiram o Zekrom. Dopo aver completato la promozione, scegli lo sfondo del C-Gear nella sezione di personalizzazione."
+      ],
+      [
+        "Seleziona una o più fiamme adiacenti sulla stessa riga, poi conferma per spegnerle.",
+        "Chi spegne l’ultima fiamma perde. Cerca di lasciarla all’avversario."
+      ],
+      [
+        "Al bivio tieni premuto il pulsante del mouse, traccia in un solo gesto il simbolo del binario che vuoi prendere e rilascia.",
+        "Guarda dove sono le gemme. Se il carrello urta un ostacolo, alcune possono cadere."
+      ],
+      [
+        "Clicca su una casella di ghiaccio per scivolare fin lì. Guarda dove cadono i dolci e raccoglili prima degli altri.",
+        "Allontanati quando il ghiaccio si crepa. Cadere in acqua fa perdere tempo."
+      ],
+      [
+        "Scegli una tavola e un Pokémon. Clicca quando l’indicatore è quasi pieno, poi clicca di nuovo per fissare l’angolo.",
+        "Salta al momento giusto e inclina la tavola in volo con il mouse. Sfrutta il vento e i trampolini per arrivare a 1500 metri."
+      ],
+      [
+        "Controlla il colore delle bevande ordinate. Clicca sul bancone per prendere un bicchiere e guida Foongus fino al cliente.",
+        "Muoviti piano e clicca per porgere il bicchiere giusto. Completa più ordini possibile prima dello scadere del tempo."
+      ],
+      [
+        "Sposta la luce per guidare Charizard. Raccogli energia e aggira le rocce.",
+        "Con il potenziamento puoi rompere le rocce. Davanti allo scrigno usa l’energia raccolta."
+      ]
     ]
   },
   "ko": {
@@ -189,6 +567,60 @@
       "보드로 호수 건너기",
       "포켓몬 비스트로 · 음료 나르기",
       "리자몽의 보물상자"
+    ],
+    "language_label": "언어",
+    "help_title": "미니게임 하는 법",
+    "all_help": "모든 미니게임 설명 보기",
+    "practice_one": "이 게임 연습하기",
+    "instructions": [
+      [
+        "시작할 때 잃어버린 포켓몬의 이름을 기억하세요. 화살표로 장소를 옮기고 흔들리는 풀숲, 나무, 바위를 클릭해서 찾아보세요.",
+        "귀를 기울여 울음소리를 들어 보세요. 소리가 클수록 가까이에 있어요. 반짝이는 분실물을 줍고 주변을 살펴보세요."
+      ],
+      [
+        "나무열매를 고른 뒤 아이스크림 통에서 마우스 버튼을 길게 눌러 한 덩이를 뜨세요. 그대로 그릇 위로 끌어와 버튼을 놓으세요.",
+        "보기와 비슷한 크기로 떠 보세요. 세 가지 맛을 번갈아 쓰고 그릇 가운데부터 쌓으면 안정적이에요."
+      ],
+      [
+        "마우스로 깃발을 움직이면 포켓몬이 따라와요. 제한 시간 안에 결승선에 도착하세요.",
+        "구름과 약점 타입 표시를 피하세요. 같은 타입 표시를 세 개 모으면 빨라져요. 스페이스 바로 잠시 멈출 수 있어요."
+      ],
+      [
+        "떨어지는 포켓몬 아래로 고래왕을 옮기세요. 클릭해 물줄기를 뿜으면 포켓몬이 다시 튀어 올라요.",
+        "그 포켓몬의 그림이 있는 풍선을 노리세요. 다음에 떨어지는 포켓몬을 살피면서 연속으로 풍선을 맞혀 보세요."
+      ],
+      [
+        "손님의 말풍선에서 주문한 음료 색을 확인하세요. 클릭해서 음료를 집고 종을 움직여 깜놀버슬을 안내하세요.",
+        "주문한 손님 앞에서 클릭하면 음료를 건넬 수 있어요. 쟁반이 기울지 않게 천천히 움직이세요."
+      ],
+      [
+        "빛을 움직여 비크티니를 안내하세요. 바위를 피하며 타입 에너지를 모으세요. 마카롱을 먹으면 잠시 힘이 세져요.",
+        "보물상자 앞에서 레시라무나 제크로무와 함께 모은 에너지를 사용하세요. 본편 이벤트를 완료하면 꾸미기 메뉴에서 C기어 스킨을 고를 수 있어요."
+      ],
+      [
+        "같은 가로줄에서 붙어 있는 불꽃을 하나 이상 고르고 확인을 눌러 끄세요. 꺼진 초를 건너뛸 수는 없어요.",
+        "마지막 불꽃을 끈 쪽이 져요. 상대에게 마지막 불꽃 하나가 남도록 해 보세요."
+      ],
+      [
+        "갈림길에서 마우스 버튼을 누른 채 가고 싶은 선로의 표시를 한 번에 그린 뒤 버튼을 놓으세요.",
+        "어느 쪽에 보석이 많은지 보세요. 수레가 장애물과 부딪히면 모은 보석이 떨어질 수 있어요."
+      ],
+      [
+        "이동할 얼음 칸을 클릭해 미끄러지세요. 간식이 떨어지는 곳을 보고 다른 포켓몬보다 먼저 주우세요.",
+        "얼음에 금이 가면 다른 칸으로 피하세요. 물에 빠지면 돌아오는 데 시간이 걸려요."
+      ],
+      [
+        "보드와 탈 포켓몬을 고르세요. 힘 게이지가 거의 찼을 때 클릭하고 다시 클릭해 각도를 정하세요.",
+        "때를 맞춰 뛰고 공중에서 마우스로 보드를 기울이세요. 바람과 트램펄린을 이용해 1500m를 목표로 날아가세요."
+      ],
+      [
+        "말풍선에서 주문한 음료의 색을 확인하세요. 카운터를 클릭해서 잔을 집고 깜놀버슬을 손님에게 안내하세요.",
+        "쟁반을 천천히 움직이고 손님 앞에서 클릭해 맞는 잔을 건네세요. 시간 안에 최대한 많이 배달해 보세요."
+      ],
+      [
+        "빛을 움직여 리자몽을 안내하세요. 바위를 피해 날면서 타입 에너지를 모으세요.",
+        "힘이 강해졌을 때는 바위를 부술 수 있어요. 보물상자 앞에서 모아 둔 에너지를 사용하세요."
+      ]
     ]
   }
 }

@@ -64,7 +64,14 @@
       "access": "File access failed. Close the emulator, check folder permissions or choose a single save to download a copy.",
       "changed": "The save changed and was reloaded. Review it before updating.",
       "done": "Updated. Reopen the game. Backup: {file}."
-    }
+    },
+    "dream_steps": [
+      "On the C-Gear touch screen, choose Wi-Fi → Game Sync and tuck in a Pokémon. Wait for the transfer to finish, then open the Dream World with the same game selected on the website.",
+      "From your house, follow the arrows to the rainbow bridge and cross to the Island of Dreams. Click moving grass, icicles or other shaking objects to look for Pokémon. Click a sparkle to collect an item.",
+      "Play a minigame with a Pokémon you meet. At the Tree of Dreams, click the hollow, offer a Berry and choose one of the Pokémon you befriended.",
+      "At the house, use the chest to choose items to take back. Select a C-Gear skin under Customize if you want one. Use the power button at the top right of the Dream World and confirm you are ready to wake up.",
+      "Open Wi-Fi → Game Sync on the same save and wake your sleeping Pokémon. When the transfer finishes, choose Wireless → Entralink, walk north into the Entree Forest and talk to your new partner to catch it."
+    ]
   },
   "ja": {
     "wake_title": "ポケモンを起こせます",
@@ -131,7 +138,14 @@
       "access": "ファイルにアクセスできません。エミュレーターを閉じて権限を確認するか、個別のセーブを選んでください。",
       "changed": "セーブが変更されたため読み直しました。内容を確認してください。",
       "done": "更新できました。ゲームを開き直してください。バックアップは {file} です。"
-    }
+    },
+    "dream_steps": [
+      "Cギアの下画面で「Wi-Fi → ゲームシンク」を選び、ポケモンを1匹寝かせる。通信が終わったら、ウェブで同じゲームソフトを選んでドリームワールドに入ろう。",
+      "自分のホームから矢印に沿ってゆめのかけはしを渡り、ゆめしまへ。揺れる草むらやつららなどをクリックしてポケモンを探し、光る場所をクリックして道具を拾おう。",
+      "出会ったポケモンとミニゲームで遊ぼう。ゆめの木に着いたら木の穴をクリックし、きのみを1個お供えして、連れて帰る仲間を選ぼう。",
+      "ホームの宝箱で持ち帰る道具を選ぼう。Cギアスキンを変えるなら、先にウェブの「カスタマイズ」で設定する。最後に画面右上の電源ボタンを押し、起こす準備をして終了しよう。",
+      "同じソフトの「Wi-Fi → ゲームシンク」で寝ているポケモンを起こす。通信が終わったら「WIRELESS → ハイリンク」を選び、北のハイリンクの森で仲間に話しかけて捕まえよう。"
+    ]
   },
   "zh": {
     "wake_title": "宝可梦正在等待唤醒",
@@ -198,7 +212,14 @@
       "access": "无法读写文件。请关闭模拟器、检查文件夹权限，或选择单个存档下载副本。",
       "changed": "存档刚刚发生变化，已重新读取。请确认后再操作。",
       "done": "已更新，可重新打开游戏。原存档的备份为 {file}。"
-    }
+    },
+    "dream_steps": [
+      "在掌机 C 装置下屏点“Wi-Fi → 游戏同步”（日文「ゲームシンク」），选一只宝可梦入睡。等同步完成后，在网页选择绑定这张卡带的存档，再进入梦世界。",
+      "从小屋沿箭头走到彩虹桥，过桥进入梦之岛。点击晃动的草丛、冰锥等物体寻找宝可梦；看到闪光就点击拾取道具。",
+      "点击遇见的宝可梦，玩它的小游戏。到了梦之树，点击树洞，献上一枚树果，再从结交的伙伴里选一只带回去。",
+      "回到小屋，在宝箱里选好要送回的道具。想换 C 装置壁纸时，先在网页“自定义”里选好。最后点梦世界右上角的电源按钮，选择“准备唤醒并结束”，核对伙伴后确认。",
+      "回到同一份游戏存档，用“Wi-Fi → 游戏同步”唤醒入睡的宝可梦。同步结束后打开“WIRELESS → ハイリンク”，往北进连入之森，与刚才许愿的伙伴对话并捕捉。"
+    ]
   },
   "fr": {
     "wake_title": "Votre Pokémon peut être réveillé",
@@ -265,7 +286,14 @@
       "access": "Accès impossible. Fermez l’émulateur, vérifiez les autorisations ou choisissez un fichier seul.",
       "changed": "Le fichier a changé et a été relu. Vérifiez-le avant la mise à jour.",
       "done": "Mise à jour terminée. Rouvrez le jeu. Sauvegarde d’origine : {file}."
-    }
+    },
+    "dream_steps": [
+      "Sur l’écran tactile du C-Gear, sélectionne Wi-Fi puis Synchro-Jeu et choisis un Pokémon à endormir. Une fois le transfert terminé, sélectionne la même sauvegarde sur le site.",
+      "Depuis la maison, suis les flèches et traverse le pont arc-en-ciel. Sur l’île, clique sur les objets qui remuent pour chercher un Pokémon, ou sur une étincelle pour ramasser un objet.",
+      "Joue avec un Pokémon rencontré. À l’Arbre des Rêves, clique sur le creux du tronc, offre une Baie et choisis le Pokémon qui t’accompagnera.",
+      "À la maison, choisis dans le coffre les objets à emporter. Choisis aussi ton habillage C-Gear dans la personnalisation. Clique ensuite sur le bouton d’alimentation en haut à droite et confirme le réveil.",
+      "Dans la même sauvegarde, réveille ton Pokémon par Wi-Fi et Synchro-Jeu. Ouvre ensuite le Heylink depuis le menu sans fil du C-Gear, marche vers le nord et parle à ton nouveau partenaire dans la forêt pour le capturer."
+    ]
   },
   "it": {
     "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -332,7 +360,14 @@
       "access": "Accesso non riuscito. Chiudi l’emulatore, controlla i permessi o seleziona un solo file.",
       "changed": "Il file è cambiato ed è stato riletto. Controllalo prima di aggiornarlo.",
       "done": "Aggiornato. Riapri il gioco. Backup: {file}."
-    }
+    },
+    "dream_steps": [
+      "Sul touch screen del C-Gear seleziona Wi-Fi e Sincrogioco. Scegli un Pokémon da far addormentare. Una volta terminato il trasferimento, seleziona lo stesso salvataggio sul sito.",
+      "Dalla casa, segui le frecce e attraversa il ponte arcobaleno. Sull’isola clicca sugli oggetti che si muovono per cercare Pokémon e sui luccichii per raccogliere strumenti.",
+      "Gioca a un minigioco con un Pokémon che incontri. All’Albero dei Sogni clicca sulla cavità, offri una Bacca e scegli un compagno.",
+      "A casa, scegli nel forziere gli strumenti da portare con te. Se vuoi uno sfondo per il C-Gear, selezionalo nella personalizzazione. Premi il pulsante di accensione in alto a destra e conferma il risveglio.",
+      "Risveglia il Pokémon nello stesso salvataggio con Wi-Fi e Sincrogioco. Dal menu wireless del C-Gear entra nell’Intramondo, vai a nord nella Foresta Intramondo e parla al nuovo compagno per catturarlo."
+    ]
   },
   "de": {
     "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -399,7 +434,14 @@
       "access": "Dateizugriff fehlgeschlagen. Schließe den Emulator, prüfe die Berechtigungen oder wähle eine einzelne Datei.",
       "changed": "Die Datei wurde geändert und erneut geladen. Prüfe sie vor dem Aktualisieren.",
       "done": "Aktualisiert. Öffne das Spiel erneut. Sicherung: {file}."
-    }
+    },
+    "dream_steps": [
+      "Wähle auf dem C-Gear-Touchscreen Wi-Fi und Spielsynchro. Lass ein Pokémon schlafen, warte auf das Ende der Übertragung und wähle auf der Website denselben Spielstand.",
+      "Folge von deinem Haus aus den Pfeilen über die Regenbogenbrücke. Klicke auf der Trauminsel auf wackelnde Objekte, um Pokémon zu finden, und auf funkelnde Stellen, um Gegenstände einzusammeln.",
+      "Spiele ein Minispiel mit einem Pokémon. Klicke am Traumbaum auf die Höhlung, opfere eine Beere und wähle einen deiner neuen Freunde.",
+      "Wähle in der Truhe zu Hause die Gegenstände für die Rückreise und bei Bedarf unter Individualisierung einen C-Gear-Hintergrund. Klicke oben rechts auf den Ausschalter und bestätige, dass du das Pokémon wecken möchtest.",
+      "Wecke dein Pokémon im selben Spielstand über Wi-Fi und Spielsynchro. Gehe anschließend über das Drahtlos-Menü zur Kontaktebene, laufe nach Norden in den Kontakthain und sprich deinen neuen Partner an, um ihn zu fangen."
+    ]
   },
   "es": {
     "wake_title": "Tu Pokémon está listo para despertar",
@@ -466,7 +508,14 @@
       "access": "No se pudo acceder al archivo. Cierra el emulador, comprueba los permisos o elige un archivo individual.",
       "changed": "La partida ha cambiado y se ha vuelto a leer. Revísala antes de actualizarla.",
       "done": "Partida actualizada. Abre el juego de nuevo. Copia original: {file}."
-    }
+    },
+    "dream_steps": [
+      "En la pantalla táctil del C-Gear, abre Wi-Fi y Sincronizar Juego. Elige un Pokémon para dormir y espera a que termine la transferencia. Selecciona esa misma partida en la web.",
+      "Desde tu casa, sigue las flechas y cruza el puente arcoíris. En la isla, haz clic en objetos que se muevan para buscar Pokémon y en destellos para recoger objetos.",
+      "Juega al minijuego de un Pokémon que encuentres. En el Árbol de los Sueños, toca el hueco del tronco, ofrece una Baya y elige un compañero.",
+      "En casa, elige en el cofre los objetos que quieras llevarte. Si quieres un fondo para el C-Gear, elígelo en personalización. Pulsa el botón de encendido en la esquina superior derecha y confirma que quieres despertar al Pokémon.",
+      "Despiértalo desde Wi-Fi y Sincronizar Juego en la misma partida. En el menú inalámbrico del C-Gear, abre la Zona Nexo y camina hacia el norte hasta el Bosque Nexo. Habla con tu nuevo compañero para capturarlo."
+    ]
   },
   "ko": {
     "wake_title": "포켓몬을 깨울 수 있어요",
@@ -533,6 +582,13 @@
       "access": "파일을 열 수 없습니다. 에뮬레이터를 닫고 권한을 확인하거나 파일 하나를 선택하세요.",
       "changed": "저장 파일이 변경되어 다시 읽었습니다. 업데이트 전에 확인하세요.",
       "done": "업데이트했습니다. 게임을 다시 여세요. 원본 백업은 {file}입니다."
-    }
+    },
+    "dream_steps": [
+      "C기어 아래 화면에서 Wi-Fi와 게임싱크를 선택해 포켓몬 한 마리를 재우세요. 전송이 끝나면 웹사이트에서 같은 게임의 저장 데이터를 고르세요.",
+      "집에서 화살표를 따라 무지개다리를 건너세요. 섬에서 흔들리는 풀숲이나 고드름을 클릭하면 포켓몬을 찾을 수 있고, 반짝이는 곳을 클릭하면 도구를 주울 수 있어요.",
+      "만난 포켓몬과 미니게임을 하세요. 꿈의 나무에 도착하면 나무 구멍을 클릭하고 나무열매 하나를 바친 뒤 데려갈 친구를 고르세요.",
+      "집의 보물상자에서 가져갈 도구를 고르세요. C기어 스킨을 바꾸려면 꾸미기에서 먼저 선택하세요. 오른쪽 위 전원 버튼을 누르고 깨울 준비를 마치세요.",
+      "같은 저장 데이터에서 Wi-Fi와 게임싱크로 포켓몬을 깨우세요. 전송이 끝나면 C기어의 무선 메뉴에서 하일링크로 이동하세요. 북쪽 숲에 들어가 새 친구에게 말을 걸면 잡을 수 있어요."
+    ]
   }
 }

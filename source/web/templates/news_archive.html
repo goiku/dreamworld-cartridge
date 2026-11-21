@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ heading }} · Pokémon Global Link</title>
+<link rel="stylesheet" href="{{ url_for('player_guide.static',filename='player-guide.css') }}"></head>
+<body class="dw-guide"><header class="guide-header"><a href="/">Pokémon Global Link</a><a href="/languages/?page=/information/">{{ language_label }}</a></header>
+<main class="guide-main"><h1>{{ heading }}</h1>
+{% for article in rows %}{% if article.url %}<p><a href="{{ article.url }}">{{ article.title }}</a></p>
+{% else %}<details class="console-model" id="news-{{ article.news_id }}"><summary>{% if article.date %}<time>{{ article.date }}</time> · {% endif %}{{ article.title }}</summary>
+{% for line in article.description.splitlines() %}{% if line %}<p>{{ line }}</p>{% endif %}{% endfor %}</details>{% endif %}{% endfor %}</main></body></html>

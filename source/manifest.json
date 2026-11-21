@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "da03429e4147e93c00b26d78ff75d3b1bcb5913dedbac9bafae631ae8633835c",
+    "patch_sha256": "d44f0433e04f34660470555d6b62a780810cb3e16b60285344bb8c9180d740e0",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -116,6 +116,10 @@
           "2905795fd0bb43071035f7312f4dbfa652368dc967ccedc5388fdf0270c742bb"
         ]
       },
+      "api/pgl_news.py": {
+        "before": "39fb1e135835e1ad209abec4fa0a9260e7a38bf31f25dd27a9ce7536e052a39e",
+        "after": "c7e843b17ee465b0033604725f91cc9152389ba31cbca02562ca937fad734a12"
+      },
       "api/pgl_pals.py": {
         "before": null,
         "after": "821acffe352cccb87b10553240c224958d00b299bbc5d1b5bd02c35e53985927"
@@ -138,7 +142,7 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "a5c149056f327cbcfcdd93be4bd727a8dea30215b770c5f36819e440674bb279",
+        "after": "c5021a3607a5fc6e8645093f7c99d49927a37d803054519d76af657a4fe70a0c",
         "previous": [
           "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
@@ -146,6 +150,7 @@
           "6bdb7523954d330a145ca50c2bc81078e749753faffbd3f1f9776717e706f8c5",
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
           "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49",
+          "a5c149056f327cbcfcdd93be4bd727a8dea30215b770c5f36819e440674bb279",
           "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e"
         ]
       },
@@ -155,10 +160,11 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
+        "after": "afacddd724074ef1cc97b026c381cf4504373ba14c56fde33b59293653952bcb",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
+          "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
           "b2f5e44504cc98dfbfc9cb5f0091213ce53822bbf893af14546d604133ac9a21",
@@ -173,7 +179,10 @@
       },
       "api/stubs.py": {
         "before": "c6677d3627119fe927509244a008580e068b61e6cc3646ea638b17da4484a3ba",
-        "after": "89dacc7fb7185baf647f4e9a406e2b3307c2f719dc094c08b94d19e3006b3256"
+        "after": "5ebba7d69ea370ea7ed1ca09ac9d4a33487f48e8257a93c59fdfef5a4aa45cc8",
+        "previous": [
+          "89dacc7fb7185baf647f4e9a406e2b3307c2f719dc094c08b94d19e3006b3256"
+        ]
       },
       "api/tournaments.py": {
         "before": null,
@@ -250,14 +259,19 @@
         "before": null,
         "after": "e67d24f18a6fd7dab0dfe2c585c00008a5f7c539d576debd543f35cf7eef7fb7"
       },
+      "json_data/news_zh.json": {
+        "before": null,
+        "after": "a2bf8c64393bad9290d1f27f63d63bb7b44e556d877b740561bed02cd3a7a3db"
+      },
       "json_data/offline_islands_ui.json": {
         "before": null,
         "after": "debaffb24dbd2ef689e635a91f41556d9c3d5047f396c57c64433c81da3273d0"
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
+        "after": "3cee081d1ad138589f21c99cbe4810dd00ab6c86303fbd5077ba477196f25055",
         "previous": [
+          "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
           "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
@@ -273,7 +287,10 @@
       },
       "json_data/practice.json": {
         "before": null,
-        "after": "87d88c640909a751ab24a32b95acd303515f575b2d0bc55858d7029f6dbc725c"
+        "after": "e7bdf754a8c43947f59d2b764c8322192d70093766489a2cd53fff7839eaff9a",
+        "previous": [
+          "87d88c640909a751ab24a32b95acd303515f575b2d0bc55858d7029f6dbc725c"
+        ]
       },
       "json_data/profile_avatar_forms.json": {
         "before": null,
@@ -489,7 +506,10 @@
       },
       "static/practice.css": {
         "before": null,
-        "after": "3d3fb52671bc5ebf845e988b0cd4f9bd6fe06fd8c9867883b85e9effff5eeb70"
+        "after": "81238b3a99e4738308a70624e122fdc91bfca3e6f10de5b644a36e25e8599a64",
+        "previous": [
+          "3d3fb52671bc5ebf845e988b0cd4f9bd6fe06fd8c9867883b85e9effff5eeb70"
+        ]
       },
       "static/practice.js": {
         "before": null,
@@ -564,6 +584,10 @@
           "c6058d1734d5701c1e3a1ef85d198a990918e8e76b336b7cac2355564655ec1f"
         ]
       },
+      "templates/news_archive.html": {
+        "before": null,
+        "after": "1a843e7e4f493c6833ad7ea426bbc6a243b2b6bfd8b3213698d690a0f4736ce2"
+      },
       "templates/pdw_wake_ready.html": {
         "before": null,
         "after": "e1c8142cf467dfba3e7fa63dc93cd5f802634e938c869a1a1a9d335391494382"
@@ -574,8 +598,9 @@
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
+        "after": "feeb10fba4da070c1af82caa459e6fe859fa90282d863c03e54299eae8fe2790",
         "previous": [
+          "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
           "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
           "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
@@ -586,7 +611,10 @@
       },
       "templates/practice.html": {
         "before": null,
-        "after": "ca8647e4fa7a2f9ff86d759d4c8dad0560aa1f081ba060ebeafda0aee34cc5b7"
+        "after": "923496ba08e81d4e00d6becf7fb0057dca86006b53f58565ccf6bd3ead3fb756",
+        "previous": [
+          "ca8647e4fa7a2f9ff86d759d4c8dad0560aa1f081ba060ebeafda0aee34cc5b7"
+        ]
       },
       "templates/tournaments.html": {
         "before": null,
@@ -608,6 +636,10 @@
           "921fe1eeb2da01f5e721ff21fa9e12dda93077182fab5af9afc2a8b93a8418bc",
           "f8dbe07ac4f9c9bbcb2733e099cc4660bc17895cebb75322e121dfaaf4f8d6cb"
         ]
+      },
+      "tests/test_game_guides_news.py": {
+        "before": null,
+        "after": "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5"
       },
       "tests/test_gen5_names.py": {
         "before": null,
@@ -696,7 +728,10 @@
       },
       "utils/assets.py": {
         "before": "d70a69227d30b3c5401dc80a88bd270fc860bbd9ea83bf6373b0af3ed38ae6f5",
-        "after": "e2987200bf59c5e82df0ce1cc30e5b024dbe0043887bae6e78e9f99361af44d8"
+        "after": "322b95ea1fae07d0e42a2cb9e1543f690e670653a31f706639a8647f94cccd6a",
+        "previous": [
+          "e2987200bf59c5e82df0ce1cc30e5b024dbe0043887bae6e78e9f99361af44d8"
+        ]
       },
       "utils/auth.py": {
         "before": "e9c8b2da1d5db1db74c93f7643cb6984c1e5407ba342b0dc937eb049eac496a2",
@@ -865,7 +900,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "4a6ad3826e88f20547509e6bed18470b91b0d5394990983e91b0b07600ea4ae3",
+      "sha256": "903888dc38ed5f3d091f74413b1af46cd3f0c17dfd95e79759f21e9942890202",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",

@@ -15,6 +15,8 @@ static_labels=dict(zip(static_table,(scratch/'static-zh.txt').read_text('utf8').
 static_by_key={key:(s,static_labels[s]) for s,keys in static_table.items() for key in keys}
 def normalized(s):return re.sub(r'\s+','',html.unescape(re.sub('<[^>]+>','',s)))
 static_map={normalized(s):t for s,t in static_labels.items()}
+static_map.update({normalized(s):v.strip() for s,v in abc_values.items() if v.strip() and normalized(s) not in static_map})
+static_map.update(json.loads((scratch/'game-component-zh.json').read_text('utf-8-sig')))
 def edit_text(d):
  pos=2+font.rectlen(d,2);flags=int.from_bytes(d[pos:pos+2],'big');pos+=2
  fid=None
@@ -77,8 +79,13 @@ def trans_static(t,d,fonts,txt):
  xs=[round((j+1)*total/len(txt))-round(j*total/len(txt)) for j in range(len(txt))];adv=max(font.signed_width(x) for x in xs);w=font.Writer()
  for idx,x in zip(glyphs,xs):w.put(idx,n);w.put(x,adv)
  return d[:start-2]+bytes((n,adv))+sub+bytes([len(glyphs)])+w.done()+b'\0'
-def build(p,relative,game):
- blob=p.read_bytes();raw=unpack(blob);at=payload_offset(raw);parts=list(tags(raw,at));used=set();static={};font_ids=set()
+def translate_movie(blob,game,xml_game=None):
+ raw=unpack(blob);at=payload_offset(raw);parts=list(tags(raw,at));used=set();static={};font_ids=set()
+ nested={}
+ for t,d in parts:
+  if t==87 and d[6:9] in (b'CWS',b'FWS'):
+   inner=translate_movie(d[6:],0)
+   if inner is not None:nested[font.u16(d)]=d[:6]+inner
  for t,d in parts:
   if t==82:trans_abc(d,used)
   if t==37:
@@ -90,13 +97,14 @@ def build(p,relative,game):
    key=f'static{game}_{font.u16(d)}'
    if key in static_by_key:
     txt=static_by_key[key][1];fid=static_opts(t,d)[2];static[font.u16(d)]=txt;used.add(txt);font_ids.add(fid)
- if game in (1,7,9):
-  ef=zbase/basegame/f'game{game}/strings_ja.xml'
+ if xml_game is None:xml_game=game
+ if xml_game in (1,7,9):
+  ef=zbase/basegame/f'game{xml_game}/strings_ja.xml'
   for el in ET.fromstring(ef.read_bytes()).iter("string"):
    if el.text:used.add(el.text)
- if not used:return None
+ if not used and not nested:return None
  allfonts={font.u16(d):d[5:5+d[4]].rstrip(b'\0').decode('utf8','replace') for t,d in parts if t in (48,75)}
- chosen={fid for fid,name in allfonts.items() if fid in font_ids or (game in (1,7,9) and ('ゴ' in name or name=='Osaka')) or (game==3 and name=='_ゴシック')}
+ chosen={fid for fid,name in allfonts.items() if fid in font_ids or (xml_game in (1,7,9) and ('ゴ' in name or name=='Osaka')) or (game==3 and name=='_ゴシック')}
  # Empty device font declarations are not mapped to an embedded font by Flash; preserve these,
  # except when static outlines require actual glyphs or they already supply editable text.
  glyphs=''.join(sorted(set(''.join(used))))
@@ -104,21 +112,27 @@ def build(p,relative,game):
  fonts={font.u16(d):font.read_font(t,d) for t,d in parts if t in (48,75)}
  out=bytearray(raw[:at])
  for t,d in parts:
+  if t==87:d=nested.get(font.u16(d),d)
   if t==82:d=trans_abc(d,used)
   if t==37:d=trans_edit(d)[0]
   if t in (11,33) and font.u16(d) in static:d=trans_static(t,d,fonts,static[font.u16(d)])
   out.extend(font.tag(t,d))
  new=b'CWS'+blob[3:4]+struct.pack('<I',len(out)+8)+zlib.compress(out,6)
- dest=zbase/basegame/relative;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(new)
  assert len(unpack(new))==int.from_bytes(new[4:8],'little')-8
- print(relative,'bytes',len(new),'strings',len(used),'font',chosen,'static',len(static),flush=True)
- return {'path':dest.relative_to(base).as_posix(),'font_ids':sorted(chosen),'glyphs':glyphs}
+ return new
+
+def build(p,relative,game,xml_game=None):
+ new=translate_movie(p.read_bytes(),game,xml_game)
+ if new is not None:
+  dest=zbase/basegame/relative;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(new)
+  print(relative,'bytes',len(new),flush=True)
 if __name__=='__main__':
- manifest=[]
  for i in range(1,13):
   for name in ([f'game4.ja.swf'] if i==4 else [f'game{i}.swf']):
-   item=build(shared/name,name,i)
-   if item:manifest.append(item)
+   build(shared/name,name,i)
+ for i in (1,7,9):
+  name=f'game{i}/game.swf'
+  build(shared/name,name,i if i==9 else 0,xml_game=i)
  for i in range(1,5):
   name=f'gameInfo{i}.swf'
   for source,rel in [(shared/name,name),(ja/'ja'/name,'ja/'+name)]:build(source,rel,i+20)

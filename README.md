@@ -4,6 +4,14 @@ English · [日本語](docs/README.ja.md) · [简体中文](docs/README.zh-CN.md
 
 A community restoration of the Generation V Dream World. Play on a computer, befriend a Pokémon on the Island of Dreams, wish for it at the tree, and catch it in the Entree Forest on your cartridge. This repository supplies the source changes and setup tools for a private server.
 
+[Dream World player guide](docs/gameplay.en.md)
+
+Updating an existing installation? After applying the source update, rebuild the Chinese game artwork and illustrated tutorials with the following command. It reuses your installed archive and Ruffle.
+
+```powershell
+uv run --no-project --python 3.13 --with pillow==13.0.0 --with fonttools==4.68.0 python assets-build/build.py runtime --update-game-text
+```
+
 ## Try all 12 minigames
 
 Open **Minigame practice** on the home page or above the Dream World. Choose a game, then use **Play again** or return to the list. No account, sleeping Pokémon or DS connection is required. Practice provides its own Pokémon and Berry. Scores, items and encounters stay out of your regular save. The menu uses your selected language. Some original games have text embedded in their artwork. [Open practice on the host PC](http://127.0.0.1:8080/practice/)

@@ -2804,6 +2804,111 @@ index 593a369cb6d85cea8f431667f71cae3e2d7cccc3..1fd53ca62c862a455d763b5d72f061b8
  @endpoint("pgl.member.profile.init_create", methods=("POST",))
  def init_create(query: Query) -> dict:
      """Finish sign-up by linking a Game Sync ID (if given) and setting the PGL nickname."""
+diff --git a/api/pgl_news.py b/api/pgl_news.py
+index b990eeff052b9a7083dc0c98e272607f23d8bb85..a0a2298a527aeadf93f3509bd940df8b1bed8905 100644
+--- a/api/pgl_news.py
++++ b/api/pgl_news.py
+@@ -1,8 +1,96 @@
+-"""pgl.news.*: PGL news and announcements."""
++"""Serve archived Global Link articles alongside the current server's player guide."""
++from functools import cache
++from pathlib import PurePosixPath
++
++from flask import Blueprint, render_template, session
++
+ from api.routes import Query, endpoint
++from config import ASSET_LANG, LANG
++from utils.assets import resolve_static
++from utils.data import load_json_data
++
++news_pages = Blueprint("news_pages", __name__, template_folder="../templates")
++# The early Flash client and the later homepage used different category numbers.
++HOME_CATEGORY = {1: 9, 2: 10, 3: 8, 4: 12, 5: 12, 6: 11}
++ARCHIVE = {
++    "zh": ("历年公告", "档案仅保留了这则公告的标题。"),
++    "ja": ("過去のお知らせ", "このお知らせは見出しのみ保存されています。"),
++    "en": ("Archived announcements", "Only the headline survives in the archive."),
++    "fr": ("Annonces archivées", "Seul le titre de cette annonce a été conservé."),
++    "de": ("Frühere Mitteilungen", "Von dieser Mitteilung ist nur die Überschrift erhalten."),
++    "it": ("Notizie d’archivio", "Di questa notizia è stato conservato solo il titolo."),
++    "es": ("Noticias de archivo", "Solo se conserva el título de esta noticia."),
++    "ko": ("지난 공지", "이 공지는 제목만 남아 있습니다."),
++}
++
++
++def _available_picture(value: str | None) -> str:
++    if not value:
++        return ""
++    path = PurePosixPath(value)
++    if not value.startswith("/") or ".." in path.parts:
++        return ""
++    resource = f"/src/swf/information/assets/{ASSET_LANG}/img{value}"
++    return value if resolve_static(resource) else ""
++
++
++@cache
++def _archive(lang: str, signed_in: bool) -> tuple:
++    articles = []
++    source_lang = "jp" if lang in ("ja", "zh") else lang
++    chinese = load_json_data("news_zh") if lang == "zh" else {}
++    for ident, row in load_json_data("news")["news"].items():
++        title = (row.get("title") or {}).get(source_lang)
++        if not title:
++            continue
++        metadata = (row.get("api") or {}).get(source_lang, {})
++        if str(metadata.get("login_flag", 0)) == "1" and not signed_in:
++            continue
++        description = (row.get("description") or {}).get(source_lang)
++        if lang == "zh":
++            title, description = chinese[ident]
++        category = int(metadata.get("news_category_id", 0))
++        articles.append(dict(news_id=int(ident), news_category_id=HOME_CATEGORY.get(category, 8),
++                             archive_category=category, date=row.get("date") or "",
++                             title=title, description=description or ARCHIVE[lang][1],
++                             new_flag=0, url_flag=0, url="", url_link_type=1,
++                             filename=_available_picture(metadata.get("filename")),
++                             filename_top=_available_picture(metadata.get("filename_top"))))
++    return tuple(sorted(articles, key=lambda item: (item["date"], item["news_id"]), reverse=True))
++
++
++def _articles() -> list:
++    # A permanent local link also works in editions without surviving news articles.
++    guide = load_json_data("player_guide")[LANG]
++    entry = dict(news_id=1, news_category_id=8, date="", title=guide["title"], new_flag=0,
++                 description="", url="/player-guide/", url_flag=1, url_link_type=1,
++                 filename="", filename_top="", archive_category=0)
++    return [entry, *_archive(LANG, bool(session.get("username")))]
++
++
++def _window(query: Query, name: str, default: int) -> int:
++    try:
++        return max(0, int(query.get(name, default)))
++    except (ValueError, TypeError):
++        return default
++
++
++@endpoint("pgl.news.news_list")
++def news_list(query: Query) -> list:
++    start = _window(query, "offset", 0)
++    return _articles()[start:start + min(100, _window(query, "rowcount", 10))]
+ 
+ 
+ @endpoint("pgl.news.information_list")
+-def information_list(_query: Query) -> dict:
+-    """Return a placeholder with no announcements."""
+-    return {"list": [], "total_count": 0}
++def information_list(query: Query) -> dict:
++    rows = _articles()
++    start = _window(query, "offset", 0)
++    selection = rows[start:start + min(100, _window(query, "rowcount", 10))]
++    return {"list": [dict(row, news_category_id=row["archive_category"]) for row in selection], "total_count": len(rows)}
++
++
++@news_pages.get("/information/")
++@news_pages.get("/information/index.html")
++def archive_page():
++    return render_template("news_archive.html", lang=LANG, heading=ARCHIVE[LANG][0],
++                           language_label=load_json_data("practice")[LANG]["language_label"], rows=_articles())
 diff --git a/api/pgl_pals.py b/api/pgl_pals.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..abc9e9077f8a7c1c46479013c1cff15ec886c4f5
@@ -3177,10 +3282,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..2a958ef9346df0b7bf0a3400d9dec16b6d9f776b
+index 0000000000000000000000000000000000000000..e3471e713b0356d970a39c055cd8564a76497236
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,150 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3219,8 +3324,9 @@ index 0000000000000000000000000000000000000000..2a958ef9346df0b7bf0a3400d9dec16b
 +
 +@player_guide.get("/")
 +def guide() -> str:
++    from api.practice import labels as practice_labels
 +    return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
-+                           language_names=LANGUAGE_NAMES, gifts=distribution_labels())
++                           language_names=LANGUAGE_NAMES, gifts=distribution_labels(), arcade=practice_labels())
 +
 +
 +@player_guide.get("/phone/")
@@ -3288,6 +3394,8 @@ index 0000000000000000000000000000000000000000..2a958ef9346df0b7bf0a3400d9dec16b
 +        friends_link += f'<a href="/campaign/">{escape(distribution_labels()["title"])}</a>'
 +        from api.practice import labels as practice_labels
 +        friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
++        if path == "/pdw/" and practice_labels().get("instructions"):
++            friends_link += f'<a target="_blank" rel="noopener" href="{guide_url}#minigames">{escape(practice_labels()["help_title"])}</a>'
 +        friends_link += f'<a target="_blank" rel="noopener" href="{guide_url}#tuck-in">{escape(t["tuck_title"])}</a>'
 +    data = response.get_data()
 +    visit = path == "/pdw/" and "island" in request.args
@@ -3446,10 +3554,10 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f0b497eca 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..a2cd9b19b2c97e3d46415631de4b6bd2a18e06a7 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,29 @@ import atexit
+@@ -7,18 +7,30 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -3466,6 +3574,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
 +from api.practice import practice
++from api.pgl_news import news_pages
 +from api.pgl_present import customize
 +from api.tournaments import tournaments
  from api.routes import HANDLERS, Query, load_handlers
@@ -3483,7 +3592,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +49,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +50,7 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
@@ -3493,7 +3602,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +64,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +65,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -3506,7 +3615,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +97,83 @@ def api_post() -> Response:
+@@ -81,25 +98,83 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -3596,13 +3705,14 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..8fb0565d85358f8cfeb971b2fad0dc1f
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +195,15 @@ def create_app() -> Flask:
+@@ -121,6 +196,16 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
++    app.register_blueprint(news_pages)
 +    app.register_blueprint(customize)
 +    app.register_blueprint(tournaments)
 +    app.register_blueprint(visit_sync)
@@ -3745,10 +3855,10 @@ index 5354239c32b74e83efe13c2ee142c2c505199491..f8ac4d9a05a345765b200dc5ce0159ee
 -    return redirect(SIGNUP_URL + "activated.html")
 +    return redirect("/login/pgl.html")
 diff --git a/api/stubs.py b/api/stubs.py
-index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..445d54622b49ec6dd0e7a76ac80aea083c86e4ec 100644
+index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..d4693bdfdd30a85b836d084fe9680be5489ee78f 100644
 --- a/api/stubs.py
 +++ b/api/stubs.py
-@@ -10,21 +10,6 @@ EMPTY_STUBS = {
+@@ -10,22 +10,6 @@ EMPTY_STUBS = {
          "hb",  # heartbeat
          "gbu.journal.season_list",
          "gbu.worldbattle.get_battle_history",
@@ -3767,9 +3877,10 @@ index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..445d54622b49ec6dd0e7a76ac80aea08
 -        "pgl.member.profile.pdw_friend_list",
 -        "pgl.member.profile.video_delete",
 -        "pgl.member.profile.video_regist",
-         "pgl.news.news_list",
+-        "pgl.news.news_list",
      ),
      "POST": (
+         "pgl.member.profile.pdw_login",
 diff --git a/api/tournaments.py b/api/tournaments.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..a52e551cb364ba02e3dfa488a2c7534a99da2ef9
@@ -6187,6 +6298,35 @@ index 0000000000000000000000000000000000000000..5e3f8b60e868404d353cbb0e1dd54dbd
 +    "crc": 7869
 +  }
 +]
+diff --git a/json_data/news_zh.json b/json_data/news_zh.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..3abfb47fdab254bc4225b7455fc35e6b52b609ef
+--- /dev/null
++++ b/json_data/news_zh.json
+@@ -0,0 +1,23 @@
++{
++  "277": ["全国图鉴读本活动赠送七夕青鸟", "读本封套内的暗号可兑换一只学会「点到为止」的七夕青鸟。当时每份登记的游戏可兑换一次。"],
++  "352": ["日本杯纪念 C 装置壁纸", "2012 年春季日本杯纪念壁纸上绘有勾帕路翁、代拉基翁和毕力吉翁。"],
++  "358": ["配合《黑２／白２》推出，全球连接将暂停维护", "这是 2012 年改版前的维护公告。"],
++  "367": ["美洛耶塔登上宝可梦音乐剧", "为纪念影院赠送美洛耶塔，《黑２／白２》推出音乐剧曲目「MELOETTAAA!!!」。"],
++  "368": ["2012 年春季日本杯公布排名", "当年的参赛者可在全球对战联盟的 Wi-Fi 大赛页面查看日本杯排名。"],
++  "369": ["改版后的个人资料公开设置", "为方便梦世界玩家寻找彼此，全球连接在《黑２／白２》推出前公告了个人资料公开范围的变更。"],
++  "405": ["用序列号领取哥德小童", ""],
++  "523": ["购买攻略书应用可参加哥德小童活动", ""],
++  "636": ["3 月 15 日通讯赠送时拉比和谢米玩偶", ""],
++  "656": ["参加问答，领取「主角的目录」家具", ""],
++  "681": ["4 月 19 日通讯赠送洛奇亚和凤王玩偶", ""],
++  "683": ["2013 年日本杯纪念 C 装置壁纸", ""],
++  "684": ["红色盖诺赛克特 C 装置壁纸", ""],
++  "686": ["四月国际挑战赛公布排名", ""],
++  "687": ["从宝可梦通讯获取玩偶兑换暗号", ""],
++  "691": ["宝可梦玩偶头像更新", ""],
++  "735": ["7 月 13 日通讯赠送盖诺赛克特玩偶", ""],
++  "746": ["第九赛季公布成绩，第十赛季开幕", "这则赛季公告于 7 月 2 日更新。"],
++  "765": ["2013 Global Showdown 公布排名", ""],
++  "770": ["8 月 27 日延长维护时间", ""],
++  "774": ["关于 2013 Global Showdown 排名的公告", ""]
++}
 diff --git a/json_data/offline_islands_ui.json b/json_data/offline_islands_ui.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b48e78d03
@@ -7005,10 +7145,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b65c95a27
+index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c51308921
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,594 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -7075,7 +7215,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "File access failed. Close the emulator, check folder permissions or choose a single save to download a copy.",
 +      "changed": "The save changed and was reloaded. Review it before updating.",
 +      "done": "Updated. Reopen the game. Backup: {file}."
-+    }
++    },
++    "dream_steps": [
++      "On the C-Gear touch screen, choose Wi-Fi → Game Sync and tuck in a Pokémon. Wait for the transfer to finish, then open the Dream World with the same game selected on the website.",
++      "From your house, follow the arrows to the rainbow bridge and cross to the Island of Dreams. Click moving grass, icicles or other shaking objects to look for Pokémon. Click a sparkle to collect an item.",
++      "Play a minigame with a Pokémon you meet. At the Tree of Dreams, click the hollow, offer a Berry and choose one of the Pokémon you befriended.",
++      "At the house, use the chest to choose items to take back. Select a C-Gear skin under Customize if you want one. Use the power button at the top right of the Dream World and confirm you are ready to wake up.",
++      "Open Wi-Fi → Game Sync on the same save and wake your sleeping Pokémon. When the transfer finishes, choose Wireless → Entralink, walk north into the Entree Forest and talk to your new partner to catch it."
++    ]
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -7142,7 +7289,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "ファイルにアクセスできません。エミュレーターを閉じて権限を確認するか、個別のセーブを選んでください。",
 +      "changed": "セーブが変更されたため読み直しました。内容を確認してください。",
 +      "done": "更新できました。ゲームを開き直してください。バックアップは {file} です。"
-+    }
++    },
++    "dream_steps": [
++      "Cギアの下画面で「Wi-Fi → ゲームシンク」を選び、ポケモンを1匹寝かせる。通信が終わったら、ウェブで同じゲームソフトを選んでドリームワールドに入ろう。",
++      "自分のホームから矢印に沿ってゆめのかけはしを渡り、ゆめしまへ。揺れる草むらやつららなどをクリックしてポケモンを探し、光る場所をクリックして道具を拾おう。",
++      "出会ったポケモンとミニゲームで遊ぼう。ゆめの木に着いたら木の穴をクリックし、きのみを1個お供えして、連れて帰る仲間を選ぼう。",
++      "ホームの宝箱で持ち帰る道具を選ぼう。Cギアスキンを変えるなら、先にウェブの「カスタマイズ」で設定する。最後に画面右上の電源ボタンを押し、起こす準備をして終了しよう。",
++      "同じソフトの「Wi-Fi → ゲームシンク」で寝ているポケモンを起こす。通信が終わったら「WIRELESS → ハイリンク」を選び、北のハイリンクの森で仲間に話しかけて捕まえよう。"
++    ]
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7209,7 +7363,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "无法读写文件。请关闭模拟器、检查文件夹权限，或选择单个存档下载副本。",
 +      "changed": "存档刚刚发生变化，已重新读取。请确认后再操作。",
 +      "done": "已更新，可重新打开游戏。原存档的备份为 {file}。"
-+    }
++    },
++    "dream_steps": [
++      "在掌机 C 装置下屏点“Wi-Fi → 游戏同步”（日文「ゲームシンク」），选一只宝可梦入睡。等同步完成后，在网页选择绑定这张卡带的存档，再进入梦世界。",
++      "从小屋沿箭头走到彩虹桥，过桥进入梦之岛。点击晃动的草丛、冰锥等物体寻找宝可梦；看到闪光就点击拾取道具。",
++      "点击遇见的宝可梦，玩它的小游戏。到了梦之树，点击树洞，献上一枚树果，再从结交的伙伴里选一只带回去。",
++      "回到小屋，在宝箱里选好要送回的道具。想换 C 装置壁纸时，先在网页“自定义”里选好。最后点梦世界右上角的电源按钮，选择“准备唤醒并结束”，核对伙伴后确认。",
++      "回到同一份游戏存档，用“Wi-Fi → 游戏同步”唤醒入睡的宝可梦。同步结束后打开“WIRELESS → ハイリンク”，往北进连入之森，与刚才许愿的伙伴对话并捕捉。"
++    ]
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7276,7 +7437,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "Accès impossible. Fermez l’émulateur, vérifiez les autorisations ou choisissez un fichier seul.",
 +      "changed": "Le fichier a changé et a été relu. Vérifiez-le avant la mise à jour.",
 +      "done": "Mise à jour terminée. Rouvrez le jeu. Sauvegarde d’origine : {file}."
-+    }
++    },
++    "dream_steps": [
++      "Sur l’écran tactile du C-Gear, sélectionne Wi-Fi puis Synchro-Jeu et choisis un Pokémon à endormir. Une fois le transfert terminé, sélectionne la même sauvegarde sur le site.",
++      "Depuis la maison, suis les flèches et traverse le pont arc-en-ciel. Sur l’île, clique sur les objets qui remuent pour chercher un Pokémon, ou sur une étincelle pour ramasser un objet.",
++      "Joue avec un Pokémon rencontré. À l’Arbre des Rêves, clique sur le creux du tronc, offre une Baie et choisis le Pokémon qui t’accompagnera.",
++      "À la maison, choisis dans le coffre les objets à emporter. Choisis aussi ton habillage C-Gear dans la personnalisation. Clique ensuite sur le bouton d’alimentation en haut à droite et confirme le réveil.",
++      "Dans la même sauvegarde, réveille ton Pokémon par Wi-Fi et Synchro-Jeu. Ouvre ensuite le Heylink depuis le menu sans fil du C-Gear, marche vers le nord et parle à ton nouveau partenaire dans la forêt pour le capturer."
++    ]
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7343,7 +7511,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "Accesso non riuscito. Chiudi l’emulatore, controlla i permessi o seleziona un solo file.",
 +      "changed": "Il file è cambiato ed è stato riletto. Controllalo prima di aggiornarlo.",
 +      "done": "Aggiornato. Riapri il gioco. Backup: {file}."
-+    }
++    },
++    "dream_steps": [
++      "Sul touch screen del C-Gear seleziona Wi-Fi e Sincrogioco. Scegli un Pokémon da far addormentare. Una volta terminato il trasferimento, seleziona lo stesso salvataggio sul sito.",
++      "Dalla casa, segui le frecce e attraversa il ponte arcobaleno. Sull’isola clicca sugli oggetti che si muovono per cercare Pokémon e sui luccichii per raccogliere strumenti.",
++      "Gioca a un minigioco con un Pokémon che incontri. All’Albero dei Sogni clicca sulla cavità, offri una Bacca e scegli un compagno.",
++      "A casa, scegli nel forziere gli strumenti da portare con te. Se vuoi uno sfondo per il C-Gear, selezionalo nella personalizzazione. Premi il pulsante di accensione in alto a destra e conferma il risveglio.",
++      "Risveglia il Pokémon nello stesso salvataggio con Wi-Fi e Sincrogioco. Dal menu wireless del C-Gear entra nell’Intramondo, vai a nord nella Foresta Intramondo e parla al nuovo compagno per catturarlo."
++    ]
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7410,7 +7585,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "Dateizugriff fehlgeschlagen. Schließe den Emulator, prüfe die Berechtigungen oder wähle eine einzelne Datei.",
 +      "changed": "Die Datei wurde geändert und erneut geladen. Prüfe sie vor dem Aktualisieren.",
 +      "done": "Aktualisiert. Öffne das Spiel erneut. Sicherung: {file}."
-+    }
++    },
++    "dream_steps": [
++      "Wähle auf dem C-Gear-Touchscreen Wi-Fi und Spielsynchro. Lass ein Pokémon schlafen, warte auf das Ende der Übertragung und wähle auf der Website denselben Spielstand.",
++      "Folge von deinem Haus aus den Pfeilen über die Regenbogenbrücke. Klicke auf der Trauminsel auf wackelnde Objekte, um Pokémon zu finden, und auf funkelnde Stellen, um Gegenstände einzusammeln.",
++      "Spiele ein Minispiel mit einem Pokémon. Klicke am Traumbaum auf die Höhlung, opfere eine Beere und wähle einen deiner neuen Freunde.",
++      "Wähle in der Truhe zu Hause die Gegenstände für die Rückreise und bei Bedarf unter Individualisierung einen C-Gear-Hintergrund. Klicke oben rechts auf den Ausschalter und bestätige, dass du das Pokémon wecken möchtest.",
++      "Wecke dein Pokémon im selben Spielstand über Wi-Fi und Spielsynchro. Gehe anschließend über das Drahtlos-Menü zur Kontaktebene, laufe nach Norden in den Kontakthain und sprich deinen neuen Partner an, um ihn zu fangen."
++    ]
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7477,7 +7659,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "No se pudo acceder al archivo. Cierra el emulador, comprueba los permisos o elige un archivo individual.",
 +      "changed": "La partida ha cambiado y se ha vuelto a leer. Revísala antes de actualizarla.",
 +      "done": "Partida actualizada. Abre el juego de nuevo. Copia original: {file}."
-+    }
++    },
++    "dream_steps": [
++      "En la pantalla táctil del C-Gear, abre Wi-Fi y Sincronizar Juego. Elige un Pokémon para dormir y espera a que termine la transferencia. Selecciona esa misma partida en la web.",
++      "Desde tu casa, sigue las flechas y cruza el puente arcoíris. En la isla, haz clic en objetos que se muevan para buscar Pokémon y en destellos para recoger objetos.",
++      "Juega al minijuego de un Pokémon que encuentres. En el Árbol de los Sueños, toca el hueco del tronco, ofrece una Baya y elige un compañero.",
++      "En casa, elige en el cofre los objetos que quieras llevarte. Si quieres un fondo para el C-Gear, elígelo en personalización. Pulsa el botón de encendido en la esquina superior derecha y confirma que quieres despertar al Pokémon.",
++      "Despiértalo desde Wi-Fi y Sincronizar Juego en la misma partida. En el menú inalámbrico del C-Gear, abre la Zona Nexo y camina hacia el norte hasta el Bosque Nexo. Habla con tu nuevo compañero para capturarlo."
++    ]
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7544,7 +7733,14 @@ index 0000000000000000000000000000000000000000..63262c94d023c4e963d4de260067932b
 +      "access": "파일을 열 수 없습니다. 에뮬레이터를 닫고 권한을 확인하거나 파일 하나를 선택하세요.",
 +      "changed": "저장 파일이 변경되어 다시 읽었습니다. 업데이트 전에 확인하세요.",
 +      "done": "업데이트했습니다. 게임을 다시 여세요. 원본 백업은 {file}입니다."
-+    }
++    },
++    "dream_steps": [
++      "C기어 아래 화면에서 Wi-Fi와 게임싱크를 선택해 포켓몬 한 마리를 재우세요. 전송이 끝나면 웹사이트에서 같은 게임의 저장 데이터를 고르세요.",
++      "집에서 화살표를 따라 무지개다리를 건너세요. 섬에서 흔들리는 풀숲이나 고드름을 클릭하면 포켓몬을 찾을 수 있고, 반짝이는 곳을 클릭하면 도구를 주울 수 있어요.",
++      "만난 포켓몬과 미니게임을 하세요. 꿈의 나무에 도착하면 나무 구멍을 클릭하고 나무열매 하나를 바친 뒤 데려갈 친구를 고르세요.",
++      "집의 보물상자에서 가져갈 도구를 고르세요. C기어 스킨을 바꾸려면 꾸미기에서 먼저 선택하세요. 오른쪽 위 전원 버튼을 누르고 깨울 준비를 마치세요.",
++      "같은 저장 데이터에서 Wi-Fi와 게임싱크로 포켓몬을 깨우세요. 전송이 끝나면 C기어의 무선 메뉴에서 하일링크로 이동하세요. 북쪽 숲에 들어가 새 친구에게 말을 걸면 잡을 수 있어요."
++    ]
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -8543,10 +8739,10 @@ index 5a62360967cb5c55b2df56bf6fb5e0f8661bed73..8c0ceddffff85dbb9a566bb76e3e2acd
      "gender_ratio": [0, 1]
 diff --git a/json_data/practice.json b/json_data/practice.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51ef7f98c9
+index 0000000000000000000000000000000000000000..f1d59784835d157f8d930c2cc16b10fbe2bb69c5
 --- /dev/null
 +++ b/json_data/practice.json
-@@ -0,0 +1,194 @@
+@@ -0,0 +1,626 @@
 +{
 +  "zh": {
 +    "title": "小游戏试玩",
@@ -8557,6 +8753,57 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +    "done": "本局已结束。",
 +    "error": "小游戏加载失败，请重新打开本局。",
 +    "replay": "再玩一次",
++    "help_title": "小游戏玩法",
++    "instructions": [
++      [
++        "看清开场给出的宝可梦名字。点击路口的箭头换场景，点击正在摇晃的草丛、树木或石头，查看藏在里面的宝可梦。",
++        "点击“仔细听”。叫声越清楚，目标就越近。发现闪光先点击拾取失物，再搜索附近摇晃的地方。"
++      ],
++      [
++        "选择树果后，在左边的冰淇淋盒里按住鼠标，让冰淇淋球慢慢变大。保持按住，把球拖到碗上方，松手放下。",
++        "对照画面上的参考大小，轮换三种口味，从碗中央开始堆。时间结束时会结算高度、大小和口味搭配。"
++      ],
++      [
++        "移动鼠标控制手旗，宝可梦会朝手旗飞。用剩余时间和距离判断路线，在倒计时结束前飞到终点。",
++        "避开云朵和弱点属性标记。收集与伙伴相同的属性标记，集齐三个可以加速。按空格键暂停。"
++      ],
++      [
++        "左右移动鼠标控制吼鲸王的位置。让下落的宝可梦对准喷水孔，点击鼠标喷出水柱，把它弹回空中。",
++        "瞄准和宝可梦图案相配的彩球。留意下一只落下的伙伴，连续击破彩球能得到连击奖励。"
++      ],
++      [
++        "看客人头上的气泡，记下饮料的颜色。点击取饮料，让哎呀球菇端着托盘跟随铃铛移动。",
++        "在点了这杯饮料的宝可梦面前点击送出。可以同时拿几杯，但移动太快会倾斜或洒出饮料。"
++      ],
++      [
++        "移动光球引导比克提尼飞行，绕开岩石，沿路收集属性能量。吃到马卡龙能暂时强化。",
++        "积攒能量，在宝箱前与莱希拉姆或捷克罗姆合力发动特别攻击。正式活动的 C 装置壁纸可到主页“自定义”查看。"
++      ],
++      [
++        "轮到你时，点击一排横向相连的烛火，再点“吹灭”。一次可以选一根或多根，中间不能越过已经熄灭的蜡烛。",
++        "吹灭最后一簇火的一方会输。设法把最后一根留给对手，时间用完前还可以继续挑战。"
++      ],
++      [
++        "勾魂眼坐矿车来到岔路时，按住鼠标，照着想走的那条轨道上的图案一笔画完，再松开。",
++        "先看两条路上有什么，选宝石多的那条。碰到高山植物会震落已经收集的宝石。"
++      ],
++      [
++        "点击想去的冰格，宝可梦就会向那里滑行。观察甜点落点，抢在其他宝可梦前面捡起来。",
++        "冰面经过或停留后会开裂。及时离开裂纹多的格子，掉进水里要等一会儿才能回到场上。"
++      ],
++      [
++        "选好滑板和搭乘的宝可梦。看准能量槽接近满格时点击，再点击确定起跳角度。",
++        "在合适的时机点击跳起，飞行中移动鼠标调整滑板角度。跟随风向箭头、踩中蹦床，争取飞过 1500 米。"
++      ],
++      [
++        "先看客人想喝哪种饮料。点击柜台取杯，用铃铛引导哎呀球菇，把托盘送到点单的宝可梦面前。",
++        "缓慢移动保持平衡，到客人面前点击交杯。留意杯子的颜色，尽量在时间结束前完成订单。"
++      ],
++      [
++        "移动光球，喷火龙会跟着它飞行。收集沿途的属性能量，注意绕开岩石。",
++        "拿到强化道具后可以撞碎岩石。抵达宝箱时用积蓄的能量发动特别攻击。"
++      ]
++    ],
 +    "games": [
 +      "寻找宝可梦",
 +      "堆冰淇淋",
@@ -8570,7 +8817,10 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "滑板飞越湖面",
 +      "宝可梦餐厅·送饮料",
 +      "喷火龙的宝箱"
-+    ]
++    ],
++    "all_help": "查看全部小游戏的操作说明",
++    "practice_one": "试玩这款小游戏",
++    "language_label": "语言"
 +  },
 +  "ja": {
 +    "title": "ミニゲーム体験",
@@ -8594,7 +8844,61 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "ボード遊び",
 +      "ポケモンビストロ・ドリンク運び",
 +      "リザードンの宝箱"
-+    ]
++    ],
++    "help_title": "ミニゲームの遊び方",
++    "instructions": [
++      [
++        "最初に迷子のポケモンの名前を覚えよう。矢印で場所を移動し、揺れる草むらや木、岩をクリックして調べよう。",
++        "「耳をすます」で鳴き声が大きければ、迷子は近くにいるよ。光る落とし物を拾って、その周りを探そう。"
++      ],
++      [
++        "きのみを選び、アイスの容器でマウスを長押しして玉を大きくしよう。そのまま器の上まで運び、ボタンを離すと置けるよ。",
++        "お手本の大きさに合わせて、3種類の味を組み合わせよう。器の真ん中から積むと安定するよ。"
++      ],
++      [
++        "マウスで旗を動かすとポケモンが追いかけるよ。残り時間と距離を見ながらゴールを目指そう。",
++        "雲や苦手なタイプの印をよけて、同じタイプの印を3つ集めて加速しよう。スペースキーで一時停止できるよ。"
++      ],
++      [
++        "マウスを左右に動かして、落ちてくるポケモンの下にホエルオーを移動しよう。クリックで潮を吹くよ。",
++        "ポケモンを弾ませて、絵柄が合うボールを狙おう。次に落ちてくる仲間にも注目しよう。"
++      ],
++      [
++        "お客さんの吹き出しで注文を確認しよう。クリックで飲み物を取り、ベルを動かしてタマゲタケを案内しよう。",
++        "その飲み物を頼んだお客さんの前でクリックすると渡せるよ。トレイを傾けすぎないよう、ゆっくり動かそう。"
++      ],
++      [
++        "光の玉を動かしてビクティニを案内しよう。岩をよけながらタイプのエネルギーを集め、マカロンでパワーアップしよう。",
++        "宝箱でレシラムかゼクロムと力を合わせよう。本編のキャンペーンをクリアしたら、カスタマイズでCギアスキンを確認できるよ。"
++      ],
++      [
++        "自分の番に、横一列につながっている炎を1つ以上選び、吹き消すボタンを押そう。消えたろうそくを飛び越えては選べないよ。",
++        "最後の炎を消したほうが負け。相手に最後の1本を残そう。"
++      ],
++      [
++        "トロッコが分かれ道に来たら、行きたい線路のマークをマウスのボタンを押したまま一筆でなぞり、ボタンを離そう。",
++        "線路の先を見て宝石が多い道へ。障害物にぶつかると、集めた宝石が落ちてしまうよ。"
++      ],
++      [
++        "行きたい氷をクリックして滑ろう。お菓子の落ちる場所を見て、ほかのポケモンより先に取ろう。",
++        "氷にひびが広がったら場所を変えよう。水に落ちると戻るまでに時間がかかるよ。"
++      ],
++      [
++        "ボードと乗るポケモンを選ぼう。パワーゲージが高いところでクリックし、次のクリックで角度を決めよう。",
++        "タイミングよくジャンプし、空中ではマウスでボードの傾きを調整しよう。風やトランポリンを利用して1500メートルを目指そう。"
++      ],
++      [
++        "吹き出しを見て注文を確認し、カウンターをクリックして飲み物を取ろう。ベルでタマゲタケをお客さんの前まで案内しよう。",
++        "ゆっくり動かしてからクリックで手渡そう。制限時間内に正しい飲み物をたくさん届けよう。"
++      ],
++      [
++        "光の玉を動かすとリザードンがついてくるよ。岩をよけながらタイプのエネルギーを集めよう。",
++        "パワーアップ中は岩を壊せるよ。宝箱まで来たら、集めたエネルギーで大技を出そう。"
++      ]
++    ],
++    "all_help": "ミニゲームの遊び方を一覧で見る",
++    "practice_one": "このゲームを体験する",
++    "language_label": "言語"
 +  },
 +  "en": {
 +    "title": "Minigame practice",
@@ -8618,7 +8922,61 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "Skip Across the Lake",
 +      "Pokémon Bistro · Serve Drinks",
 +      "Charizard’s Treasure Box"
-+    ]
++    ],
++    "help_title": "How to play",
++    "instructions": [
++      [
++        "Remember the missing Pokémon’s name. Follow the arrows to change areas and click shaking grass, trees or rocks to look inside.",
++        "Use Listen to hear its cry. A louder cry means you are closer. Pick up the sparkling lost item and search nearby."
++      ],
++      [
++        "Choose a Berry. Hold the mouse button over an ice cream tub to grow a scoop, then drag it over the dish and release.",
++        "Aim for the sample size. Mix the three flavours and start near the middle so the tower stays upright."
++      ],
++      [
++        "Move the flag with the mouse. Your Pokémon follows it. Reach the finish before time runs out.",
++        "Avoid clouds and weakness symbols. Collect three matching type symbols to boost your speed. Press Space to pause."
++      ],
++      [
++        "Move Wailord beneath a falling Pokémon. Click to send up a waterspout and bounce it back into the air.",
++        "Aim at a balloon showing that Pokémon. Keep watching for the next Pokémon to fall and chain hits for a bonus."
++      ],
++      [
++        "Read each customer’s order in its bubble. Click to pick up a drink and move the bell to guide Foongus with the tray.",
++        "Click in front of the customer who ordered that drink. Move smoothly so that drinks stay on the tray."
++      ],
++      [
++        "Guide Victini with the light. Avoid rocks and collect type energy. A macaron gives a temporary power-up.",
++        "At the chest, use the stored energy with Reshiram or Zekrom. After completing the regular promotion, check Customize for its C-Gear skin."
++      ],
++      [
++        "Click one or more lit candles in an unbroken horizontal row, then confirm to blow them out.",
++        "The player who puts out the last flame loses. Try to leave the last one for your opponent."
++      ],
++      [
++        "At a fork, hold the mouse button and trace the symbol above your chosen track in one stroke. Release to choose it.",
++        "Look ahead for gems. Hitting an obstacle can knock gems out of your cart."
++      ],
++      [
++        "Click a patch of ice to skate towards it. Watch where sweets land and collect them before your opponents.",
++        "Change direction as the ice cracks. Falling in the water costs time."
++      ],
++      [
++        "Choose a board and rider. Click when the power gauge is near full, then click to set the angle.",
++        "Time your jump and move the mouse in the air to tilt the board. Use the wind and trampolines as you aim for 1,500 m."
++      ],
++      [
++        "Check the colours of the orders. Click the counter for a drink and guide Foongus to the waiting customer.",
++        "Move gently. Click to hand over the right cup and complete as many orders as possible before time runs out."
++      ],
++      [
++        "Move the light to guide Charizard. Collect type energy and steer around rocks.",
++        "Use a power-up to break rocks. At the treasure chest, use the energy you have collected."
++      ]
++    ],
++    "all_help": "All minigame instructions",
++    "practice_one": "Practice this game",
++    "language_label": "Language"
 +  },
 +  "fr": {
 +    "title": "Mini-jeux en libre accès",
@@ -8642,6 +9000,60 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "Traverser le lac",
 +      "Bistrot Pokémon · servir des boissons",
 +      "Le coffre de Dracaufeu"
++    ],
++    "language_label": "Langue",
++    "help_title": "Comment jouer",
++    "all_help": "Tous les mini-jeux",
++    "practice_one": "Essayer ce mini-jeu",
++    "instructions": [
++      [
++        "Retiens le nom du Pokémon perdu. Suis les flèches et clique sur les herbes, les arbres ou les rochers qui bougent.",
++        "Écoute son cri. Plus il est fort, plus le Pokémon est proche. Ramasse l’objet qui brille et fouille les environs."
++      ],
++      [
++        "Choisis une Baie. Maintiens le bouton de la souris dans un bac pour former une boule de glace, puis dépose-la dans la coupe.",
++        "Essaie de reproduire la taille du modèle. Alterne les trois parfums et commence au centre de la coupe."
++      ],
++      [
++        "Déplace le drapeau avec la souris pour guider ton Pokémon jusqu’à l’arrivée avant la fin du temps imparti.",
++        "Évite les nuages et les symboles de faiblesse. Trois symboles du bon type te font accélérer. La barre d’espace met le jeu en pause."
++      ],
++      [
++        "Déplace Wailord sous le Pokémon qui tombe. Clique pour lancer un jet d’eau et le faire rebondir.",
++        "Vise un ballon à son effigie. Surveille le Pokémon suivant et enchaîne les touches pour marquer un bonus."
++      ],
++      [
++        "Regarde la couleur de la boisson dans la bulle du client. Clique pour prendre un verre, puis guide Trompignon avec la clochette.",
++        "Clique devant le client qui a commandé cette boisson. Déplace la souris doucement pour garder le plateau en équilibre."
++      ],
++      [
++        "Guide Victini avec la lumière. Évite les rochers, collecte de l’énergie et prends un macaron pour obtenir un bonus temporaire.",
++        "Devant le coffre, utilise l’énergie avec Reshiram ou Zekrom. Après avoir terminé la campagne, ouvre la personnalisation du C-Gear pour retrouver ton habillage."
++      ],
++      [
++        "Sélectionne une ou plusieurs flammes voisines sur la même ligne, puis clique pour les éteindre.",
++        "Celui qui éteint la dernière flamme perd. Essaie de la laisser à ton adversaire."
++      ],
++      [
++        "À la bifurcation, maintiens le bouton et trace le symbole de la voie choisie d’un seul trait. Relâche pour prendre cette voie.",
++        "Regarde où se trouvent les gemmes. Un obstacle peut en faire tomber de ton wagon."
++      ],
++      [
++        "Clique sur une case de glace pour y glisser. Repère les friandises qui tombent et ramasse-les avant les autres.",
++        "Quitte la glace qui se fissure. Si tu tombes à l’eau, tu perds du temps."
++      ],
++      [
++        "Choisis une planche et un Pokémon. Clique quand la jauge est presque pleine, puis clique pour régler l’angle.",
++        "Saute au bon moment et incline la planche avec la souris. Profite du vent et des tremplins pour atteindre 1 500 m."
++      ],
++      [
++        "Lis les commandes dans les bulles. Clique sur le comptoir pour prendre une boisson et guide Trompignon vers le client.",
++        "Avance doucement puis clique pour servir le bon verre. Essaie de servir le plus de clients possible avant la fin."
++      ],
++      [
++        "Déplace la lumière pour guider Dracaufeu. Ramasse de l’énergie et contourne les rochers.",
++        "Le bonus permet de briser les rochers. Utilise l’énergie accumulée quand tu arrives au coffre."
++      ]
 +    ]
 +  },
 +  "de": {
@@ -8666,6 +9078,60 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "Über den See gleiten",
 +      "Pokémon-Bistro · Getränke servieren",
 +      "Gluraks Schatztruhe"
++    ],
++    "language_label": "Sprache",
++    "help_title": "Spielanleitung",
++    "all_help": "Alle Minispiel-Anleitungen",
++    "practice_one": "Dieses Spiel ausprobieren",
++    "instructions": [
++      [
++        "Merke dir den Namen des vermissten Pokémon. Wechsle mit den Pfeilen das Gebiet und klicke auf wackelndes Gras, Bäume oder Felsen.",
++        "Lausche seinem Ruf. Je lauter er ist, desto näher bist du. Sammle den funkelnden Gegenstand ein und suche in der Nähe weiter."
++      ],
++      [
++        "Wähle eine Beere. Halte die Maustaste über einer Eissorte gedrückt, ziehe die Kugel über den Becher und lass los.",
++        "Orientiere dich an der Größe der Musterkugel. Wechsle zwischen den drei Sorten und beginne in der Mitte."
++      ],
++      [
++        "Steuere die Fahne mit der Maus. Dein Pokémon folgt ihr. Erreiche das Ziel vor Ablauf der Zeit.",
++        "Weiche Wolken und Symbolen für Typschwächen aus. Drei passende Typsymbole erhöhen dein Tempo. Mit der Leertaste pausierst du."
++      ],
++      [
++        "Bewege Wailord unter das fallende Pokémon. Klicke, um es mit einer Wasserfontäne nach oben zu schleudern.",
++        "Ziele auf einen Ballon mit dem passenden Bild. Achte auf das nächste Pokémon und triff mehrere Ballons hintereinander."
++      ],
++      [
++        "Schau in die Sprechblase des Gasts. Nimm per Klick das passende Getränk und führe Tarnpignon mit der Glocke zum Tisch.",
++        "Klicke vor dem richtigen Gast, um zu servieren. Bewege die Maus langsam, damit nichts vom Tablett rutscht."
++      ],
++      [
++        "Führe Victini mit dem Licht, weiche Felsen aus und sammle Typ-Energie. Ein Macaron verstärkt Victini vorübergehend.",
++        "Nutze die Energie an der Truhe zusammen mit Reshiram oder Zekrom. Nach Abschluss der regulären Aktion findest du den C-Gear-Hintergrund in der Individualisierung."
++      ],
++      [
++        "Klicke eine oder mehrere benachbarte Flammen in derselben Reihe an. Bestätige, um sie auszublasen.",
++        "Wer die letzte Flamme löscht, verliert. Versuche, sie deinem Gegner zu überlassen."
++      ],
++      [
++        "Halte an einer Abzweigung die Maustaste gedrückt. Zeichne das Zeichen über dem gewünschten Gleis in einem Zug nach und lass los.",
++        "Schau, auf welchem Gleis Edelsteine liegen. Stößt die Lore gegen ein Hindernis, können gesammelte Steine herausfallen."
++      ],
++      [
++        "Klicke auf ein Eisfeld, um dorthin zu gleiten. Sammle die Süßigkeiten vor den anderen Pokémon ein.",
++        "Verlasse rissige Felder rechtzeitig. Fällst du ins Wasser, kostet das Zeit."
++      ],
++      [
++        "Wähle Brett und Pokémon. Klicke bei fast voller Kraftanzeige und dann erneut, um den Winkel einzustellen.",
++        "Springe im richtigen Moment. Neige das Brett in der Luft mit der Maus und nutze Wind und Trampoline für die 1.500 Meter."
++      ],
++      [
++        "Achte auf die Farbe der bestellten Getränke. Klicke auf die Theke und führe Tarnpignon mit der Glocke zum Gast.",
++        "Bewege das Tablett vorsichtig. Klicke vor dem Gast, um den richtigen Becher abzugeben, bevor die Zeit abläuft."
++      ],
++      [
++        "Bewege das Licht, damit Glurak ihm folgt. Sammle Typ-Energie und fliege um die Felsen herum.",
++        "Mit der Verstärkung kannst du Felsen durchbrechen. Setze die gesammelte Energie an der Schatztruhe ein."
++      ]
 +    ]
 +  },
 +  "es": {
@@ -8690,6 +9156,60 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "Cruza el lago",
 +      "Bistró Pokémon · servir bebidas",
 +      "El cofre de Charizard"
++    ],
++    "language_label": "Idioma",
++    "help_title": "Cómo jugar",
++    "all_help": "Instrucciones de todos los minijuegos",
++    "practice_one": "Probar este minijuego",
++    "instructions": [
++      [
++        "Recuerda el nombre del Pokémon perdido. Usa las flechas para cambiar de zona y haz clic en la hierba, los árboles o las rocas que se muevan.",
++        "Escucha su grito. Cuanto más fuerte suene, más cerca estará. Recoge el objeto brillante y busca a su alrededor."
++      ],
++      [
++        "Elige una Baya. Mantén pulsado el ratón sobre una cubeta para formar una bola de helado, arrástrala sobre la copa y suéltala.",
++        "Intenta igualar el tamaño de la muestra. Alterna los tres sabores y empieza a apilar en el centro."
++      ],
++      [
++        "Mueve la bandera con el ratón para guiar a tu Pokémon. Llega a la meta antes de que se acabe el tiempo.",
++        "Evita las nubes y los símbolos de debilidad. Reúne tres símbolos de tu tipo para acelerar. Pulsa espacio para pausar."
++      ],
++      [
++        "Coloca a Wailord debajo del Pokémon que cae. Haz clic para lanzar un chorro de agua y hacerlo rebotar.",
++        "Apunta al globo que lleve su imagen. Vigila al siguiente Pokémon y encadena aciertos para conseguir puntos extra."
++      ],
++      [
++        "Mira el color de la bebida que aparece en el pedido. Haz clic para recogerla y guía a Foongus con la campanilla.",
++        "Haz clic delante del cliente que la pidió. Mueve el ratón con suavidad para que no se caigan las bebidas."
++      ],
++      [
++        "Guía a Victini con la luz. Esquiva las rocas y recoge energía. Un macaron le dará un impulso temporal.",
++        "Junto al cofre, usa la energía con Reshiram o Zekrom. Al terminar la promoción, visita la sección de personalización para elegir el fondo del C-Gear."
++      ],
++      [
++        "Selecciona una o más llamas contiguas de la misma fila y confirma para apagarlas.",
++        "Pierde quien apague la última llama. Intenta dejársela a tu rival."
++      ],
++      [
++        "En una bifurcación, mantén pulsado el ratón y dibuja de un trazo el símbolo de la vía que quieras tomar. Suelta para elegirla.",
++        "Mira por qué vía hay más gemas. Si la vagoneta choca con un obstáculo, puedes perder algunas."
++      ],
++      [
++        "Haz clic en una casilla de hielo para deslizarte hasta ella. Mira dónde caen los dulces y recógelos antes que los demás.",
++        "Aléjate del hielo agrietado. Si caes al agua, tardarás en volver."
++      ],
++      [
++        "Elige una tabla y un Pokémon. Haz clic cuando el indicador esté casi lleno y vuelve a hacer clic para fijar el ángulo.",
++        "Salta en el momento justo e inclina la tabla en el aire con el ratón. Usa el viento y los trampolines para llegar a los 1500 m."
++      ],
++      [
++        "Fíjate en los colores de los pedidos. Haz clic en el mostrador para recoger una bebida y guía a Foongus hasta su cliente.",
++        "Lleva la bandeja despacio y haz clic para entregar el vaso correcto. Atiende tantos pedidos como puedas antes del final."
++      ],
++      [
++        "Mueve la luz para guiar a Charizard. Recoge energía y esquiva las rocas.",
++        "Con el potenciador podrás romper rocas. Al llegar al cofre, usa la energía que has reunido."
++      ]
 +    ]
 +  },
 +  "it": {
@@ -8714,6 +9234,60 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "Attraversa il lago",
 +      "Bistrot Pokémon · servi le bevande",
 +      "Lo scrigno di Charizard"
++    ],
++    "language_label": "Lingua",
++    "help_title": "Come si gioca",
++    "all_help": "Istruzioni di tutti i minigiochi",
++    "practice_one": "Prova questo minigioco",
++    "instructions": [
++      [
++        "Ricorda il nome del Pokémon smarrito. Usa le frecce per spostarti e clicca su erba, alberi o rocce che si muovono.",
++        "Ascolta il verso: più è forte, più sei vicino. Raccogli l’oggetto luccicante e cerca nei dintorni."
++      ],
++      [
++        "Scegli una Bacca. Tieni premuto il pulsante del mouse su una vaschetta per formare una pallina, trascinala sulla coppa e rilascia.",
++        "Segui le dimensioni del modello. Alterna i tre gusti e inizia a impilare al centro della coppa."
++      ],
++      [
++        "Muovi la bandierina con il mouse per guidare il Pokémon. Raggiungi il traguardo prima che scada il tempo.",
++        "Evita le nuvole e i simboli dei tipi a cui sei debole. Raccogli tre simboli del tuo tipo per accelerare. Premi spazio per una pausa."
++      ],
++      [
++        "Sposta Wailord sotto il Pokémon in caduta. Clicca per sollevarlo con un getto d’acqua.",
++        "Mira al palloncino con la sua immagine. Tieni d’occhio il Pokémon successivo e colpisci più palloncini di fila."
++      ],
++      [
++        "Guarda il colore della bevanda nel fumetto del cliente. Clicca per prenderla e guida Foongus con la campanella.",
++        "Clicca davanti al cliente che l’ha ordinata. Muovi lentamente il mouse per tenere in equilibrio il vassoio."
++      ],
++      [
++        "Guida Victini con la luce. Evita le rocce, raccogli energia e prendi un macaron per potenziarti per un po’.",
++        "Davanti allo scrigno usa l’energia insieme a Reshiram o Zekrom. Dopo aver completato la promozione, scegli lo sfondo del C-Gear nella sezione di personalizzazione."
++      ],
++      [
++        "Seleziona una o più fiamme adiacenti sulla stessa riga, poi conferma per spegnerle.",
++        "Chi spegne l’ultima fiamma perde. Cerca di lasciarla all’avversario."
++      ],
++      [
++        "Al bivio tieni premuto il pulsante del mouse, traccia in un solo gesto il simbolo del binario che vuoi prendere e rilascia.",
++        "Guarda dove sono le gemme. Se il carrello urta un ostacolo, alcune possono cadere."
++      ],
++      [
++        "Clicca su una casella di ghiaccio per scivolare fin lì. Guarda dove cadono i dolci e raccoglili prima degli altri.",
++        "Allontanati quando il ghiaccio si crepa. Cadere in acqua fa perdere tempo."
++      ],
++      [
++        "Scegli una tavola e un Pokémon. Clicca quando l’indicatore è quasi pieno, poi clicca di nuovo per fissare l’angolo.",
++        "Salta al momento giusto e inclina la tavola in volo con il mouse. Sfrutta il vento e i trampolini per arrivare a 1500 metri."
++      ],
++      [
++        "Controlla il colore delle bevande ordinate. Clicca sul bancone per prendere un bicchiere e guida Foongus fino al cliente.",
++        "Muoviti piano e clicca per porgere il bicchiere giusto. Completa più ordini possibile prima dello scadere del tempo."
++      ],
++      [
++        "Sposta la luce per guidare Charizard. Raccogli energia e aggira le rocce.",
++        "Con il potenziamento puoi rompere le rocce. Davanti allo scrigno usa l’energia raccolta."
++      ]
 +    ]
 +  },
 +  "ko": {
@@ -8738,6 +9312,60 @@ index 0000000000000000000000000000000000000000..4ecde741d7ff528d0878a12174b22f51
 +      "보드로 호수 건너기",
 +      "포켓몬 비스트로 · 음료 나르기",
 +      "리자몽의 보물상자"
++    ],
++    "language_label": "언어",
++    "help_title": "미니게임 하는 법",
++    "all_help": "모든 미니게임 설명 보기",
++    "practice_one": "이 게임 연습하기",
++    "instructions": [
++      [
++        "시작할 때 잃어버린 포켓몬의 이름을 기억하세요. 화살표로 장소를 옮기고 흔들리는 풀숲, 나무, 바위를 클릭해서 찾아보세요.",
++        "귀를 기울여 울음소리를 들어 보세요. 소리가 클수록 가까이에 있어요. 반짝이는 분실물을 줍고 주변을 살펴보세요."
++      ],
++      [
++        "나무열매를 고른 뒤 아이스크림 통에서 마우스 버튼을 길게 눌러 한 덩이를 뜨세요. 그대로 그릇 위로 끌어와 버튼을 놓으세요.",
++        "보기와 비슷한 크기로 떠 보세요. 세 가지 맛을 번갈아 쓰고 그릇 가운데부터 쌓으면 안정적이에요."
++      ],
++      [
++        "마우스로 깃발을 움직이면 포켓몬이 따라와요. 제한 시간 안에 결승선에 도착하세요.",
++        "구름과 약점 타입 표시를 피하세요. 같은 타입 표시를 세 개 모으면 빨라져요. 스페이스 바로 잠시 멈출 수 있어요."
++      ],
++      [
++        "떨어지는 포켓몬 아래로 고래왕을 옮기세요. 클릭해 물줄기를 뿜으면 포켓몬이 다시 튀어 올라요.",
++        "그 포켓몬의 그림이 있는 풍선을 노리세요. 다음에 떨어지는 포켓몬을 살피면서 연속으로 풍선을 맞혀 보세요."
++      ],
++      [
++        "손님의 말풍선에서 주문한 음료 색을 확인하세요. 클릭해서 음료를 집고 종을 움직여 깜놀버슬을 안내하세요.",
++        "주문한 손님 앞에서 클릭하면 음료를 건넬 수 있어요. 쟁반이 기울지 않게 천천히 움직이세요."
++      ],
++      [
++        "빛을 움직여 비크티니를 안내하세요. 바위를 피하며 타입 에너지를 모으세요. 마카롱을 먹으면 잠시 힘이 세져요.",
++        "보물상자 앞에서 레시라무나 제크로무와 함께 모은 에너지를 사용하세요. 본편 이벤트를 완료하면 꾸미기 메뉴에서 C기어 스킨을 고를 수 있어요."
++      ],
++      [
++        "같은 가로줄에서 붙어 있는 불꽃을 하나 이상 고르고 확인을 눌러 끄세요. 꺼진 초를 건너뛸 수는 없어요.",
++        "마지막 불꽃을 끈 쪽이 져요. 상대에게 마지막 불꽃 하나가 남도록 해 보세요."
++      ],
++      [
++        "갈림길에서 마우스 버튼을 누른 채 가고 싶은 선로의 표시를 한 번에 그린 뒤 버튼을 놓으세요.",
++        "어느 쪽에 보석이 많은지 보세요. 수레가 장애물과 부딪히면 모은 보석이 떨어질 수 있어요."
++      ],
++      [
++        "이동할 얼음 칸을 클릭해 미끄러지세요. 간식이 떨어지는 곳을 보고 다른 포켓몬보다 먼저 주우세요.",
++        "얼음에 금이 가면 다른 칸으로 피하세요. 물에 빠지면 돌아오는 데 시간이 걸려요."
++      ],
++      [
++        "보드와 탈 포켓몬을 고르세요. 힘 게이지가 거의 찼을 때 클릭하고 다시 클릭해 각도를 정하세요.",
++        "때를 맞춰 뛰고 공중에서 마우스로 보드를 기울이세요. 바람과 트램펄린을 이용해 1500m를 목표로 날아가세요."
++      ],
++      [
++        "말풍선에서 주문한 음료의 색을 확인하세요. 카운터를 클릭해서 잔을 집고 깜놀버슬을 손님에게 안내하세요.",
++        "쟁반을 천천히 움직이고 손님 앞에서 클릭해 맞는 잔을 건네세요. 시간 안에 최대한 많이 배달해 보세요."
++      ],
++      [
++        "빛을 움직여 리자몽을 안내하세요. 바위를 피해 날면서 타입 에너지를 모으세요.",
++        "힘이 강해졌을 때는 바위를 부술 수 있어요. 보물상자 앞에서 모아 둔 에너지를 사용하세요."
++      ]
 +    ]
 +  }
 +}
@@ -17563,15 +18191,16 @@ index 0000000000000000000000000000000000000000..8d0ae21c3eeb986b86de141ba523256e
 +})();
 diff --git a/static/practice.css b/static/practice.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..ebb6a81bfc7729243b50e6e3f24b708e14c45ac5
+index 0000000000000000000000000000000000000000..049bf97f40ce0b3daea232faf4a1209560dc4436
 --- /dev/null
 +++ b/static/practice.css
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,6 @@
 +*{box-sizing:border-box}body{margin:0;color:#243729;background:#f6f6ed;font:1rem/1.45 system-ui,sans-serif}main{max-width:68rem;margin:auto;padding:1rem}
 +nav{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}a{color:#245440}h1{font-size:clamp(1.45rem,4vw,2.4rem);margin:1.4rem 0 .5rem}
 +ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.75rem;list-style:none;padding:0}
 +li a{display:flex;align-items:center;min-height:3.8rem;padding:.8rem 1rem;background:white;border:1px solid #aabbaa;border-radius:.45rem;font-weight:600;text-decoration:none}
 +li a:hover,li a:focus-visible{background:#e3efdf;border-color:#477551}#stage{width:100%;aspect-ratio:1003/570;background:#172619}#stage ruffle-player{width:100%;height:100%;display:block}#status{min-height:1.45em}
++.game-help{margin:.6rem 0 1rem;border-left:3px solid #477551;padding:.5rem .9rem;background:#fff}.game-help summary{cursor:pointer;font-weight:600}.game-help p{margin:.5rem 0}
 diff --git a/static/practice.js b/static/practice.js
 new file mode 100644
 index 0000000000000000000000000000000000000000..0108fe83c03cdcb5150daaaa1d5ed27ab1363e11
@@ -18234,6 +18863,21 @@ index 0000000000000000000000000000000000000000..7365b01e5276d6a0edbc5214a8abeb9a
 +{% if rows %}<dl>{% for key,value in rows %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
 +{% else %}<p>{{ t.none }}</p>{% endif %}</section>{% endfor %}</div>
 +{% endblock %}
+diff --git a/templates/news_archive.html b/templates/news_archive.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..88fd21b27875bc4dad3e314348f511dee848e74f
+--- /dev/null
++++ b/templates/news_archive.html
+@@ -0,0 +1,9 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head><meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ heading }} · Pokémon Global Link</title>
++<link rel="stylesheet" href="{{ url_for('player_guide.static',filename='player-guide.css') }}"></head>
++<body class="dw-guide"><header class="guide-header"><a href="/">Pokémon Global Link</a><a href="/languages/?page=/information/">{{ language_label }}</a></header>
++<main class="guide-main"><h1>{{ heading }}</h1>
++{% for article in rows %}{% if article.url %}<p><a href="{{ article.url }}">{{ article.title }}</a></p>
++{% else %}<details class="console-model" id="news-{{ article.news_id }}"><summary>{% if article.date %}<time>{{ article.date }}</time> · {% endif %}{{ article.title }}</summary>
++{% for line in article.description.splitlines() %}{% if line %}<p>{{ line }}</p>{% endif %}{% endfor %}</details>{% endif %}{% endfor %}</main></body></html>
 diff --git a/templates/pdw_wake_ready.html b/templates/pdw_wake_ready.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..11f39102f1f7d94cb2340bab6043f9c2f86abdfb
@@ -18282,10 +18926,10 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +</html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..e27a6d5df82d3bbc6b417dbfe47375ff16df2c50
+index 0000000000000000000000000000000000000000..d13235b837777944e4c949a30f52c71d06834a16
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,98 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -18310,6 +18954,7 @@ index 0000000000000000000000000000000000000000..e27a6d5df82d3bbc6b417dbfe47375ff
 +      <a href="#dns">{{ t.dns_title }}</a><a href="{{ url_for('player_guide.phone') }}">{{ t.phone_title }}</a><a href="#console">{{ t.console_title }}</a>
 +      <a href="#account">{{ t.account_title }}</a><a href="#register">{{ t.register_title }}</a><a href="#dream">{{ t.dream_title }}</a>
 +      <a href="#tuck-in">{{ t.tuck_title }}</a><a href="#distributions">{{ gifts.title }}</a>
++      {% if arcade.instructions %}<a href="#minigames">{{ arcade.help_title }}</a>{% endif %}
 +    </nav>
 +    <section class="dns-card" id="dns" data-endpoint="{{ url_for('player_guide.dns') }}"
 +             data-ready="{{ t.ready }}" data-offline="{{ t.offline }}" data-ambiguous="{{ t.ambiguous }}" data-emulator-offline="{{ t.emulator_offline }}" data-checking="{{ t.checking }}">
@@ -18363,7 +19008,15 @@ index 0000000000000000000000000000000000000000..e27a6d5df82d3bbc6b417dbfe47375ff
 +      <p><a download="{{ '解除睡眠限制.py' if lang == 'zh' else 'remove-tuck-in-limit.py' }}" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
 +      <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p></details>
 +    </section>
-+    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
++    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p>
++      {% if t.dream_steps %}<ol>{% for step in t.dream_steps %}<li>{{ step }}</li>{% endfor %}</ol>
++      <p><a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
++    </section>
++    {% if arcade.instructions %}
++    <section id="minigames"><h2>{{ arcade.help_title }}</h2>
++      {% for steps in arcade.instructions %}<details class="console-model"><summary>{{ arcade.games[loop.index0] }}</summary>
++      {% for step in steps %}<p>{{ step }}</p>{% endfor %}<p><a href="{{ url_for('practice.arcade',number=loop.index) }}">{{ arcade.practice_one }}</a></p></details>{% endfor %}
++    </section>{% endif %}
 +    <section id="distributions">
 +      <h2>{{ gifts.title }}</h2>
 +      {% for kind in ('dream','wonder') %}
@@ -18377,23 +19030,26 @@ index 0000000000000000000000000000000000000000..e27a6d5df82d3bbc6b417dbfe47375ff
 +</html>
 diff --git a/templates/practice.html b/templates/practice.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..50e9c9466a26cbc149897075115821f59157d30a
+index 0000000000000000000000000000000000000000..6c628e6844a054066d2b5d3ea44a7f2ae8e47ea4
 --- /dev/null
 +++ b/templates/practice.html
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,18 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang=='zh' else lang }}"><head>
 +<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 +<title>{{ t.games[number-1] if number else t.title }} · Pokémon Dream World</title>
 +<link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
 +{% if number %}<script defer src="/_ruffle/ruffle.js"></script><script defer src="{{ url_for('practice.static',filename='practice.js') }}"></script>{% endif %}
-+</head><body><main><nav><a href="{{ '/practice/' if number else '/pdw/' }}">← {{ t.title if number else t.home }}</a><a href="{{ url_for('site.languages',page=request.path) }}">Language</a></nav>
++</head><body><main><nav><a href="{{ '/practice/' if number else '/pdw/' }}">← {{ t.title if number else t.home }}</a><a href="{{ url_for('site.languages',page=request.path) }}">{{ t.language_label|default('Language') }}</a></nav>
 +{% if number %}
 +<h1>{{ t.games[number-1] }}</h1>
++{% if t.instructions %}<details class="game-help"><summary>{{ t.help_title }}</summary>
++{% for step in t.instructions[number-1] %}<p>{{ step }}</p>{% endfor %}</details>{% endif %}
 +<div id="stage" data-game="{{ number }}" data-lang="{{ movie_lang }}" data-buddy="{{ buddy }}" aria-label="{{ t.games[number-1] }}"></div>
 +<p id="status" role="status" data-finished="{{ t.done }}" data-error="{{ t.error }}">{{ t.loading }}</p>
 +<nav><a href="{{ url_for('practice.arcade',number=number) }}">{{ t.replay }}</a><a href="/practice/">{{ t.title }}</a></nav>
 +{% else %}<h1>{{ t.title }}</h1><p>{{ t.intro }}</p>
++{% if t.instructions %}<p><a href="{{ url_for('player_guide.guide') }}#minigames">{{ t.all_help }}</a></p>{% endif %}
 +<ul>{% for name in t.games %}<li><a href="{{ url_for('practice.arcade',number=loop.index) }}">{{ name }}</a></li>{% endfor %}</ul>
 +{% endif %}</main></body></html>
 diff --git a/templates/tournaments.html b/templates/tournaments.html
@@ -19011,6 +19667,60 @@ index 0000000000000000000000000000000000000000..d88971e0efe3fedced60d4b25e4c7d24
 +    assert create(673).data[:128] == bytes(128)
 +    assert create(-1).status_code == 200 and create(1 << 32).data[:128] != bytes(128)
 +    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]
+diff --git a/tests/test_game_guides_news.py b/tests/test_game_guides_news.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..036befc0f8b2cd67578ff2fc9a21ea3252941b3c
+--- /dev/null
++++ b/tests/test_game_guides_news.py
+@@ -0,0 +1,48 @@
++"""The archived homepage, game stage and public guides must agree on localized content."""
++from flask import url_for
++
++from api import pgl_news, practice
++from api.server import create_app
++from utils.data import load_json_data
++
++
++def test_every_translated_game_links_to_its_own_practice(monkeypatch):
++    from api import player_guide
++
++    app = create_app()
++    client = app.test_client()
++    for lang in load_json_data("practice"):
++        monkeypatch.setattr(player_guide, "LANG", lang)
++        monkeypatch.setattr(practice, "LANG", lang)
++        practice.labels.cache_clear()
++        try:
++            labels = practice.labels()
++            guide = client.get("/player-guide/").get_data(as_text=True)
++            assert 'id="minigames"' in guide
++            assert len(labels["instructions"]) == len(labels["games"]) == 12
++            assert len(player_guide._messages[lang]["dream_steps"]) == 5
++            for number, steps in enumerate(labels["instructions"], 1):
++                with app.test_request_context():
++                    path = url_for("practice.arcade", number=number)
++                page = client.get(path).get_data(as_text=True)
++                assert f'href="{path}"' in guide
++                assert all(step in page and step in guide for step in steps)
++        finally:
++            practice.labels.cache_clear()
++
++
++def test_original_articles_have_translations_and_pagination(monkeypatch):
++    raw = load_json_data("news")["news"]
++    assert set(load_json_data("news_zh")) == {k for k, row in raw.items() if "jp" in (row.get("title") or {})}
++    monkeypatch.setattr(pgl_news, "LANG", "zh")
++    client = create_app().test_client()
++    def page(offset):
++        return client.get("/api/", query_string={"p":"pgl.news.news_list", "offset":offset,"rowcount":4}).json
++    assert len(page(0)) == 4 and page(0)[0]["url"] == "/player-guide/"
++    assert {x["news_id"] for x in page(0)}.isdisjoint(x["news_id"] for x in page(4))
++    assert page(99999) == []
++    overview = client.get("/information/").get_data(as_text=True)
++    assert "七夕青鸟" in overview
++    for item in page(0):
++        assert item["title"] in overview
++        assert client.get(f"/top/assets/images/info-default/{item['news_category_id']}.png").data.startswith(b"\x89PNG")
 diff --git a/tests/test_gen5_names.py b/tests/test_gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf8945de76
@@ -20823,7 +21533,7 @@ index ce8a908319d323d20284ec73bc043b4f7b1c38b4..fd88eb004882a6675dea49572a0b1a0e
      def claim_daily_bonus(self, username: str, today: str) -> bool:
          """Claim `username`'s daily bonus for `today`.
 diff --git a/utils/assets.py b/utils/assets.py
-index b479b2559f35bf7bd49ba5130a73dad351bd8768..8f598f776a5b8063791c2958157f8f319f6f4363 100644
+index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b5b172386 100644
 --- a/utils/assets.py
 +++ b/utils/assets.py
 @@ -6,14 +6,25 @@ from pathlib import Path
@@ -20929,7 +21639,7 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..8f598f776a5b8063791c2958157f8f31
  def resolve_static(path: str) -> Path | None:
      """Return the file for a static asset URL.
  
-@@ -56,20 +116,43 @@ def resolve_static(path: str) -> Path | None:
+@@ -56,20 +116,49 @@ def resolve_static(path: str) -> Path | None:
      """
      relative = path.lstrip("/")
  
@@ -20958,6 +21668,12 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..8f598f776a5b8063791c2958157f8f31
          return site_path
  
 -    # the shared mirror has no language prefix (e.g. /en/ -> /)
++    if relative.startswith("top/assets/images/info-default/"):
++        candidate = path_inside(SHARED_DIR / "src/swf/top/images/info-default",
++                                relative.removeprefix("top/assets/images/info-default/"))
++        if candidate and candidate.is_file():
++            return candidate
++
 +    # Some shared paths carry localized files, including the header sprites.
 +    shared_path = path_inside(SHARED_DIR, relative)
 +    if shared_path and shared_path.is_file():

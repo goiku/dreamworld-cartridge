@@ -18,6 +18,7 @@ from api.island_peers import island_peers
 from api.offline_friends import offline_friends
 from api.player_guide import player_guide
 from api.practice import practice
+from api.pgl_news import news_pages
 from api.pgl_present import customize
 from api.tournaments import tournaments
 from api.routes import HANDLERS, Query, load_handlers
@@ -198,6 +199,7 @@ def create_app() -> Flask:
     app.register_blueprint(campaigns)
     app.register_blueprint(player_guide)
     app.register_blueprint(practice)
+    app.register_blueprint(news_pages)
     app.register_blueprint(customize)
     app.register_blueprint(tournaments)
     app.register_blueprint(visit_sync)

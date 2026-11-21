@@ -36,8 +36,9 @@ def _friends_label() -> str:
 
 @player_guide.get("/")
 def guide() -> str:
+    from api.practice import labels as practice_labels
     return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
-                           language_names=LANGUAGE_NAMES, gifts=distribution_labels())
+                           language_names=LANGUAGE_NAMES, gifts=distribution_labels(), arcade=practice_labels())
 
 
 @player_guide.get("/phone/")
@@ -105,6 +106,8 @@ def insert_player_help(response: Response) -> Response:
         friends_link += f'<a href="/campaign/">{escape(distribution_labels()["title"])}</a>'
         from api.practice import labels as practice_labels
         friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
+        if path == "/pdw/" and practice_labels().get("instructions"):
+            friends_link += f'<a target="_blank" rel="noopener" href="{guide_url}#minigames">{escape(practice_labels()["help_title"])}</a>'
         friends_link += f'<a target="_blank" rel="noopener" href="{guide_url}#tuck-in">{escape(t["tuck_title"])}</a>'
     data = response.get_data()
     visit = path == "/pdw/" and "island" in request.args
