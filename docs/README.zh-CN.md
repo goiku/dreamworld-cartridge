@@ -35,7 +35,7 @@ uv run --no-project --python 3.13 --with pillow==13.0.0 --with fonttools==4.68.0
 **让掌机和运行梦世界的电脑连到同一个家用网络就行。** 连同一个 Wi-Fi 或热点都可以，只要两台设备能互相访问。自己玩无需安装 Tailscale，也无需邀请别人。
 
 1. **电脑开服。** 第一次先按下方的[Windows 安装步骤](#在-windows-上启动私服)装好。以后双击 `runtime` 文件夹里的 `Start-DreamWorld-LAN.cmd`，游玩期间保持窗口打开。
-2. **在梦世界网页查 DNS。** 在这台电脑上，点梦世界首页或游戏画面上方的 **「查看我的掌机 DNS」**。页面会显示「主要 DNS」。如果没有显示地址，确认电脑已用局域网模式开服、掌机和电脑已连到同一网络，再点「重新检查」。[直接打开本机中文版 DNS 页面](http://127.0.0.1:8088/player-guide/#dns)
+2. **在梦世界网页查 DNS。** 在这台电脑上，点梦世界首页或游戏画面上方的 **「查看我的掌机 DNS」**。页面会显示「主要 DNS」。掌机关机也能查。如果没有显示地址，确认开服电脑已经连上要给掌机用的 Wi-Fi，再点「重新检查」。[直接打开本机中文版 DNS 页面](http://127.0.0.1:8088/player-guide/#dns)
 3. **把网页显示的数字填进掌机。** 在网页的 **「在掌机哪里填 DNS」** 选自己的机型，照着步骤打开游戏使用的 Wi-Fi 连接，关闭「自动获取 DNS」，把刚才的数字填进「主要 DNS」，保存并测试连接。下次地址没变就不用重填。
 
 **用手机或平板玩时，**先在电脑上以局域网模式开服，让手机连上同一个 Wi-Fi。在电脑的梦世界首页或游戏画面上方点 **「手机访问网址」**，把显示的完整网址（含端口）输入手机浏览器，用绑定这张卡带的账号登录。宝可梦入睡同步完成后，掌机可以断网，到唤醒时再连回来。在自动局域网模式下，电脑换了 Wi-Fi，等新网络连好后刷新这个页面，就能查到新网址。手机页面已在模拟移动浏览器中验证。[在开服电脑上查看手机访问网址](http://127.0.0.1:8088/player-guide/phone/)
@@ -168,6 +168,10 @@ uv run --frozen python -m scripts.activate_account PlayerName
 
 如果网页提示找不到 ID，先确认卡带在**当前这台私服**完成过一次同步，再核对游戏同步 ID。好友代码是联机时使用的另一组号码。同步中断时，保留同一台服务器和同一份存档，按照掌机提示操作，再进入游戏同步查看当前状态。
 
+如果入睡要几分钟，可以从确认宝可梦开始计时，到掌机提示完成为止。服务器日志会标记开始接收 512 KiB 存档的时刻，并分别显示接收耗时（`receive`）和服务器处理耗时（`handle`）。掌机播放动画和写入卡带也需要时间。使用更新后的私服，卡带和 DNS 设置都可以照旧。
+
+「报告」页面会提示当前是否有排位赛季或已公布成绩的 Wi-Fi 大会。GTS 交换记录可以在「报告 → GTS」查看。
+
 ## 和不同网络的好友联机
 
 双方各需要一台 Windows 电脑，分别与各自的掌机连接同一个局域网。两台电脑加入同一个 Tailscale 私有网络，掌机继续使用当地 Wi-Fi。转接程序已经通过模拟掌机通信测试，跨网的两台实体掌机完成对战或交换仍待验证。[Tailscale 设备互连说明](https://tailscale.com/docs/how-to/connect-to-devices)
@@ -225,7 +229,7 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32
 
 安装后，还可以用临时测试存档检查许愿和卡带下载流程。在发布包目录运行 `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`，通过时会显示 `PASS`。[查看卡带测试源码](../tools/check-cartridge.py)
 
-网页会向本机的游戏 DNS 服务查询，再显示掌机该填的地址。对应源码可以逐个打开：[网页 DNS 查询](../source/web/utils/player_dns.py) · [游戏 DNS 应答](../source/game-sync/entralinked/network/dns/server.py) · [站内指南页面](../source/web/templates/player_guide.html) · [玩家登录](../source/web/api/pgl_top.py)。安装程序使用[网页服务源码补丁](../source/web.patch)和[卡带游戏同步源码补丁](../source/game-sync.patch)。
+网页根据服主电脑或访客网关的局域网地址显示掌机应填的 DNS。掌机关机也可以查看。对应源码可以逐个打开：[网页 DNS 查询](../source/web/utils/player_dns.py) · [游戏 DNS 应答](../source/game-sync/entralinked/network/dns/server.py) · [站内指南页面](../source/web/templates/player_guide.html) · [玩家登录](../source/web/api/pgl_top.py)。安装程序使用[网页服务源码补丁](../source/web.patch)和[卡带游戏同步源码补丁](../source/game-sync.patch)。
 
 原版的美术、音乐和 Flash 小游戏来自宝可梦。复原社区保存了网页资源，开发了服务器和游戏同步程序。现代浏览器通过 Ruffle 运行 Flash 内容。[Dream World Reawakened](https://github.com/minibug1021/dreamworld-reawakened) · [game-sync-python](https://github.com/minibug1021/game-sync-python) · [Entralinked](https://github.com/kuroppoi/entralinked) · [dreamworld-assets](https://github.com/minibug1021/dreamworld-assets) · [Ruffle](https://ruffle.rs/)
 

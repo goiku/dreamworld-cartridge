@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "24dd9f0f6b7472594e0d86fd398db975cccb2a4f919ba80a09a6694b65efcd81",
+    "patch_sha256": "a09c4fccc0db5fd244969288c7562045ca4099035df604d1a54404f814e8e967",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -181,8 +181,9 @@
       },
       "api/stubs.py": {
         "before": "c6677d3627119fe927509244a008580e068b61e6cc3646ea638b17da4484a3ba",
-        "after": "5ebba7d69ea370ea7ed1ca09ac9d4a33487f48e8257a93c59fdfef5a4aa45cc8",
+        "after": "84feae0ff6efb4438d6c9024de0da342c439fb2f771aa74d8f95c68efb219b64",
         "previous": [
+          "5ebba7d69ea370ea7ed1ca09ac9d4a33487f48e8257a93c59fdfef5a4aa45cc8",
           "89dacc7fb7185baf647f4e9a406e2b3307c2f719dc094c08b94d19e3006b3256"
         ]
       },
@@ -271,10 +272,11 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "5a8d7cbef8dbbde2129e0791bda96023b2a27891ee89526ee03d059583d29a63",
+        "after": "1cc64110fd01a2e727494d1d605c8d4eee17c8af81a58e46a0f9ce68a0418692",
         "previous": [
           "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
           "3cee081d1ad138589f21c99cbe4810dd00ab6c86303fbd5077ba477196f25055",
+          "5a8d7cbef8dbbde2129e0791bda96023b2a27891ee89526ee03d059583d29a63",
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
           "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
@@ -618,10 +620,11 @@
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "475b137f64d603db311e5dcbba198d499fccf52128e752fa26a470856e2b62d4",
+        "after": "b13067484bdffeaa417533775e993bbb5e6a80eae4729de45fec7cd58f634e23",
         "previous": [
           "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
+          "475b137f64d603db311e5dcbba198d499fccf52128e752fa26a470856e2b62d4",
           "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
           "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
           "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
@@ -666,6 +669,10 @@
           "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5",
           "4caaf2b43b036735d00e59c6fa571083bed14b381cb604faf5f5cd103912b1ac"
         ]
+      },
+      "tests/test_game_upload_transport.py": {
+        "before": null,
+        "after": "92c17b50a6dfba195343e5df8e709e2897de555fa4c76df04020d977322c9a8f"
       },
       "tests/test_gen5_names.py": {
         "before": null,
@@ -754,8 +761,9 @@
       },
       "utils/assets.py": {
         "before": "d70a69227d30b3c5401dc80a88bd270fc860bbd9ea83bf6373b0af3ed38ae6f5",
-        "after": "322b95ea1fae07d0e42a2cb9e1543f690e670653a31f706639a8647f94cccd6a",
+        "after": "0cf8b273a2c4ecf260a1fa5bbeb7d9ad76adbc11500e45842768622fbe79d1d0",
         "previous": [
+          "322b95ea1fae07d0e42a2cb9e1543f690e670653a31f706639a8647f94cccd6a",
           "e2987200bf59c5e82df0ce1cc30e5b024dbe0043887bae6e78e9f99361af44d8"
         ]
       },
@@ -846,10 +854,15 @@
           "e7cb647d3f62e717527b0db9c003d56c6cb12418615d91943e1950c1c5c27ea9"
         ]
       },
+      "utils/patching/report.py": {
+        "before": null,
+        "after": "ba5ab582a5ac90983bb8967e72d9f62152c646e483404c392d15ecf3d99dd7b4"
+      },
       "utils/patching/substitutions.py": {
         "before": "7222896eb22c14bd5acb91061d67f9254fbabbc6573a7c28ac459c67fa4f0168",
-        "after": "5fde94a221f936feee4a763a8854f08c72f23c6025efb1b7863cef2f5659ab1f",
+        "after": "8d996485b19640656198e7ec0af3cab3b226eaf6628c62d2ec4ed2aaf867f24d",
         "previous": [
+          "5fde94a221f936feee4a763a8854f08c72f23c6025efb1b7863cef2f5659ab1f",
           "cae367ff569c4829c5d3e494f6a3084f0d7b5940b278af4370994eae9a43c2b1",
           "cdafd36b10b48218f7359952b0e2f3cf221d886c6bf5260eecdc5cbc04bb5957"
         ]
@@ -936,7 +949,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "4c39607c6f62f181f88354eb4a15d9e7a082fba11867106c45d951b268f707ca",
+    "patch_sha256": "e6bddfd371182b4a30ec567ffddd8c2e0819be8fa921ae21082a404551fdaa1d",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -1033,7 +1046,10 @@
       },
       "entralinked/network/http/http_server.py": {
         "before": "1129df4de258fbf52f4a1395f6db3b12841cf5cfa281f01159c4675d65749685",
-        "after": "29aa222305727b44346e2a0ec0392884b7b2f87f4c2adaf59486cf09dd4366c4"
+        "after": "24c1171d390bcb6ea800573e493c6211d1334dfcdb0eadfc4054a0c37ea1aa92",
+        "previous": [
+          "29aa222305727b44346e2a0ec0392884b7b2f87f4c2adaf59486cf09dd4366c4"
+        ]
       },
       "entralinked/network/http/nas_handler.py": {
         "before": "c5c303ebdccb59c90949f7fcca71292e9a6184af5fb990f308af4a579f6922e7",

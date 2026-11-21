@@ -8,7 +8,6 @@ from api.routes import Query, endpoint
 EMPTY_STUBS = {
     "GET": (
         "hb",  # heartbeat
-        "gbu.journal.season_list",
         "gbu.worldbattle.get_battle_history",
     ),
     "POST": (
@@ -25,3 +24,10 @@ def empty_response(_query: Query) -> dict:
 for _method, _names in EMPTY_STUBS.items():
     for _name in _names:
         endpoint(_name, methods=(_method,))(empty_response)
+
+
+@endpoint("gbu.journal.season_list")
+@endpoint("gbu.journal.worldbattle_list")
+def available_competitions(_query: Query) -> list:
+    """The server currently has no published seasons or competition results."""
+    return []

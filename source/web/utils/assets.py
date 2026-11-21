@@ -34,6 +34,9 @@ PATCHABLE_EXTENSIONS = {".js", ".html", ".css"}
 def read_and_patch(file_path: Path) -> bytes:
     """Return the file's contents, with the text patches applied if it's a patchable type."""
     data = file_path.read_bytes()
+    if file_path == RUFFLE_SCRIPT:
+        # A report can remove an iframe while the archived player's delayed load callback runs.
+        data = data.replace(b"if(a=e.document,!a)return", b"if(a=e.document,!a||!a.documentElement)return", 1)
     if LANG == "zh" and file_path.name in ("areas.js", "pokemons.js") and file_path.parent == SHARED_DIR / "report/assets/js":
         from utils.zh_web_data import localize_report_catalog
         data = localize_report_catalog(data, file_path.name)

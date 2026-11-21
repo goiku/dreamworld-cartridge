@@ -61,7 +61,9 @@
     </section>
     <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
     <section id="tuck-in">
-      <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_web.intro }}</p>
+      <h2>{{ t.tuck_title }}</h2>
+      <p>{{ t.tuck_practice }} <a href="{{ url_for('practice.arcade') }}">{{ arcade.title }}</a></p>
+      <p>{{ t.tuck_web.intro }}</p>
       <p><label>{{ t.tuck_web.clock }} <input id="tuck-date" type="date" min="2000-01-01" max="2099-12-31" required></label></p>
       <p><label>{{ t.tuck_web.file }} <input id="tuck-file" type="file" accept=".sav"></label></p>
       <div class="guide-actions">

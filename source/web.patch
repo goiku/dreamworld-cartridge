@@ -3882,12 +3882,14 @@ index 5354239c32b74e83efe13c2ee142c2c505199491..f8ac4d9a05a345765b200dc5ce0159ee
 -    return redirect(SIGNUP_URL + "activated.html")
 +    return redirect("/login/pgl.html")
 diff --git a/api/stubs.py b/api/stubs.py
-index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..d4693bdfdd30a85b836d084fe9680be5489ee78f 100644
+index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..27e27db0c3b4e39ef2ef99a3f1baafafafb5ad66 100644
 --- a/api/stubs.py
 +++ b/api/stubs.py
-@@ -10,22 +10,6 @@ EMPTY_STUBS = {
+@@ -8,24 +8,7 @@ from api.routes import Query, endpoint
+ EMPTY_STUBS = {
+     "GET": (
          "hb",  # heartbeat
-         "gbu.journal.season_list",
+-        "gbu.journal.season_list",
          "gbu.worldbattle.get_battle_history",
 -        "gts.profile.gts_history",
 -        "pdw.croft.tutorial_start",
@@ -3908,6 +3910,17 @@ index 75aa97a1fb5e4362fe0c1a90cf3105450f41c52d..d4693bdfdd30a85b836d084fe9680be5
      ),
      "POST": (
          "pgl.member.profile.pdw_login",
+@@ -41,3 +24,10 @@ def empty_response(_query: Query) -> dict:
+ for _method, _names in EMPTY_STUBS.items():
+     for _name in _names:
+         endpoint(_name, methods=(_method,))(empty_response)
++
++
++@endpoint("gbu.journal.season_list")
++@endpoint("gbu.journal.worldbattle_list")
++def available_competitions(_query: Query) -> list:
++    """The server currently has no published seasons or competition results."""
++    return []
 diff --git a/api/tournaments.py b/api/tournaments.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..a52e551cb364ba02e3dfa488a2c7534a99da2ef9
@@ -7172,10 +7185,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baeaa2d63984
+index 0000000000000000000000000000000000000000..6753c766e31938827daac157b97d84a9a1a0866d
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,746 @@
+@@ -0,0 +1,754 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -7221,6 +7234,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "melonDS on this PC",
 +    "emulator_steps": "Use indirect networking in melonDS 1.1. In the game’s Nintendo WFC Settings, choose melonAP, turn off automatic DNS, enter the address below as Primary DNS, save and test.",
 +    "emulator_offline": "Open the local website on the computer running melonDS and the game server, start the server, then check again.",
++    "tuck_practice": "While Game Sync is recharging, you can try all 12 minigames. Practice is separate from your save and uses none of your cartridge items.",
 +    "tuck_title": "Remove the tuck-in limit",
 +    "tuck_download": "Remove the tuck-in limit",
 +    "tuck_setup": "Save in-game and close melonDS. Open the helper with Python 3.11 or later. Select melonDS 1.1, your everyday game, an unmodified copy of the same edition and region, and your latest .sav. Open the helper in the new profile folder for future sessions.",
@@ -7314,6 +7328,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "このPCのmelonDS",
 +    "emulator_steps": "melonDS 1.1を間接接続モードで使います。ゲームのWi-Fiコネクション設定でmelonAPを選び、DNSの自動取得を「しない」にして、下のアドレスをプライマリDNSに入力し、保存して接続テストをしてください。",
 +    "emulator_offline": "melonDSとゲームサーバーを同じPCで起動し、そのPCからローカルのページを開いて再確認してください。",
++    "tuck_practice": "ゲームシンクのエネルギーを充電している間も、12種類のミニゲームを体験できます。体験版の進行は独立しており、ゲームカードの道具は消費しません。",
 +    "tuck_title": "寝かしつけ制限を解除",
 +    "tuck_download": "寝かしつけ制限を解除",
 +    "tuck_setup": "ゲーム内でレポートを書き、melonDS を終了します。Python 3.11 以降でツールを起動し、melonDS 1.1、普段遊ぶソフト、同じ地域・バージョンの未改変ソフト、最新の .sav を選びます。次回からは新しくできたフォルダーのツールを使います。",
@@ -7407,6 +7422,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "本机 melonDS 模拟器",
 +    "emulator_steps": "在开服电脑上使用 melonDS 1.1 的间接联网模式。进入游戏的 Nintendo Wi-Fi 连接设置，选择 melonAP，关闭自动获取 DNS，把下方地址填入主要 DNS，保存并测试。",
 +    "emulator_offline": "请在运行私服和 melonDS 的同一台电脑打开本机网页，并启动游戏服务器，然后重新检查。",
++    "tuck_practice": "如果卡带提示「游戏同步能量正在充能」，等到可以入睡前，也可以直接试玩全部 12 个小游戏。试玩进度独立，不会消耗卡带里的道具。",
 +    "tuck_title": "解除睡眠限制",
 +    "tuck_download": "解除睡眠限制",
 +    "tuck_setup": "先在游戏内保存，关闭 melonDS。用 Python 3.11 或更新版本打开助手，选择自己的 melonDS 1.1、平时玩的游戏、同地区同版本的未修改游戏，以及最新的 .sav。第一次设置会复制一份游玩进度，以后从新文件夹打开助手。",
@@ -7500,6 +7516,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "melonDS sur ce PC",
 +    "emulator_steps": "Dans melonDS 1.1, utilisez le mode indirect. Dans les paramètres CWF du jeu, choisissez melonAP, désactivez le DNS automatique, entrez le DNS primaire ci-dessous, enregistrez et testez.",
 +    "emulator_offline": "Ouvrez le site local sur le PC qui exécute melonDS et le serveur de jeu, lancez le serveur et réessayez.",
++    "tuck_practice": "Pendant la recharge de la Synchro-Jeu, vous pouvez essayer les 12 mini-jeux. Le mode d’essai est indépendant et ne consomme aucun objet de votre cartouche.",
 +    "tuck_title": "Lever la limite d’endormissement",
 +    "tuck_download": "Lever la limite d’endormissement",
 +    "tuck_setup": "Sauvegardez en jeu et fermez melonDS. Avec Python 3.11 ou ultérieur, ouvrez l’assistant et choisissez melonDS 1.1, votre jeu habituel, un exemplaire non modifié de la même édition et région et votre dernier fichier .sav. Utilisez ensuite le nouveau dossier.",
@@ -7593,6 +7610,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "melonDS su questo PC",
 +    "emulator_steps": "Usa la modalità indiretta in melonDS 1.1. Nelle impostazioni Nintendo WFC del gioco scegli melonAP, disattiva il DNS automatico, inserisci il DNS primario mostrato sotto, salva e verifica la connessione.",
 +    "emulator_offline": "Apri il sito locale sul PC con melonDS e il server di gioco, avvia il server e riprova.",
++    "tuck_practice": "Mentre il Sincrogioco si ricarica, puoi provare tutti e 12 i minigiochi. La prova è separata dal salvataggio e non consuma gli strumenti della scheda di gioco.",
 +    "tuck_title": "Rimuovi il limite per far addormentare i Pokémon",
 +    "tuck_download": "Rimuovi il limite per far addormentare i Pokémon",
 +    "tuck_setup": "Salva nel gioco e chiudi melonDS. Apri l’assistente con Python 3.11 o successivo. Seleziona melonDS 1.1, il gioco abituale, una copia originale della stessa edizione e regione e il file .sav più recente. In seguito usa la nuova cartella.",
@@ -7686,6 +7704,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "melonDS auf diesem PC",
 +    "emulator_steps": "Verwende in melonDS 1.1 den indirekten Modus. Wähle in den Nintendo-WFC-Einstellungen melonAP, schalte den automatischen DNS aus und trage die Adresse unten als primären DNS ein. Speichere und teste die Verbindung.",
 +    "emulator_offline": "Öffne die lokale Seite auf dem PC mit melonDS und dem Spielserver. Starte den Server und prüfe erneut.",
++    "tuck_practice": "Während sich die Spielsynchro auflädt, kannst du alle 12 Minispiele ausprobieren. Der Übungsmodus läuft getrennt von deinem Spielstand und verbraucht keine Items auf deiner Spielkarte.",
 +    "tuck_title": "Schlaflimit aufheben",
 +    "tuck_download": "Schlaflimit aufheben",
 +    "tuck_setup": "Speichere im Spiel und schließe melonDS. Öffne den Helfer mit Python ab 3.11. Wähle melonDS 1.1, dein übliches Spiel, eine unveränderte Kopie derselben Edition und Region und deine aktuelle .sav-Datei. Nutze künftig den neuen Ordner.",
@@ -7779,6 +7798,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "melonDS en este PC",
 +    "emulator_steps": "Usa el modo indirecto de melonDS 1.1. En los ajustes de la CWF del juego, selecciona melonAP, desactiva el DNS automático, introduce el DNS primario que aparece abajo, guarda y prueba la conexión.",
 +    "emulator_offline": "Abre la web local en el PC que ejecuta melonDS y el servidor del juego, inicia el servidor y vuelve a comprobarlo.",
++    "tuck_practice": "Mientras se recarga la Sincro. Juego, puedes probar los 12 minijuegos. El modo de prueba es independiente y no consume objetos de tu tarjeta de juego.",
 +    "tuck_title": "Quitar el límite para dormir Pokémon",
 +    "tuck_download": "Quitar el límite para dormir Pokémon",
 +    "tuck_setup": "Guarda en el juego y cierra melonDS. Abre el asistente con Python 3.11 o posterior. Elige melonDS 1.1, tu juego habitual, una copia sin modificar de la misma edición y región y tu último archivo .sav. Para las próximas sesiones, usa la carpeta nueva.",
@@ -7872,6 +7892,7 @@ index 0000000000000000000000000000000000000000..fa270647ac929242346b56ddc8f8baea
 +    "emulator": "이 PC의 melonDS",
 +    "emulator_steps": "melonDS 1.1에서 간접 연결 모드를 사용하세요. 게임의 Nintendo Wi-Fi 설정에서 melonAP를 선택하고 DNS 자동 취득을 끈 뒤 아래 주소를 기본 DNS로 입력하세요. 저장하고 연결을 테스트하세요.",
 +    "emulator_offline": "melonDS와 게임 서버를 같은 PC에서 실행한 뒤 해당 PC에서 로컬 웹사이트를 열고 다시 확인하세요.",
++    "tuck_practice": "게임싱크 에너지가 충전되는 동안에도 미니게임 12종을 모두 체험할 수 있습니다. 체험 모드는 별도로 진행되며 게임 카드의 도구를 소모하지 않습니다.",
 +    "tuck_title": "재우기 제한 해제",
 +    "tuck_download": "재우기 제한 해제",
 +    "tuck_setup": "게임에서 저장하고 melonDS를 종료하세요. Python 3.11 이상으로 도우미를 열고 melonDS 1.1, 평소 사용하는 게임, 같은 지역과 버전의 원본 게임, 최신 .sav 파일을 선택하세요. 다음부터는 새 폴더의 도우미를 여세요.",
@@ -19161,10 +19182,10 @@ index 0000000000000000000000000000000000000000..aefe8d4eea14c47cc452c94cceec55df
 +</body></html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..8dd4fd4c661b491a3b2304bfdab9703e2452e6b9
+index 0000000000000000000000000000000000000000..a28113f6a150f6617ee262611e0035ece2754814
 --- /dev/null
 +++ b/templates/player_guide.html
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,101 @@
 +<!doctype html>
 +<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
 +<head>
@@ -19228,7 +19249,9 @@ index 0000000000000000000000000000000000000000..8dd4fd4c661b491a3b2304bfdab9703e
 +    </section>
 +    <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
 +    <section id="tuck-in">
-+      <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_web.intro }}</p>
++      <h2>{{ t.tuck_title }}</h2>
++      <p>{{ t.tuck_practice }} <a href="{{ url_for('practice.arcade') }}">{{ arcade.title }}</a></p>
++      <p>{{ t.tuck_web.intro }}</p>
 +      <p><label>{{ t.tuck_web.clock }} <input id="tuck-date" type="date" min="2000-01-01" max="2099-12-31" required></label></p>
 +      <p><label>{{ t.tuck_web.file }} <input id="tuck-file" type="file" accept=".sav"></label></p>
 +      <div class="guide-actions">
@@ -19998,6 +20021,51 @@ index 0000000000000000000000000000000000000000..3731e2bfd57bf1b80064068dd139bbfa
 +    for item in page(0):
 +        assert item["title"] in overview
 +        assert client.get(f"/top/assets/images/info-default/{item['news_category_id']}.png").data.startswith(b"\x89PNG")
+diff --git a/tests/test_game_upload_transport.py b/tests/test_game_upload_transport.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..78f60839528f7dd8c829e8e3297f143afc79b029
+--- /dev/null
++++ b/tests/test_game_upload_transport.py
+@@ -0,0 +1,39 @@
++import io
++import logging
++
++import pytest
++from flask import Flask, request
++from werkzeug.test import EnvironBuilder
++
++from game_sync_server.entralinked.network.http.http_server import RequestBodyMiddleware
++
++
++@pytest.mark.parametrize("missing", [0, 1])
++def test_fragmented_upload_requires_the_last_byte(missing, caplog):
++    payload = bytes(range(256)) * 2048
++    submitted = []
++    requests = []
++
++    class ShortReads(io.BytesIO):
++        def read(self, size=-1):
++            requests.append(size)
++            return super().read(min(509, size))
++
++    app = Flask(__name__)
++    app.wsgi_app = RequestBodyMiddleware(app.wsgi_app)
++
++    @app.post("/dsio/gw")
++    def upload():
++        submitted.append(request.get_data())
++        return b"OK"
++
++    env = EnvironBuilder(path="/dsio/gw", method="POST",
++                         query_string={"p": "savedata.upload", "tok": "private-test-token"}).get_environ()
++    env.update({"CONTENT_LENGTH": str(len(payload)), "wsgi.input": ShortReads(payload[:len(payload) - missing])})
++    with caplog.at_level(logging.INFO), app.test_client() as client:
++        result = client.open(environ_overrides=env)
++    assert result.status_code == (400 if missing else 200)
++    assert submitted == ([] if missing else [payload])
++    assert 0 < max(requests) <= 16 * 1024
++    assert ("Tuck-in upload timing" in caplog.text) == (not missing)
++    assert "private-test-token" not in caplog.text
 diff --git a/tests/test_gen5_names.py b/tests/test_gen5_names.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..60386043483cfddd207d492ae7ff28bf8945de76
@@ -21810,7 +21878,7 @@ index ce8a908319d323d20284ec73bc043b4f7b1c38b4..fd88eb004882a6675dea49572a0b1a0e
      def claim_daily_bonus(self, username: str, today: str) -> bool:
          """Claim `username`'s daily bonus for `today`.
 diff --git a/utils/assets.py b/utils/assets.py
-index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b5b172386 100644
+index b479b2559f35bf7bd49ba5130a73dad351bd8768..384c698398324c7eeabfcaf8106e78aeeb69def1 100644
 --- a/utils/assets.py
 +++ b/utils/assets.py
 @@ -6,14 +6,25 @@ from pathlib import Path
@@ -21840,11 +21908,14 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b
  
  # Text files get apply_substitutions before serving. Binary assets (images, fonts, etc.)
  # are served as-is.
-@@ -23,9 +34,46 @@ PATCHABLE_EXTENSIONS = {".js", ".html", ".css"}
+@@ -23,9 +34,49 @@ PATCHABLE_EXTENSIONS = {".js", ".html", ".css"}
  def read_and_patch(file_path: Path) -> bytes:
      """Return the file's contents, with the text patches applied if it's a patchable type."""
      data = file_path.read_bytes()
 -
++    if file_path == RUFFLE_SCRIPT:
++        # A report can remove an iframe while the archived player's delayed load callback runs.
++        data = data.replace(b"if(a=e.document,!a)return", b"if(a=e.document,!a||!a.documentElement)return", 1)
 +    if LANG == "zh" and file_path.name in ("areas.js", "pokemons.js") and file_path.parent == SHARED_DIR / "report/assets/js":
 +        from utils.zh_web_data import localize_report_catalog
 +        data = localize_report_catalog(data, file_path.name)
@@ -21888,7 +21959,7 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b
  
      return data
  
-@@ -33,7 +81,11 @@ def read_and_patch(file_path: Path) -> bytes:
+@@ -33,7 +84,11 @@ def read_and_patch(file_path: Path) -> bytes:
  def serve_file(file_path: Path) -> Response:
      """Return a response with the patched file and a content type guessed from its name."""
      content_type, _ = mimetypes.guess_type(file_path)
@@ -21901,7 +21972,7 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b
  
  
  def not_found(path: str) -> Response:
-@@ -48,6 +100,14 @@ def path_inside(base: Path, relative: str) -> Path | None:
+@@ -48,6 +103,14 @@ def path_inside(base: Path, relative: str) -> Path | None:
      return path if path.is_relative_to(base) else None
  
  
@@ -21916,7 +21987,7 @@ index b479b2559f35bf7bd49ba5130a73dad351bd8768..3f889fd986248bf5df311d7c9595922b
  def resolve_static(path: str) -> Path | None:
      """Return the file for a static asset URL.
  
-@@ -56,20 +116,49 @@ def resolve_static(path: str) -> Path | None:
+@@ -56,20 +119,49 @@ def resolve_static(path: str) -> Path | None:
      """
      relative = path.lstrip("/")
  
@@ -24313,11 +24384,59 @@ index 0000000000000000000000000000000000000000..e300f4dcd29695eaa4d544556cba4029
 +        return [dict(row) for row in conn.execute(
 +            "SELECT event AS event_id, visited_at,source AS guest_island,name,pokemon_no FROM offline_island_inbox "
 +            "WHERE gscd=? ORDER BY visited_at DESC,rowid DESC LIMIT 300", (gscd,))]
+diff --git a/utils/patching/report.py b/utils/patching/report.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b3952aa5929f88dc5620d2bd1bffddc84d1ece6
+--- /dev/null
++++ b/utils/patching/report.py
+@@ -0,0 +1,42 @@
++"""Display an empty report when there is no published season or tournament."""
++import json
++
++MESSAGES = {
++    "zh": ("本服还没有排位赛季。掌机的排位战绩尚未接入。", "本服还没有已发布成绩的 Wi-Fi 大会。"),
++    "ja": ("現在、このサーバーにはレーティングシーズンがありません。ゲーム機からの対戦成績の受信は未対応です。", "このサーバーでは、Wi-Fi大会の結果はまだ公開されていません。"),
++    "en": ("There are no ranked seasons on this server yet. Ranked results from game systems are not yet supported.", "No Wi-Fi Competition results have been published on this server yet."),
++    "fr": ("Aucune saison classée pour le moment. Ce serveur ne reçoit pas encore les résultats des combats classés sur console.", "Ce serveur n’a encore publié aucun résultat de tournoi Wi-Fi."),
++    "it": ("Non ci sono ancora stagioni di lotte a punteggio. Il server non riceve ancora i risultati dalla console.", "Il server non ha ancora pubblicato risultati di gare Wi-Fi."),
++    "de": ("Auf diesem Server gibt es noch keine Ranglistensaison. Ergebnisse von Ranglistenkämpfen auf dem Nintendo DS werden noch nicht erfasst.", "Auf diesem Server wurden noch keine Ergebnisse von Wi-Fi-Turnieren veröffentlicht."),
++    "es": ("Todavía no hay temporadas de combates por puntos. El servidor aún no recibe los resultados de la consola.", "Todavía no se han publicado resultados de torneos Wi-Fi en este servidor."),
++    "ko": ("아직 이 서버에는 레이팅 시즌이 없습니다. 게임기에서 레이팅배틀 결과를 받는 기능은 아직 지원하지 않습니다.", "이 서버에는 아직 공개된 Wi-Fi 대회 결과가 없습니다."),
++}
++
++
++def patch_report(data: bytes, language: str) -> bytes:
++    season, competition = (json.dumps(message).encode() for message in MESSAGES[language])
++    # Keep the archived sections intact so reports with data retain their usual layout.
++    helper = b"""
++function setReportNotice(section, message) {
++  if (!document.getElementById('report-notice-style')) {
++    $('<style id="report-notice-style">.report-has-notice > :not(.report-notice){display:none!important}.report-notice{margin:0;padding:48px 32px;background:white;color:#333;text-align:center;font-size:16px;line-height:1.6}</style>').appendTo('head');
++  }
++  var host = $(section).toggleClass('report-has-notice', !!message);
++  host.children('.report-notice').remove();
++  if (message) $('<p class="report-notice" role="status"></p>').text(message).appendTo(host);
++}
++"""
++    data = data.replace(b"$('#gbu').show();", b"$('#gbu').show();\n"
++                        b"      setReportNotice('#gbu', this.seasons.length ? null : " + season + b");\n"
++                        b"      if (!this.seasons.length) return;")
++    data = data.replace(b"if (!self.last_wifi_comp) {",
++                        b"setReportNotice('#wifi-competitions', data.length ? null : " + competition + b");\n"
++                        b"        if (!data.length) return;\n        if (!self.last_wifi_comp) {")
++    data = data.replace(b"if (!disableAutoNavigation) {",
++                        b"if (!disableAutoNavigation && !$('.report-notice:visible').length) {")
++    data = data.replace(b"if (always || !target.isLooking()) {",
++                        b"var notice = $('.report-notice:visible');\n"
++                        b"        if (notice.length) target = notice;\n        if (always || !target.isLooking()) {")
++    data = data.replace(b"states.subtype = validate(path[2], ['', 'ranking', 'trend']);",
++                        b"states.subtype = this.seasons.length ? validate(path[2], ['', 'ranking', 'trend']) : '';")
++    return helper + data
 diff --git a/utils/patching/substitutions.py b/utils/patching/substitutions.py
-index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3878fc725 100644
+index 0decf632e77356b9d4476bcc8080404bde99b3b4..b79f8b8d4f9197155058b1854bf9ddf5323a64b0 100644
 --- a/utils/patching/substitutions.py
 +++ b/utils/patching/substitutions.py
-@@ -2,9 +2,10 @@
+@@ -2,9 +2,11 @@
  
  They are applied each time a file is served (utils/assets.py).
  """
@@ -24326,10 +24445,11 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3
  
 -from config import LANG
 +from config import ASSET_LANG, LANG
++from utils.patching.report import patch_report
  
  
  @dataclass(frozen=True)
-@@ -18,7 +19,7 @@ class Substitution:
+@@ -18,7 +20,7 @@ class Substitution:
  # point the SWF embed at the local language host instead of window.location
  _SWF_EMBED_PATCHES = Substitution(
          b"lang:window.location",
@@ -24338,7 +24458,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3
      )
  
  # patch for Ruffle breaking the volume slider
-@@ -30,6 +31,10 @@ _VOLUME_SLIDER_PATCHES = Substitution(
+@@ -30,6 +32,10 @@ _VOLUME_SLIDER_PATCHES = Substitution(
  # file name -> substitutions for just that file
  JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
      "pgl.js": (
@@ -24349,7 +24469,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3
          Substitution(
              b"(location.href.match(/\\W(ja|en|fr|it|de|es|ko)\\./) || [null, 'ja'])[1];",
              f"'{LANG}';".encode(),
-@@ -47,9 +52,19 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
+@@ -47,9 +53,19 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
              b"  $('input[name=pgl_name]').val(this.data.username).prop('readonly', true);\n",
          ),
      ),
@@ -24369,7 +24489,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3
          # use Intl.DateTimeFormat so the time respects DST
          Substitution(
              b"d.setTime(d.getTime() + area.tz.offset * 60 * 60 * 1000);\r\n"
-@@ -70,6 +85,9 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
+@@ -70,6 +86,9 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
  # substitutions applied to every patchable file
  _GLOBAL_SUBS: tuple[Substitution, ...] = (
      Substitution(b"http://cdn2.pokemon-gl.com", b""),
@@ -24379,10 +24499,12 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..018ce81d6a33200c3bd9d42af6a92ca3
      Substitution(f"http://gus.pokemon.com/{LANG}".encode(), f"/pgl-363/{LANG}".encode()),
      Substitution(b"https://assets.pokemon.com", b"/assets.pokemon.com"),
      Substitution(b"https://www.pokemon.com", b"/www.pokemon.com"),
-@@ -86,4 +104,12 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
+@@ -86,4 +105,14 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
      """Apply global substitutions, then file-specific ones."""
      for sub in (*_GLOBAL_SUBS, *JS_PATCHES.get(filename, ())):
          data = data.replace(sub.old, sub.new)
++    if filename == "report.js" and b"showGBU:function" in data:
++        data = patch_report(data, LANG)
 +    if filename == "top.js":
 +        # Both the original and restored home pages select a login host before
 +        # building this widget. All locales now authenticate on the page's origin.

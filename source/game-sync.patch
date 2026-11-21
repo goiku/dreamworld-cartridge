@@ -1714,22 +1714,28 @@ index 0000000000000000000000000000000000000000..9679e360a52d2db08fa2cd5d96b06153
 +            challenge.reply = body + checksum
 +            return _binary(challenge.reply)
 diff --git a/entralinked/network/http/http_server.py b/entralinked/network/http/http_server.py
-index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c6948ef0686c 100644
+index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1e154f2e3 100644
 --- a/entralinked/network/http/http_server.py
 +++ b/entralinked/network/http/http_server.py
-@@ -1,4 +1,5 @@
+@@ -1,8 +1,11 @@
  """The web server for everything the DS reaches over HTTP."""
 +import os
  import io
  import logging
++import socket
  import socketserver
-@@ -12,11 +13,13 @@ from tlslite import TLSSocketServerMixIn, X509CertChain
+ import threading
++from time import perf_counter
+ from collections.abc import Callable, Iterable
+ from typing import Any
+ from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
+@@ -12,11 +15,13 @@ from tlslite import TLSSocketServerMixIn, X509CertChain
  from tlslite.handshakesettings import HandshakeSettings
  from tlslite.sessioncache import SessionCache
  from tlslite.utils.keyfactory import parsePEMKey
 -from werkzeug.serving import BaseWSGIServer, make_server
 +from werkzeug.serving import BaseWSGIServer, WSGIRequestHandler as WerkzeugRequestHandler, make_server
-+from werkzeug.wrappers import Response
++from werkzeug.wrappers import Request, Response
  
  from ...context import Context
  from ...paths import SERVER_PEM_PATH
@@ -1738,11 +1744,22 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
  from .nas_handler import NasHandler
  from .pgl_handler import PglHandler
  
-@@ -26,6 +29,23 @@ HTTPS_PORT = 443  # the DS is only given an address, so the port can't change
+@@ -26,6 +31,45 @@ HTTPS_PORT = 443  # the DS is only given an address, so the port can't change
  HTTP_PORT = 8081
  
  
 +class _GameRequestLog:
++    def setup(self):
++        super().setup()
++        # Some handhelds wait for an ACK before sending the next short segment.
++        # Older Python versions don't name Windows' SIO_TCP_SET_ACK_FREQUENCY.
++        quick_ack = getattr(socket, "TCP_QUICKACK", -1744830441 if os.name == "nt" else None)
++        if quick_ack is not None:
++            try:
++                self.connection.setsockopt(socket.IPPROTO_TCP, quick_ack, 1)
++            except OSError:
++                pass  # Older network stacks can still exchange saves normally.
++
 +    def log_request(self, code="-", size="-"):
 +        # DS query strings may contain session tokens and encoded Pokémon records.
 +        path = getattr(self, "path", "").partition("?")[0]
@@ -1753,16 +1770,27 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
 +    """Use HTTP/1.0 for the DS's plain HTTP requests."""
 +
 +    protocol_version = "HTTP/1.0"
++    # Werkzeug writes HTTP headers and the short result separately.
++    disable_nagle_algorithm = True
 +
 +
 +class NintendoTLSRequestHandler(_GameRequestLog, WSGIRequestHandler):
-+    pass
++    # wsgiref flushes after writing the response body. Send a short Game Sync reply
++    # in one TLS record instead of separate records for status, headers and payload.
++    wbufsize = 16 * 1024
++
++    def setup(self):
++        super().setup()
++        # tlslite returns a raw SocketIO even when makefile is asked for buffering.
++        # Buffer headers and keep short TLS records from causing large temporary reads.
++        if isinstance(self.rfile, io.RawIOBase):
++            self.rfile = io.BufferedReader(self.rfile, 16 * 1024)
 +
 +
  class RequestBodyMiddleware:
      def __init__(self, wsgi_app: Callable[..., Iterable[bytes]]) -> None:
          self.wsgi_app = wsgi_app
-@@ -34,7 +54,9 @@ class RequestBodyMiddleware:
+@@ -34,17 +78,28 @@ class RequestBodyMiddleware:
          try:
              remaining = int(environ.get("CONTENT_LENGTH") or 0)
          except ValueError:
@@ -1772,10 +1800,19 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
 +            return Response(status=400)(environ, start_response)
  
          wsgi_input = environ.get("wsgi.input")
++        upload = (environ.get("REQUEST_METHOD") == "POST"
++                  and environ.get("PATH_INFO", "").rstrip("/") == "/dsio/gw"
++                  and Request(environ).args.get("p") == "savedata.upload")
++        if upload:
++            started = perf_counter()
++            logger.info("Tuck-in upload started: expecting %d bytes", remaining)
  
-@@ -44,7 +66,10 @@ class RequestBodyMiddleware:
+         if remaining > 0 and wsgi_input is not None:
+             chunks = []
+ 
              while remaining > 0:
-                 chunk = wsgi_input.read(remaining)
+-                chunk = wsgi_input.read(remaining)
++                chunk = wsgi_input.read(min(remaining, 16 * 1024))
                  if not chunk:
 -                    break
 +                    # A partial upload or acknowledgement must not reach Game Sync.
@@ -1785,7 +1822,20 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
                  chunks.append(chunk)
                  remaining -= len(chunk)
  
-@@ -59,8 +84,8 @@ class TLSServer(TLSSocketServerMixIn, socketserver.ThreadingMixIn, WSGIServer):
+@@ -52,6 +107,12 @@ class RequestBodyMiddleware:
+             environ["wsgi.input"] = io.BytesIO(body)
+             environ["CONTENT_LENGTH"] = str(len(body))
+ 
++        if upload:
++            received = perf_counter()
++            response = self.wsgi_app(environ, start_response)
++            logger.info("Tuck-in upload timing: receive %.3fs, handle %.3fs",
++                        received - started, perf_counter() - received)
++            return response
+         return self.wsgi_app(environ, start_response)
+ 
+ 
+@@ -59,8 +120,8 @@ class TLSServer(TLSSocketServerMixIn, socketserver.ThreadingMixIn, WSGIServer):
      allow_reuse_address = True
      daemon_threads = True
  
@@ -1796,7 +1846,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.private_key = private_key
          self.cert_chain = cert_chain
          self.session_cache = SessionCache()
-@@ -89,13 +114,18 @@ def create_app(context: Context) -> Flask:
+@@ -89,13 +150,18 @@ def create_app(context: Context) -> Flask:
      app.url_map.strict_slashes = False
      app.wsgi_app = RequestBodyMiddleware(app.wsgi_app)
  
@@ -1817,7 +1867,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
  
      return app
  
-@@ -103,8 +133,9 @@ def create_app(context: Context) -> Flask:
+@@ -103,8 +169,9 @@ def create_app(context: Context) -> Flask:
  class HttpServer:
      """Serves the app over HTTP(S)."""
  
@@ -1828,7 +1878,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.http_port = http_port
          self.http_server: BaseWSGIServer | None = None
          self.http_thread: threading.Thread | None = None
-@@ -113,7 +144,13 @@ class HttpServer:
+@@ -113,7 +180,13 @@ class HttpServer:
  
      def start(self) -> None:
          """Start the HTTP and HTTPS servers."""
@@ -1843,7 +1893,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
          self.http_thread = threading.Thread(target=self.http_server.serve_forever, daemon=True)
          self.http_thread.start()
          logger.info("HTTP server listening @ port %d", self.http_port)
-@@ -121,7 +158,7 @@ class HttpServer:
+@@ -121,7 +194,7 @@ class HttpServer:
          pem = SERVER_PEM_PATH.read_text(encoding="UTF-8") # update the cert in 2076
          chain = X509CertChain()
          chain.parsePemList(pem)

@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from config import ASSET_LANG, LANG
+from utils.patching.report import patch_report
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,8 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
     """Apply global substitutions, then file-specific ones."""
     for sub in (*_GLOBAL_SUBS, *JS_PATCHES.get(filename, ())):
         data = data.replace(sub.old, sub.new)
+    if filename == "report.js" and b"showGBU:function" in data:
+        data = patch_report(data, LANG)
     if filename == "top.js":
         # Both the original and restored home pages select a login host before
         # building this widget. All locales now authenticate on the page's origin.

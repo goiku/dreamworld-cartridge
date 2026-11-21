@@ -33,7 +33,7 @@ uv run --no-project --python 3.13 --with pillow==13.0.0 --with fonttools==4.68.0
 **DSとドリームワールドを起動するPCを、自宅の同じネットワークにつなぎます。** 機器同士が通信できれば、同じWi-Fiでもテザリングでも遊べます。ひとりで遊ぶ場合、Tailscaleの設定や招待は不要です。
 
 1. **PCでサーバーを起動します。** 初回は下の[Windowsでのセットアップ手順](#windowsでサーバーを起動する)に従います。次回からは `runtime` フォルダーの `Start-DreamWorld-LAN.cmd` をダブルクリックし、プレイ中はウィンドウを開いたままにします。
-2. **ウェブサイトでDNSを確認します。** そのPCでドリームワールドのトップページ、またはゲーム画面の上にある **「DSに設定するDNSを調べる」** をクリックします。アドレスが表示されないときは、LANモードで起動していることとWi-Fiの接続を確認し、「もう一度確認」をクリックしてください。[このPCのDNSガイドを開く](http://127.0.0.1:8081/player-guide/#dns)
+2. **ウェブサイトでDNSを確認します。** そのPCでドリームワールドのトップページ、またはゲーム画面の上にある **「DSに設定するDNSを調べる」** をクリックします。DSの電源を入れる前でも確認できます。アドレスが表示されないときは、LANモードで起動していることとWi-Fiの接続を確認し、「もう一度確認」をクリックしてください。[このPCのDNSガイドを開く](http://127.0.0.1:8081/player-guide/#dns)
 3. **表示されたアドレスをDSに入力します。** ガイドの **「本体でのDNS設定」** で機種を選びます。ゲームで使う接続先の設定を開き、DNSの自動取得を「しない」にして、表示された数字を「プライマリDNS」に入力します。保存して接続テストを行います。アドレスが変わらなければ、次回もその設定で遊べます。
 
 **スマートフォンやタブレットで遊ぶには、**PCでLANモードを起動し、端末をPCと同じWi-Fiに接続します。PCのトップページ、またはゲーム画面上部の **「スマホ用のURL」** をクリックします。表示されたアドレスをポート番号までスマートフォンのブラウザーに入力し、ゲームカードを登録したアカウントでログインしてください。寝かしつけの通信が完了したら、ポケモンを起こすまでDSはオフラインのままで遊べます。LANモードの自動設定でPCのWi-Fiを切り替えたときは、新しい接続が確立したらこのページを再読み込みしてURLを確認してください。携帯端末向けの表示はモバイルブラウザーのエミュレーションで確認しています。[このPCでスマホ用のURLを調べる](http://127.0.0.1:8081/player-guide/phone/)
@@ -164,6 +164,10 @@ uv run --frozen python -m scripts.activate_account PlayerName
 
 ウェブサイトで ID が見つからない場合は、**今使っているサーバー**にそのゲームカードから初回の同期が完了しているか、ゲームシンクIDコードを正しく入力したかを確認します。ともだちコードは対戦・交換に使う別の番号です。通信が途切れた場合は、同じサーバーとセーブデータのまま本体の表示に従い、再びゲームシンクで状態を確認してください。
 
+寝かしつけに数分かかるときは、ポケモンを選んで決定してから、ゲーム機に完了と表示されるまでの時間を計ってください。サーバーのログには、512 KiB のセーブデータの受信開始時刻、受信時間（`receive`）、サーバーの処理時間（`handle`）が表示されます。ゲーム機の演出とセーブにも時間がかかります。更新後もゲームカードと DNS 設定はそのまま使えます。
+
+レポートには、レーティングシーズンや結果が公開された Wi-Fi 大会がない場合に案内が表示されます。GTS の交換記録は「レポート → GTS」で確認できます。
+
 ## 別のネットワークにいる友だちと遊ぶ
 
 それぞれのプレイヤーが、手元の DS と同じローカルネットワークに接続した Windows PC を 1 台ずつ用意します。2 台の PC は同じ Tailscale プライベートネットワークに参加し、DS はそれぞれの Wi-Fi に接続したままにします。中継プログラムは模擬端末による通信でテスト済みです。異なるネットワーク上の実機 2 台で対戦・交換を最後まで行う試験は未実施です。[Tailscale の接続ガイド](https://tailscale.com/docs/how-to/connect-to-devices)
@@ -221,7 +225,7 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32
 
 インストール後は、一時的なテスト用セーブデータで、願いごとからゲームカードへのダウンロードまでを確認できます。配布フォルダーで `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime` を実行し、`PASS` と表示されれば成功です。[ゲームカード用テストのソースコード](../tools/check-cartridge.py)
 
-ウェブサイトはPC上のゲーム用DNSサービスに問い合わせて、DSに設定するアドレスを表示します。[DNSを調べる処理](../source/web/utils/player_dns.py)、[ゲーム用DNSの応答処理](../source/game-sync/entralinked/network/dns/server.py)、[ガイドの画面](../source/web/templates/player_guide.html)、[ログイン処理](../source/web/api/pgl_top.py)のソースを個別に確認できます。インストーラーは[ウェブサイトのソース差分](../source/web.patch)と[ゲームシンクのソース差分](../source/game-sync.patch)を適用します。
+ガイドにはサーバーPCまたは手元のゲートウェイのLANアドレスが表示されます。DSの電源を入れる前でも確認できます。[DNSを調べる処理](../source/web/utils/player_dns.py)、[ゲーム用DNSの応答処理](../source/game-sync/entralinked/network/dns/server.py)、[ガイドの画面](../source/web/templates/player_guide.html)、[ログイン処理](../source/web/api/pgl_top.py)のソースを個別に確認できます。インストーラーは[ウェブサイトのソース差分](../source/web.patch)と[ゲームシンクのソース差分](../source/game-sync.patch)を適用します。
 
 原作のイラスト、音楽、Flash ミニゲームはポケモンの作品です。有志による復元プロジェクトがウェブ資産を保存し、サーバーとゲームシンクを開発しました。ブラウザーでの Flash の再生には Ruffle を利用しています。[Dream World Reawakened](https://github.com/minibug1021/dreamworld-reawakened) · [game-sync-python](https://github.com/minibug1021/game-sync-python) · [Entralinked](https://github.com/kuroppoi/entralinked) · [dreamworld-assets](https://github.com/minibug1021/dreamworld-assets) · [Ruffle](https://ruffle.rs/)
 

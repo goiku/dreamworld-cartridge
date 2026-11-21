@@ -33,7 +33,7 @@ In **Promotions → Japanese catalog → Pokémon World Tournament**, download a
 **Connect your DS and the PC running Dream World to the same home network.** The same Wi-Fi or hotspot works as long as its devices can communicate. Solo play requires no Tailscale account or invitation.
 
 1. **Start Dream World on your PC.** After the [first-time Windows setup](#start-the-server-on-windows), double-click `Start-DreamWorld-LAN.cmd` in the `runtime` folder. Keep its window open while you play.
-2. **Find the DNS on the Dream World website.** On that PC, open the Dream World homepage or game page and click **Find my DS DNS** above the game. If no address appears, check the LAN server and Wi-Fi connection, then click **Check again**. [Open the DNS guide on this PC](http://127.0.0.1:8080/player-guide/#dns)
+2. **Find the DNS on the Dream World website.** On that PC, open the Dream World homepage or game page and click **Find my DS DNS** above the game. You can check before turning on the DS. If no address appears, check the LAN server and Wi-Fi connection, then click **Check again**. [Open the DNS guide on this PC](http://127.0.0.1:8080/player-guide/#dns)
 3. **Enter the displayed address on your DS.** Under **Where to enter the DNS**, select your console model. In the Wi-Fi connection the game uses, turn off automatic DNS, enter the displayed number as **Primary DNS**, then save and run the connection test. You can keep this setting for later sessions while the address stays the same.
 
 **To play on a phone or tablet**, start the LAN server and connect the phone to the PC's Wi-Fi. On the PC, click **Phone web address** on the homepage or above the game. Enter the address shown, including the port, in the phone's browser. Sign in with the account linked to your cartridge. The DS can be offline once its tuck-in sync finishes. Reconnect it when you are ready to wake the Pokémon. When the PC changes Wi-Fi in automatic LAN mode, refresh this page after the new connection is ready. It will show the new address. The mobile layout was tested in an emulated mobile browser. [Find the phone address on this PC](http://127.0.0.1:8080/player-guide/phone/)
@@ -164,6 +164,10 @@ uv run --frozen python -m scripts.activate_account PlayerName
 
 If the site does not recognize the ID, check that the cartridge finished its first sync with **this server** and that you used its Game Sync ID. A Friend Code is a separate number used for multiplayer. If a sync is interrupted, keep the same server and save, follow the message on the console, and return to Game Sync to check its state.
 
+If tuck-in takes several minutes, time it from confirming the Pokémon to the completion message on the DS. The server log marks the start of the 512 KiB upload and prints separate durations for receiving it (`receive`) and processing it (`handle`). The DS still needs time to animate and write to its own save. The transport update works with the same cartridge and DNS.
+
+The Report page displays a message when there are no ranked seasons or published Wi-Fi Competition results. GTS trades remain available in the GTS report.
+
 ## Play with a friend on another network
 
 Both players need a Windows PC on the same local network as their own DS. Connect both PCs to the same private Tailscale network. Each console continues to use its local Wi-Fi. The relay has been tested with simulated console traffic. A battle or trade between two physical consoles on separate networks still needs verification. [Tailscale connection guide](https://tailscale.com/docs/how-to/connect-to-devices)
@@ -221,7 +225,7 @@ I’m goiku, and I performed the cartridge test myself. OpenAI Codex assisted wi
 
 After installation, you can also check the wish and cartridge download using a temporary test save. From the release folder, run `runtime\.venv\Scripts\python.exe tools/check-cartridge.py runtime`. A successful run prints `PASS`. [Cartridge test source](tools/check-cartridge.py)
 
-The website finds the DNS to display by checking for a reply from the local game DNS service. Browse the [website DNS lookup](source/web/utils/player_dns.py), [Game Sync DNS responder](source/game-sync/entralinked/network/dns/server.py), [player guide page](source/web/templates/player_guide.html), and [sign-in and session handling](source/web/api/pgl_top.py). The installer applies the [website source patch](source/web.patch) and the [Game Sync source patch](source/game-sync.patch).
+The DNS guide shows the host or gateway’s local network address even while the DS is powered off. Browse the [website DNS lookup](source/web/utils/player_dns.py), [Game Sync DNS responder](source/game-sync/entralinked/network/dns/server.py), [player guide page](source/web/templates/player_guide.html), and [sign-in and session handling](source/web/api/pgl_top.py). The installer applies the [website source patch](source/web.patch) and the [Game Sync source patch](source/game-sync.patch).
 
 Original artwork, music and Flash minigames come from Pokémon. The restoration community preserved the website and developed the server and Game Sync support. Ruffle plays Flash content in a modern browser. [Dream World Reawakened](https://github.com/minibug1021/dreamworld-reawakened) · [game-sync-python](https://github.com/minibug1021/game-sync-python) · [Entralinked](https://github.com/kuroppoi/entralinked) · [dreamworld-assets](https://github.com/minibug1021/dreamworld-assets) · [Ruffle](https://ruffle.rs/)
 
