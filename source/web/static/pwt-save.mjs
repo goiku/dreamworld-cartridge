@@ -1,7 +1,7 @@
 // B2/W2 extdata layout and CRCs follow PKHeX SAV5B2W2.SetPWT and PlayerData5B2W2.
 const TRAINER = 0x19400, TABLE = 0x25f00, DATA = 0x1214, BLOCK = 0x1314;
 const view = bytes => new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-function crc(bytes) {
+export function crc(bytes) {
     let value = 0xffff;
     for (const byte of bytes) {
         value ^= byte << 8;

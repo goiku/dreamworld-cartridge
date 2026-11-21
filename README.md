@@ -32,11 +32,15 @@ In **Promotions → Japanese catalog → Pokémon World Tournament**, download a
 
 ### Play on the server PC with melonDS 1.1
 
-1. Start the server and open the console DNS guide on that PC. Select **melonDS on this PC**. The guide checks the running DNS service. [Open the emulator DNS guide](http://127.0.0.1:8080/player-guide/#melonDS)
+1. Start the server and open the console DNS guide on that PC. Select **melonDS on this PC**. The guide uses the configured game-server address. [Open the emulator DNS guide](http://127.0.0.1:8080/player-guide/#melonDS)
 2. Use indirect networking in melonDS. In the game’s Nintendo Wi-Fi Connection Settings, open the connection for **melonAP**, turn off automatic DNS and enter the primary DNS shown by the guide. Save and run the connection test. When the server listens on loopback, the address is `10.64.0.1`. [melonDS 1.1 network settings](https://github.com/melonDS-emu/melonDS/blob/1.1/src/net/Net_Slirp.cpp#L39-L42)
 3. Load the in-game save. On the lower screen choose **C-Gear → Wi-Fi → Game Sync**, then tuck in a Pokémon. If the website recognizes the ID but is waiting for its game version, finish the tuck-in once and retry registration. If a translated game still goes black before the connection prompt after a successful connection test, keep a copy of the in-game `.sav` and test that copy with your own unmodified copy of the same Japanese edition.
 
 ### Remove the tuck-in limit
+
+Save in-game and close melonDS. In the website’s **Remove the tuck-in limit** panel, enter the date shown on the DS. Choose the melonDS save folder, select your save, then choose **Back up and update selected save**. Alternatively, select one 512 KiB .sav and download the unlocked copy. Use the copy as your emulator save or restore it to your cartridge. The browser processes it on your device. The server cannot change the clock check inside a stock cartridge over Wi-Fi. [Open the web tool](http://127.0.0.1:8080/player-guide/#tuck-in)
+
+The DNS guide shows the address to enter even with the DS turned off. From your own profile, the playable Dream World status now opens the game. The sign at your house shows the trainer on the selected cartridge.
 
 On Windows, save in-game and close melonDS. Double-click `Start-melonDS.cmd` in the installed `runtime` folder. Select your melonDS 1.1 executable, the game you normally play, your unmodified copy of the same edition and region, and your latest in-game `.sav`. The helper creates a private copy. Each player sets up their own save once. For future sessions, open `DreamWorld.cmd` in the new folder.
 
@@ -182,6 +186,10 @@ uv run tools/DreamWorld-VPN.py gateway --bind 192.168.50.20 --peer 192.168.50.32
 ```
 
 After both gateways report `Battle hub confirmed the connection`, set each console's primary DNS to **its own PC's LAN address** for multiplayer. For a friend battle or direct trade, register each other's Friend Code on the shared game server and enter the Pokémon Center Wi-Fi Club. For a standard GTS trade, one player deposits a Pokémon, the other searches and trades, then the first returns to collect it. To check the relay locally, run `uv run tools/DreamWorld-VPN.py self-test` in the release folder.
+
+If GTS deposit stopped with error 13265 on an older server, update the host and re-enter GTS. The server now answers the name check that follows Pokémon validation. Check the current deposit before submitting another offer.
+
+I tested this across two networks. I deposited a level 15 Panpour in Pokémon White on melonDS, then used a DS on a separate hotspot to trade a level 10 Panpour for it. The server recorded one completed exchange.
 
 ### Visit a friend's Dream World and take your rewards home
 

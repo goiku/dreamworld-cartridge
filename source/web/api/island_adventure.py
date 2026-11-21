@@ -233,6 +233,7 @@ def bridge_menu(response: Response) -> Response:
     if request.path not in ("/pdw/", "/pdw/index.html") or response.status_code != 200 or response.mimetype != "text/html":
         return response
     html = response.get_data()
+    html = html.replace(b"JSON.stringify( this.data )", b"JSON.stringify(window.dwHouseMovieData(this.data))")
     pos = html.lower().find(b"<div", html.lower().find(b"<body"))
     if pos >= 0:
         menu = render_template("island_bridge_menu.html", s=_pal_labels[LANG], ui=load_json_data("island_actions")[LANG],

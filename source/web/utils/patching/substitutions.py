@@ -31,6 +31,10 @@ _VOLUME_SLIDER_PATCHES = Substitution(
 # file name -> substitutions for just that file
 JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
     "pgl.js": (
+        *(Substitution(
+            f"r.status_profile = PGL.Text.get('global.pdwstatus.{status}');".encode(),
+            f"r.can_play = true; r.status_profile = PGL.Text.get('global.pdwstatus.{status}');".encode(),
+        ) for status in (13, 14, 15)),
         Substitution(
             b"(location.href.match(/\\W(ja|en|fr|it|de|es|ko)\\./) || [null, 'ja'])[1];",
             f"'{LANG}';".encode(),
@@ -48,9 +52,19 @@ JS_PATCHES: dict[str, tuple[Substitution, ...]] = {
             b"  $('input[name=pgl_name]').val(this.data.username).prop('readonly', true);\n",
         ),
     ),
+    "profile.js": (
+        Substitution(
+            b"$('#pdw-game-status .vertical-middle-body').text(pdw.status_profile);",
+            b"var statusBody = $('#pdw-game-status .vertical-middle-body').empty();\n"
+            b"      if (pdw.can_play) $('<a>').attr('href', '/pdw/').text(pdw.status_profile).appendTo(statusBody);\n"
+            b"      else statusBody.text(pdw.status_profile);",
+        ),
+    ),
     "swfembed2.js": (_SWF_EMBED_PATCHES, _VOLUME_SLIDER_PATCHES),
     "swfembed3.js": (_SWF_EMBED_PATCHES, _VOLUME_SLIDER_PATCHES),
     "top.js": (
+        Substitution(b"if (can_re_enter) {\n        return true;",
+                     b"if (can_re_enter || this.pdw.getStates().can_play) {\n        return true;"),
         # use Intl.DateTimeFormat so the time respects DST
         Substitution(
             b"d.setTime(d.getTime() + area.tz.offset * 60 * 60 * 1000);\r\n"

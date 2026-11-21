@@ -105,6 +105,7 @@ def insert_player_help(response: Response) -> Response:
         friends_link += f'<a href="/campaign/">{escape(distribution_labels()["title"])}</a>'
         from api.practice import labels as practice_labels
         friends_link += f'<a href="/practice/">{escape(practice_labels()["title"])}</a>'
+        friends_link += f'<a target="_blank" rel="noopener" href="{guide_url}#tuck-in">{escape(t["tuck_title"])}</a>'
     data = response.get_data()
     visit = path == "/pdw/" and "island" in request.args
     wake = _wake_panel(data, t) if path == "/pdw/" and not visit else None

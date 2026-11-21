@@ -6,6 +6,7 @@
   <title>{{ t.title }} · Pokémon Dream World</title>
   <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
   <script defer src="{{ url_for('player_guide.static', filename='player-guide.js') }}"></script>
+  <script type="module" src="{{ url_for('player_guide.static', filename='tuck-form.mjs') }}"></script>
 </head>
 <body class="dw-guide">
   <header class="guide-header">
@@ -59,9 +60,20 @@
     </section>
     <section id="register"><h2>{{ t.register_title }}</h2><p>{{ t.register }}</p></section>
     <section id="tuck-in">
-      <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_setup }}</p>
+      <h2>{{ t.tuck_title }}</h2><p>{{ t.tuck_web.intro }}</p>
+      <p><label>{{ t.tuck_web.clock }} <input id="tuck-date" type="date" min="2000-01-01" max="2099-12-31" required></label></p>
+      <p><label>{{ t.tuck_web.file }} <input id="tuck-file" type="file" accept=".sav"></label></p>
+      <div class="guide-actions">
+        <button id="tuck-folder" type="button" hidden>{{ t.tuck_web.folder }}</button>
+        <select id="tuck-list" aria-label="{{ t.tuck_web.file }}" hidden></select>
+        <button id="tuck-write" type="button" hidden>{{ t.tuck_web.write }}</button>
+        <a id="tuck-download" hidden>{{ t.tuck_web.download }}</a>
+      </div>
+      <p id="tuck-status" class="guide-note" role="status"></p>
+      <script id="tuck-labels" type="application/json">{{ t.tuck_web | tojson }}</script>
+      <details class="console-model"><summary>{{ t.tuck_download }}</summary><p>{{ t.tuck_setup }}</p>
       <p><a download="{{ '解除睡眠限制.py' if lang == 'zh' else 'remove-tuck-in-limit.py' }}" href="{{ url_for('player_guide.static', filename='melonds-tuck-in.py') }}">{{ t.tuck_download }}</a></p>
-      <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p>
+      <p>{{ t.tuck_steps }}</p><p>{{ t.tuck_card }}</p></details>
     </section>
     <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p></section>
     <section id="distributions">

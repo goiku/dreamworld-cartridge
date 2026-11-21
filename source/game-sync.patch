@@ -1852,6 +1852,63 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..7bcee555a01d9c35e3f446099f69c694
  
          self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
          self.server_thread.start()
+diff --git a/entralinked/network/http/nas_handler.py b/entralinked/network/http/nas_handler.py
+index 0acf636e19f7e889974922eb5569c2a393e508a9..545bdb5adf15db4b4b472388a0c721fad9ba0a71 100644
+--- a/entralinked/network/http/nas_handler.py
++++ b/entralinked/network/http/nas_handler.py
+@@ -5,7 +5,7 @@ from datetime import datetime
+ from enum import IntEnum
+ from http import HTTPStatus
+ 
+-from flask import Blueprint, request
++from flask import Blueprint, Response, request
+ from flask.typing import ResponseReturnValue
+ 
+ from ...context import Context
+@@ -52,7 +52,7 @@ def nas_response(returncd: NasReturnCode = NasReturnCode.SUCCESS, **fields: str)
+ 
+ 
+ class NasHandler:
+-    """Handles POST /ac."""
++    """Handle Nintendo WFC authentication and the pre-deposit name check."""
+ 
+     def __init__(self, context: Context) -> None:
+         self.configuration = context.configuration
+@@ -66,8 +66,34 @@ class NasHandler:
+     def blueprint(self) -> Blueprint:
+         blueprint = Blueprint("nas", __name__)
+         blueprint.add_url_rule("/ac", view_func=self.handle_nas_request, methods=["POST"])
++        blueprint.add_url_rule("/pr", view_func=self.check_names, methods=["POST"])
+         return blueprint
+ 
++    @staticmethod
++    def check_names() -> ResponseReturnValue:
++        """Check the tab-separated names sent between GTS validation and deposit."""
++        from utils.badwords import contains_bad_word
++
++        request.max_content_length = 65536
++        try:
++            encoded = decode_form(request.get_data(as_text=True))["words"].encode("latin-1")
++            if encoded.startswith((b"\xff\xfe", b"\xfe\xff")):
++                names = encoded.decode("utf-16")
++            elif b"\t\0" in encoded or b"\0" in encoded[:-1]:
++                names = encoded.decode("utf-16-le")
++            else:
++                try:
++                    names = encoded.decode("utf-8")
++                except UnicodeDecodeError:
++                    # A single Japanese UTF-16LE name may contain no zero bytes.
++                    names = encoded.decode("utf-16-le")
++        except (KeyError, ValueError):
++            return nas_response(NasReturnCode.BAD_REQUEST)
++        flags = "".join("1" if contains_bad_word(name) else "0" for name in names.rstrip("\0").split("\t"))
++        fields = {"returncd": "000", "datetime": datetime.now().strftime("%Y%m%d%H%M%S"), "prwords": flags}
++        fields.update({"prwords" + region: flags for region in "ACEJKP"})
++        return Response(encode_form(fields), mimetype="text/plain", headers={"NODE": "wifiappe1", "Cache-Control": "no-store"})
++
+     def handle_nas_request(self) -> ResponseReturnValue:
+         """Decode the form and hand it to the handler of its `action`."""
+         known_fields = {f.name for f in fields(NasRequest)}
 diff --git a/entralinked/network/http/pgl_handler.py b/entralinked/network/http/pgl_handler.py
 index 9cdcaeb6c45f8bcfddfc01ad6e9e3380958d552a..ae93c509f3ca4f90a7ba9f0e121d9828a80259eb 100644
 --- a/entralinked/network/http/pgl_handler.py

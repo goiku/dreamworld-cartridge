@@ -92,3 +92,12 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", moveTools);
   else moveTools();
 })();
+// The Flash title renderers use player_name. Keep the account nickname intact
+// for the archived map, which also uses it to identify a player's own island.
+window.dwHouseMovieData = function (data) {
+  if (!data?.member) return data;
+  const member = data.member;
+  const name = (member.player_name || member.pgl_name || "").replace(/[Ａ-Ｚａ-ｚ０-９]/g,
+    ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+  return {...data, member: {...member, player_name: name}};
+};

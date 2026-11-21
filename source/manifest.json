@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "31fd2ef9056c33c7a0949b03d31d6614ae84ec461cbf81eaa69da6c5a66f114d",
+    "patch_sha256": "da03429e4147e93c00b26d78ff75d3b1bcb5913dedbac9bafae631ae8633835c",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -40,9 +40,10 @@
       },
       "api/island_adventure.py": {
         "before": null,
-        "after": "bc2929e94b0bf4d6942a42a7d44d629dd922ed3bc6c1dda578f21f5d5115e60c",
+        "after": "778e9b6c27d71369c3fada0794315e16a25c58087435f327ab73955784bca80f",
         "previous": [
-          "3e5a57e4b8cbcd507fbe4cfd0a03c5a0563006293903847de4d431c9639d5982"
+          "3e5a57e4b8cbcd507fbe4cfd0a03c5a0563006293903847de4d431c9639d5982",
+          "bc2929e94b0bf4d6942a42a7d44d629dd922ed3bc6c1dda578f21f5d5115e60c"
         ]
       },
       "api/island_peers.py": {
@@ -137,14 +138,15 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e",
+        "after": "a5c149056f327cbcfcdd93be4bd727a8dea30215b770c5f36819e440674bb279",
         "previous": [
           "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
           "59fff65f72d36f027cd8a2d3838cce0fd730f36075da3df1bec6c195b07f8b50",
           "6bdb7523954d330a145ca50c2bc81078e749753faffbd3f1f9776717e706f8c5",
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
-          "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49"
+          "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49",
+          "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e"
         ]
       },
       "api/practice.py": {
@@ -153,12 +155,13 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "b2f5e44504cc98dfbfc9cb5f0091213ce53822bbf893af14546d604133ac9a21",
+        "after": "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
+          "b2f5e44504cc98dfbfc9cb5f0091213ce53822bbf893af14546d604133ac9a21",
           "c92242e33027847db310f551b1794a6fb8076991ac913534ccfd289df4cfb392",
           "e0e17654cd8dbf879fcadc050339034197d9abd77c7152f5cc972f72dc8f70bf",
           "ef538d88e25182a0532479ae8ad7b7b6223be48f98755b189be82bce0ad731e7"
@@ -253,14 +256,15 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "e441dc68505b89503eed0d69e0808761b4866c0b9cb4b67d0e404c0defd901f5",
+        "after": "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
         "previous": [
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
           "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
           "a1f98776dc06a7a067d4b738a881371c3a4d82da2877fa3f1f150cf590b5e8bd",
           "a78d4838ff76d7a0593cb841fcc21efc41b8cefc880b5749f8b7b6594c2c2898",
-          "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1"
+          "deccb0921322b8206659ee77f345bcf2f9546d48474bf25e2b0603eebba7b3d1",
+          "e441dc68505b89503eed0d69e0808761b4866c0b9cb4b67d0e404c0defd901f5"
         ]
       },
       "json_data/pokemon.json": {
@@ -446,8 +450,9 @@
       },
       "static/island-bridge.js": {
         "before": null,
-        "after": "5db6d1c4fc3ac730eee1ec1f542885fa435a02c26c724b2940f2d6c3c211d32b",
+        "after": "71785d60e582ed1366a4469ea5dc3213210ecd18b3e386baaebf45a20d4307b6",
         "previous": [
+          "5db6d1c4fc3ac730eee1ec1f542885fa435a02c26c724b2940f2d6c3c211d32b",
           "d1a9c68c7c3e654efe865eca21d6bb570a3fd6bc218cd8cd8376912d0082e67f"
         ]
       },
@@ -492,11 +497,22 @@
       },
       "static/pwt-save.mjs": {
         "before": null,
-        "after": "52b4857d7ee1c3d827cd3d8623ff9fdb5c8d9ab3a10e1b1dcc3ad5b97f0752b2"
+        "after": "d81ae8ed379d3c074052d41e2273f91bf8abe5202d68ab74f93732d32a5941d1",
+        "previous": [
+          "52b4857d7ee1c3d827cd3d8623ff9fdb5c8d9ab3a10e1b1dcc3ad5b97f0752b2"
+        ]
       },
       "static/tournaments.mjs": {
         "before": null,
         "after": "c5915d9f617586478cfa12726a981c9c664debbae031e80e66d35e9de6a0a10a"
+      },
+      "static/tuck-form.mjs": {
+        "before": null,
+        "after": "b83c31011cd9031a373486bee52e55c97ed5f5acede88de07a0a79358ed2c71d"
+      },
+      "static/tuck-save.mjs": {
+        "before": null,
+        "after": "b9c3bcd6bad2677fb6f437c76a8604f2262064be6cfd3f8bfdddc0392bc07c63"
       },
       "templates/customize.html": {
         "before": null,
@@ -558,10 +574,11 @@
       },
       "templates/player_guide.html": {
         "before": null,
-        "after": "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
+        "after": "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
         "previous": [
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
           "47bfde0e884d2135869eaab2781a01fbdf79276717f26b83ef030db07deecb7f",
+          "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
           "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
           "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
           "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df"
@@ -595,6 +612,10 @@
       "tests/test_gen5_names.py": {
         "before": null,
         "after": "c9ef2608f98a50d3b9ff6a0ed2022781763d74dddeda8965603d990d9e12a702"
+      },
+      "tests/test_gts_names.py": {
+        "before": null,
+        "after": "71c8fb8e9ba9671fb09f900abcfa0047f3221657b9260c0cc2a03cef6ab412a8"
       },
       "tests/test_island_actions.py": {
         "before": null,
@@ -635,6 +656,10 @@
         "before": null,
         "after": "e8a965384f36fb34f5d5c5d1bc49bca22ab9ab02c6995b6d315a9ef1609e0c39"
       },
+      "tests/test_player_entry_tools.py": {
+        "before": null,
+        "after": "d930324a679c5cf160e0c6d616f6f05504d10800f19e3f6ef64c665d067c7d0c"
+      },
       "tests/test_practice.py": {
         "before": null,
         "after": "427ea8e97a8c807c97853c5936de0addb4ff143e897a8b985cc336b43777709a"
@@ -659,8 +684,9 @@
       },
       "tests/test_web_network.py": {
         "before": null,
-        "after": "a17bf024b8038d1bc88becaa225753fd1c188a5b34ee481b79137f9cef8c4d45",
+        "after": "1656674c6e28558b8399b7ea8584f682888eac5382300bc2535b2da974650aec",
         "previous": [
+          "a17bf024b8038d1bc88becaa225753fd1c188a5b34ee481b79137f9cef8c4d45",
           "dc3abcb6bc0a446c9ea9868fa08cb177af114cfe9a549bdee0a7f32bd9315d06"
         ]
       },
@@ -690,6 +716,10 @@
       "utils/gen5_names.py": {
         "before": null,
         "after": "3a565f56da285946121ea2de27f77e26bc8d1b3cd543adbe049bd5e68f102075"
+      },
+      "utils/house_titles.py": {
+        "before": null,
+        "after": "461cda458cad182f0f806aaca3593325dc1e3547d2dd0c8d06bbc22496ba0e5e"
       },
       "utils/island_actions.py": {
         "before": null,
@@ -757,8 +787,9 @@
       },
       "utils/patching/substitutions.py": {
         "before": "7222896eb22c14bd5acb91061d67f9254fbabbc6573a7c28ac459c67fa4f0168",
-        "after": "cae367ff569c4829c5d3e494f6a3084f0d7b5940b278af4370994eae9a43c2b1",
+        "after": "5fde94a221f936feee4a763a8854f08c72f23c6025efb1b7863cef2f5659ab1f",
         "previous": [
+          "cae367ff569c4829c5d3e494f6a3084f0d7b5940b278af4370994eae9a43c2b1",
           "cdafd36b10b48218f7359952b0e2f3cf221d886c6bf5260eecdc5cbc04bb5957"
         ]
       },
@@ -768,9 +799,10 @@
       },
       "utils/player_dns.py": {
         "before": null,
-        "after": "a154bc3c8bfa7ad2a8c00165e110fce448f9db013716b78d9b8ca3d3c59f8b7a",
+        "after": "47be5ac798a4d5a95edd52b37193c828996f64606c2b661ea2bc2dc28d827184",
         "previous": [
           "45e4c086042d0a4623f5108568fab578acaa31e144a956b91a7acf1549ab9585",
+          "a154bc3c8bfa7ad2a8c00165e110fce448f9db013716b78d9b8ca3d3c59f8b7a",
           "f81fb1a8f1cf4a7ea4283e9cdcd87e4d4a124e841b2fd9186e3475e481f3a714"
         ]
       },
@@ -833,7 +865,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "26d3753f715a9208005f9324be43dd4768db303c84b3657f14753558b6b1825c",
+      "sha256": "4a6ad3826e88f20547509e6bed18470b91b0d5394990983e91b0b07600ea4ae3",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -843,7 +875,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "8cae1513297c4d7740add8d2bbea4715ce68841aed37198bcb928de922ccadec",
+    "patch_sha256": "4c39607c6f62f181f88354eb4a15d9e7a082fba11867106c45d951b268f707ca",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -941,6 +973,10 @@
       "entralinked/network/http/http_server.py": {
         "before": "1129df4de258fbf52f4a1395f6db3b12841cf5cfa281f01159c4675d65749685",
         "after": "29aa222305727b44346e2a0ec0392884b7b2f87f4c2adaf59486cf09dd4366c4"
+      },
+      "entralinked/network/http/nas_handler.py": {
+        "before": "c5c303ebdccb59c90949f7fcca71292e9a6184af5fb990f308af4a579f6922e7",
+        "after": "ec29cb5f871455762cbaf0e202dcaf522dadccd40bb60b47dd3eab754e701e02"
       },
       "entralinked/network/http/pgl_handler.py": {
         "before": "5ddc52ce816112c081362a965d2f496522a09a1b81ef70cb0b16751bcb3c0837",

@@ -26,6 +26,7 @@ from api.visit_sync import visit_sync
 from config import LANG, LANGUAGE_NAMES, WEB_PORTS, get_secret_key, normalize_language
 from game_sync_server.entralinked.utility.db_manager import db
 from utils.account_manager import accounts
+from utils.house_titles import TITLE_READS, trainer_titles
 from utils.assets import SITE_DIR, not_found, path_inside, resolve_static, serve_file, site_directories
 from utils.patching import SWF_PATHS, get_patched_swf
 from utils.web_network import is_web_host
@@ -163,7 +164,10 @@ def catch_all(path: str) -> Response:
             override = path_inside(SITE_DIR, path)
             if override and override.is_file():
                 return serve_file(override)
-        return Response(get_patched_swf(filename), content_type="application/x-shockwave-flash")
+        movie = get_patched_swf(filename)
+        if filename in TITLE_READS:
+            movie = trainer_titles(filename, movie)
+        return Response(movie, content_type="application/x-shockwave-flash")
 
     # find first HTML file inside given directory
     for dir_path in site_directories(path):

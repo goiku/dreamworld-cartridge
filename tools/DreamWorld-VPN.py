@@ -115,14 +115,7 @@ async def gateway_web_request(reader, writer, address):
         hosts = [line.partition(b":")[2].strip().lower() for line in fields if line.partition(b":")[0].lower() == b"host"]
         status = "ambiguous"
         if len(hosts) == 1 and re.fullmatch(rb"(127\.0\.0\.1|localhost)(:\d+)?", hosts[0]):
-            # UDP is already listening. Check that a detached hotspot hasn't removed
-            # the configured address since that socket was opened.
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as check:
-                    check.bind((address, 0))
-                status = "ready"
-            except OSError:
-                status = "offline"
+            status = "ready"
         body = json.dumps({"status": status, "address": address if status == "ready" else None}).encode("ascii")
         writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n"
                      b"Connection: close\r\nContent-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n")
