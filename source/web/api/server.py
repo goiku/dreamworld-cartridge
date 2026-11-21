@@ -99,7 +99,7 @@ def api_post() -> Response:
 # Site files
 # ---------------
 
-_LANGUAGE_PAGES = {"/", "/gen5/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
+_LANGUAGE_PAGES = {"/", "/gen5/", "/gen4/queue/", "/pdw/", "/introduction/", "/profile/", "/register/", "/login/pgl.html", "/player-guide/",
                    "/player-guide/phone/", "/report/", "/customize/", "/campaign/", "/campaign/japan/", "/help/", "/islands/", "/practice/"}
 
 

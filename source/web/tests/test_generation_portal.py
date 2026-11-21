@@ -12,7 +12,7 @@ from game_sync_server.entralinked.network.http import gts_handler
 from game_sync_server.entralinked.network.http.dls_handler import DlsHandler
 from game_sync_server.entralinked.utility.db_manager import DBManager
 from game_sync_server.entralinked.utility.url_encoded_form import encode_form
-from utils import gen4_gifts
+from utils import gen4_events, gen4_gifts
 
 
 def test_generation_links_and_compatible_gifts(monkeypatch):
@@ -24,7 +24,9 @@ def test_generation_links_and_compatible_gifts(monkeypatch):
         assert "dw-player-help" not in home and "_ruffle" not in home
         for code in generations.GAME_CODES:
             page = client.get("/gen4/", query_string={"game":code, "language":"ja"}).get_data(as_text=True)
-            assert t["gift"] in page and page.count('class="number"') == len(gen4_gifts.catalog()["games"][code+"J"])
+            count = len(gen4_events.selection(code+"J"))
+            assert t["gift"] in page and generations.SHARED_UI[locale]["results"].format(count=count) in page
+            assert count > 24 and page.count('class="number"') == generations.PAGE_SIZE
     assert client.get("/gen5/").location == "/index.html"
     assert b"_ruffle" in client.get("/index.html").data
     assert client.get("/languages/en/?page=/gen4/").location.endswith(":8080/gen4/")

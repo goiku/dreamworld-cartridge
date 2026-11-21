@@ -1,0 +1,43 @@
+{% macro link(endpoint='generations.gen4',f=mode,p=1) %}{{ url_for(endpoint,game=version,language=language,filter=f,page=p,q=search,_anchor='gifts') }}{% endmacro %}
+{% macro fields(key='') %}
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="target" value="{{ target }}">
+<input type="hidden" name="game" value="{{ version }}"><input type="hidden" name="language" value="{{ language }}">
+<input type="hidden" name="q" value="{{ search }}"><input type="hidden" name="filter" value="{{ mode }}">
+<input type="hidden" name="page" value="{{ page_no }}"><input type="hidden" name="queue" value="{{ 1 if queue else 0 }}">
+{% if key %}<input type="hidden" name="key" value="{{ key }}">{% endif %}
+{% endmacro %}
+{% macro action(kind,caption,key='') %}<form method="post" action="{{ url_for('generations.manage',action=kind) }}">{{ fields(key) }}<button>{{ caption }}</button></form>{% endmacro %}
+{% macro caption(row) %}<strong>{{ row.subject or row.title or row.name }}</strong>
+<small>{{ row.name }}{% if row.title and row.title!=row.subject %} · {{ row.title }}{% endif %}</small>{% endmacro %}
+<section id="gifts"><h2>{{ d.queue_title if queue else t.gift }}</h2>
+<nav class="quick"><a href="{{ link() }}">{{ d.title }}</a><a href="{{ link('generations.gen4_queue') }}">{{ d.queue_title }}</a></nav>
+<form class="catalog-filter" method="get" action="{{ request.path }}#gifts">
+<label>{{ t.version }}<select name="game"><option value="all">{{ d.all }}</option>{% for id,name in versions.items() %}<option value="{{ id }}" {% if id==version %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+<label>{{ t.language }}<select name="language">{% for id in languages %}<option value="{{ id }}" {% if id==language %}selected{% endif %}>{{ names[id] }}</option>{% endfor %}</select></label>
+{% if not queue %}<label>{{ u.search }}<input name="q" maxlength="100" value="{{ search }}"></label>{% endif %}<button>{{ t.show }}</button></form>
+{% if notice and notice[0] not in ('pair_ready','paired') %}<p role="status">{{ (u.get(notice[0]) or d.get(notice[0],notice[0])).format(count=notice[1]) }}</p>{% endif %}
+{% if version=='all' %}<p>{{ u.select }}</p>
+{% else %}<details {% if not dev or window %}open{% endif %}><summary>{{ u.start }}</summary><form class="pair" method="post" action="{{ url_for('generations.manage',action='start') }}">{{ fields() }}<label>{{ u.rebind }}<input name="friend" maxlength="16" inputmode="numeric" placeholder="0000-0000-0000"></label><button>{{ u.start }}</button></form>
+{% if window %}<p>{{ u.pair_ready }}</p><form method="post" action="{{ url_for('generations.manage',action='pair') }}">{{ fields() }}
+<label>{{ u.pin }}<input name="pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{10}" maxlength="10" required></label><button>{{ u.bind }}</button></form>{% endif %}
+</details>{% endif %}{% if dev %}<p>{{ u.paired }} · {{ versions[version] }} · {{ names[language] }}{% for id,suffix in devices if id==target %} · …{{ suffix }}{% endfor %}</p>
+{% if devices|length>1 %}<form method="post" action="{{ url_for('generations.manage',action='switch') }}">{{ fields() }}
+<select name="choice" aria-label="{{ u.paired }}">{% for id,suffix in devices %}<option value="{{ id }}" {% if id==target %}selected{% endif %}>…{{ suffix }}</option>{% endfor %}</select><button>{{ t.show }}</button></form>{% endif %}
+<details><summary>{{ d.scan }}</summary><p>{{ d.scan_help }}</p>
+<form method="post" enctype="multipart/form-data" action="{{ url_for('generations.manage',action='album') }}">{{ fields() }}<input type="file" name="save" accept=".sav" required aria-label="{{ d.scan }}"><button>{{ d.scan }}</button></form></details>{% endif %}
+{% if queue %}
+<p>{{ d.queue_order }} {{ u.receive }}</p>
+<a href="{{ link('generations.gen4_queue') }}">{{ d.queue_refresh }}</a>
+<div id="receiver-queue">
+<ol class="g4-list numbered">{% for row in queued %}<li><div>{{ caption(row) }}</div>{% if not loop.first %}{{ action('next',d.prioritize,row.key) }}{% endif %}</li>{% else %}<li>{{ d.queue_empty }}</li>{% endfor %}</ol>
+{% if sent %}<h3>{{ d.sent }}</h3><ul class="g4-list">{% for row in sent %}<li><div>{{ caption(row) }}</div>{{ action('next',d.prioritize,row.key) }}</li>{% endfor %}</ul>{% endif %}
+</div>{% if dev %}<p id="queue-error" role="status" hidden>{{ d.queue_stale }}</p><script defer src="{{ url_for('campaigns.static',filename='distribution-queue.js') }}"></script>{% endif %}
+{% else %}
+{% if dev %}<nav class="g4-tabs">{% for f in ('all','unclaimed','waiting','complete','unknown_filter') %}<a href="{{ link(f=f) }}" {% if f==mode %}aria-current="page"{% endif %}>{{ d[f] }}</a>{% endfor %}</nav>
+{% if bulk %}{{ action('bulk',(d.bulk_claim if album_known else u.bulk_unknown).format(count=bulk)) }}<p>{{ u.bulk_help }}</p>{% endif %}{% endif %}
+<p>{{ d.results.format(count=count) }}</p><ul class="g4-list">
+{% for row in rows %}<li><div>{{ caption(row) }}<small><span class="number">{{ '#%03d'|format(row.number) if row.number else '—' }}</span> {{ row.versions|join(' / ') }}</small>
+{% if dev or row.status=='archive_only' %}<small>{{ u.get(row.status) or d.get(row.status) }}{% if dev and row.exclusive and row.status in ('available','unknown') %} · {{ d.choose_version }}{% endif %}</small>{% endif %}</div>
+{% if dev and row.status in ('available','unknown') %}{{ action('claim',d.claim,row.key) }}{% elif dev and row.status in ('queued','sent') %}{{ action('next',d.prioritize,row.key) }}{% endif %}</li>{% else %}<li>{{ d.empty }}</li>{% endfor %}</ul>
+{% if pages>1 %}<nav class="g4-tabs">{% if page_no>1 %}<a href="{{ link(p=page_no-1) }}">← {{ d.prev }}</a>{% endif %}<span>{{ page_no }} / {{ pages }}</span>{% if page_no<pages %}<a href="{{ link(p=page_no+1) }}">{{ d.next }} →</a>{% endif %}</nav>{% endif %}
+{% endif %}</section>

@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "e96ce2a59dcae7e447f6d26f23abbebbf3bd25e4fe233a7fb5cd662601d2becc",
+    "patch_sha256": "601fcec51e9ce15222f5b43ff46ded68d9c8e3b45078eedf6c16e4696c6dd454",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -36,7 +36,10 @@
       },
       "api/generations.py": {
         "before": null,
-        "after": "af08987b6ccfba15009564f7234080e8a102e95be7daad836264541a175c064e"
+        "after": "992e846b393b170b8975c260b72876262dbacfb1932e609013d1218342161d34",
+        "previous": [
+          "af08987b6ccfba15009564f7234080e8a102e95be7daad836264541a175c064e"
+        ]
       },
       "api/gts_journal.py": {
         "before": "a4a3d2028f49250a44a374b53143817a53781e5e0e3097b65ad2489c68ed2bdc",
@@ -167,9 +170,10 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "1f9f72973eaaea387b78cae26dc17f307841571ebd4869eafcffd18c4cd8e7c4",
+        "after": "63158d661bea557eb0a0f8a4adcd3ad3b90bf35e3242303c61acff42855f7873",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
+          "1f9f72973eaaea387b78cae26dc17f307841571ebd4869eafcffd18c4cd8e7c4",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "29e220658ee3cf6bdd13b386a1cbaaf27ab686c7638cc89f1a0a10a4ccca727c",
           "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
@@ -234,6 +238,14 @@
         "previous": [
           "8be7e46a7d0b7f7847e31fc72ab3bf2f014916680d0ee7b7b364769703633b55"
         ]
+      },
+      "json_data/gen4_event_cards.json": {
+        "before": null,
+        "after": "e95ba3fd5f33d101d3d11a13ed76437cf434746a3fb523da73ce59317b030cd0"
+      },
+      "json_data/gen4_event_ui.json": {
+        "before": null,
+        "after": "29b6cb96ef07797de06d3893144eff436450480b70eba8d1587f519548295eba"
       },
       "json_data/gen4_wireless_gifts.json": {
         "before": null,
@@ -484,7 +496,10 @@
       },
       "static/generations.css": {
         "before": null,
-        "after": "6e80498d86f18565712328ab2edef909bb2ba111f479bd014fd979a4e32c7fb9"
+        "after": "4ae8c9471586164cd809200aa2baf6b78b46eda42ae9fed6fb72283f1beff69e",
+        "previous": [
+          "6e80498d86f18565712328ab2edef909bb2ba111f479bd014fd979a4e32c7fb9"
+        ]
       },
       "static/island-adventure.css": {
         "before": null,
@@ -577,19 +592,27 @@
       },
       "templates/distributions.html": {
         "before": null,
-        "after": "4ff68b8a276a0e6b3c35d3a3e307b850f4fa6be862d33c72829a2ab9a367143b",
+        "after": "7b58e2479bd5b138d1ed27aba8a37d74520814598c28cf5ed68c86dd7f4fbd2a",
         "previous": [
           "09e9686fea5cd67962fc2e34ccc58c997c5f097bf26c729ffc3cfec2ce88def6",
           "2cbaf4e2db7da50fc5a55dcfc0471ad9300b791df53ca008911d4537cdf5400a",
           "2e852f5b9c0f813de7865992ed390cdde101e7a7dda1a0a269187a17fac17ee5",
+          "4ff68b8a276a0e6b3c35d3a3e307b850f4fa6be862d33c72829a2ab9a367143b",
           "52241686a22c65168c768b81922b2e6b03d302be6d01f79e9d20ed763a5418af",
           "a723cfa4c3e7cfcd92fa770ced30929865de0a4f8cc8d2bfe26829bc8df0d763",
           "b7434332b09b6eb8c617fb7c7e602626daa5825e2fca71ba7da5324990ebd43a"
         ]
       },
+      "templates/gen4_campaign.html": {
+        "before": null,
+        "after": "b6d524e0f3a3949747240f90bdf02e5550f0b55f3e1e5be997856b0e218cc974"
+      },
       "templates/generations.html": {
         "before": null,
-        "after": "9ff8c1164289290dc0559dcdf5b6009f3031183f07e6c51009e92d8a476f138d"
+        "after": "e887169508490a445246695246b1cccf0d0ae699fb5230c2c1897b2fba79443a",
+        "previous": [
+          "9ff8c1164289290dc0559dcdf5b6009f3031183f07e6c51009e92d8a476f138d"
+        ]
       },
       "templates/guide_home_link.html": {
         "before": null,
@@ -706,13 +729,20 @@
         "before": null,
         "after": "92c17b50a6dfba195343e5df8e709e2897de555fa4c76df04020d977322c9a8f"
       },
+      "tests/test_gen4_campaign.py": {
+        "before": null,
+        "after": "36b3b3353bd1168be4e69d3cc438218884b2a02e3e003e707dec6d364dacd5b7"
+      },
       "tests/test_gen5_names.py": {
         "before": null,
         "after": "c9ef2608f98a50d3b9ff6a0ed2022781763d74dddeda8965603d990d9e12a702"
       },
       "tests/test_generation_portal.py": {
         "before": null,
-        "after": "1b7b9db27f0ce5c244ed6fc0c18006b960d516e0d1a9c4c549568a6cbe7e6ae0"
+        "after": "c233ee34d8df2360ffc97a20f18ae1f2a58db6840f4ed77107041366f0f47829",
+        "previous": [
+          "1b7b9db27f0ce5c244ed6fc0c18006b960d516e0d1a9c4c549568a6cbe7e6ae0"
+        ]
       },
       "tests/test_gts_names.py": {
         "before": null,
@@ -822,9 +852,16 @@
           "f8777a5a9679321994898f3f6813fa44639016c9cb2bd660cd187713dbb895a6"
         ]
       },
+      "utils/gen4_events.py": {
+        "before": null,
+        "after": "4328a01cfe521f83f19aced0326917c898a9b6faf83a0cb09950ff62b330fa01"
+      },
       "utils/gen4_gifts.py": {
         "before": null,
-        "after": "eae48d2b77e7a58b0487d0de9e7ba550205c6a0feba478534de24208085a89f6"
+        "after": "7a466f5e0b14b0fc102c01fc68adeea5eecab37ec077c9a79d12a7bc30d1979a",
+        "previous": [
+          "eae48d2b77e7a58b0487d0de9e7ba550205c6a0feba478534de24208085a89f6"
+        ]
       },
       "utils/gen5_names.py": {
         "before": null,
@@ -988,7 +1025,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "e536125b8a6e1114bfda59a4f90f1279c9635a293f68821d72ea80ede9860c46",
+      "sha256": "8d0eaf768d94d3891dfdebfe2e40b8a9794442861375055f4dc606cc94019be5",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",

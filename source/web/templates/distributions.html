@@ -10,7 +10,7 @@
 .gift-page h1,.gift-page p,.gift-page summary{margin:.65rem 0}.gift-list li>div{min-width:0;overflow-wrap:anywhere}.gift-list button{min-width:6rem}.gift-page input{max-width:100%;box-sizing:border-box}.gift-page footer{margin:2rem 0}.gift-search{display:flex;flex-wrap:wrap;align-items:end;gap:.5rem}.gift-search label{display:grid;gap:.25rem}.gift-search input,.gift-search select{padding:.4rem}
 @media(max-width:35rem){.gift-list li{flex-wrap:wrap;gap:.45rem}.gift-list li>div{flex-basis:100%}}
 </style></head><body><main class="gift-page"><a href="/pdw/">← {{ t.home }}</a><h1>{{ t.japan if japanese else t.title }}</h1>
-<p><a href="{{ url_for('campaigns.index' if japanese else 'campaigns.japan',kind=kind) }}">{{ t.mine if japanese else t.japan }}</a></p>
+<p><a href="{{ url_for('campaigns.index' if japanese else 'campaigns.japan',kind=kind) }}">{{ t.mine if japanese else t.japan }}</a> · <a href="/gen4/#gifts">Gen IV · {{ t.wonder }}</a></p>
 {% if japanese %}<p><a href="{{ url_for('tournaments.index') }}">Pokémon World Tournament · 日本 · B2/W2</a></p>{% endif %}
 {% if not card %}<p>{{ t.login }}</p><a href="/">{{ t.home }}</a>
 {% endif %}{% if japanese or card %}
