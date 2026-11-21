@@ -48,3 +48,7 @@ body[data-dw-login] { margin: 0; padding: 20px 12px; background: #f4f5ee; }
 .console-model summary { padding: 8px 12px; font-weight: 600; }
 .console-model p { padding: 0 12px 3px; }
 .guide-main .guide-note { margin: 12px 0 0; font-size: .92rem; color: #415347; }
+.guide-slide { margin: 1rem 0; }
+.guide-slide img { display: block; max-width: 100%; height: auto; }
+.guide-slide figcaption { margin-top: .65rem; font-weight: 600; }
+.slide-controls { align-items: center; }

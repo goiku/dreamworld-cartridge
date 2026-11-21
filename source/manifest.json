@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "d44f0433e04f34660470555d6b62a780810cb3e16b60285344bb8c9180d740e0",
+    "patch_sha256": "bc53e462d6071a2d18fffd6663c5f600338c27cfbc64ced9c5012a114e46772b",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -142,7 +142,7 @@
       },
       "api/player_guide.py": {
         "before": null,
-        "after": "c5021a3607a5fc6e8645093f7c99d49927a37d803054519d76af657a4fe70a0c",
+        "after": "b363d29915ff146f355899226d259bb84746de11455aaddc4a57958884eaa952",
         "previous": [
           "06a9d07b64ac063fddad8395a0398eb7eec74ed846ab8a5f27ad130e055cb785",
           "4035b441a6a38e40a6c03f3bfe0df4f21b0b62ce219338784aa8a6f885202a91",
@@ -151,6 +151,7 @@
           "817116b1cdea22e307848369fba848186e7a06000e5bdea92688ec562032fb2c",
           "83a03fe3daa33ee07de83e8f3e5d4b75ee37e43fd8c4a4f026b8888abc9ddb49",
           "a5c149056f327cbcfcdd93be4bd727a8dea30215b770c5f36819e440674bb279",
+          "c5021a3607a5fc6e8645093f7c99d49927a37d803054519d76af657a4fe70a0c",
           "d019e68eb394ea965c03be4b0580e3efc239adaeb1217afb378a2db72e9e992e"
         ]
       },
@@ -269,9 +270,10 @@
       },
       "json_data/player_guide.json": {
         "before": null,
-        "after": "3cee081d1ad138589f21c99cbe4810dd00ab6c86303fbd5077ba477196f25055",
+        "after": "c6c973854ba3b696569ef2686fa57aee89604b3ecf2db12dc5533ae89caa9f5a",
         "previous": [
           "24577c55de5061966a2b8eb7d536ee56378210b43b70d54da57312e758d6056c",
+          "3cee081d1ad138589f21c99cbe4810dd00ab6c86303fbd5077ba477196f25055",
           "67e4701f97201f2c3f9dcedf2e80c1745e13f81023ee4a38e49dface8cc19d88",
           "74e0cc183b43108875d9054db6bb21f225850d3c7d7a9ea79ad33cb8d1525c1e",
           "8ed65abfa2afd140fb524b9a38d0fc44d8ae869eb99d0da911b9d8c580c51b7d",
@@ -491,8 +493,9 @@
       },
       "static/player-guide.css": {
         "before": null,
-        "after": "ad3b21b636e1fd99c973ee5b12d5965ce6197a60262b27d1fcf91d95600ce185",
+        "after": "024eb0b97a1b703543b69160d453197a6d08e427a23ccebe6df2aac449595598",
         "previous": [
+          "ad3b21b636e1fd99c973ee5b12d5965ce6197a60262b27d1fcf91d95600ce185",
           "b26cd3fd17d72d3a5d4bc6a2f4bedf5a0ac644cc3ffec09b6f1a07743793561c",
           "bf626f8403d52cafdc6e72a72908894caa3b61e43d7e9260ee11f538cd02420f"
         ]
@@ -596,9 +599,13 @@
         "before": null,
         "after": "8f51f1b1c2a11c004203714f3d4cb93463aa4ff129e6431f40e70a7eba1eb587"
       },
+      "templates/picture_guide.html": {
+        "before": null,
+        "after": "dcc24ae68184f2e047843e2cbd186e336939b89f51949e4d91c102a2f3b611db"
+      },
       "templates/player_guide.html": {
         "before": null,
-        "after": "feeb10fba4da070c1af82caa459e6fe859fa90282d863c03e54299eae8fe2790",
+        "after": "f49c7d0ebce74ee13696f70f88d262dc84bbc0506c5388f678ce619bf591f613",
         "previous": [
           "1d89e768f8ed0b0fb804e6656237b53b43dbc6bbfad72c7aee1679045adb3005",
           "384ba0799f0f51203336eac2e008099db680cf896b0a4d2210e482dd9242229f",
@@ -606,7 +613,8 @@
           "5932e16807313091b8614df842cec2d3696683f520460a55ba1e6e92c9e5ae36",
           "b6107941ce85dbaaddbec979d1477998fdb59c9e91a8c5d3fa8c1984ae576e4e",
           "d359f8dc319840aa32e807ee2d6ee72e0a1f50b0e4e7f0fe0111da7f4a417811",
-          "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df"
+          "defb5a00c1ab066e0353277a25ece4ca68bfc034561be1fda13694046764e2df",
+          "feeb10fba4da070c1af82caa459e6fe859fa90282d863c03e54299eae8fe2790"
         ]
       },
       "templates/practice.html": {
@@ -639,7 +647,10 @@
       },
       "tests/test_game_guides_news.py": {
         "before": null,
-        "after": "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5"
+        "after": "4caaf2b43b036735d00e59c6fa571083bed14b381cb604faf5f5cd103912b1ac",
+        "previous": [
+          "0f45005b425cccb6c2731d2de049383e2181f6765d03ca9ae17151cca6bc97d5"
+        ]
       },
       "tests/test_gen5_names.py": {
         "before": null,

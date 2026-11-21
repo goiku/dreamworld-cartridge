@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if chapter %}{{ t.pictures.chapters[chapter] }} · {% endif %}{{ t.pictures.title }}</title>
+  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
+</head>
+<body class="dw-guide">
+  <header class="guide-header"><a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a></header>
+  <main class="guide-main">
+    {% if chapter %}
+    <a href="{{ url_for('player_guide.picture_guide') }}">← {{ t.pictures.title }}</a>
+    <h1>{{ t.pictures.chapters[chapter] }}</h1>
+    {% set src, caption = slides[step-1] %}
+    <figure class="guide-slide">
+      <img src="{{ src }}" alt="{{ caption or (t.pictures.chapters[chapter] ~ ' · ' ~ step) }}">
+      {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
+    </figure>
+    <nav class="guide-actions slide-controls" aria-label="{{ t.pictures.title }}">
+      {% if step > 1 %}<a rel="prev" href="{{ url_for('player_guide.picture_guide', chapter=chapter, step=step-1) }}">← {{ t.pictures.previous }}</a>{% endif %}
+      <span>{{ step }} / {{ slides|length }}</span>
+      {% if step < slides|length %}<a rel="next" href="{{ url_for('player_guide.picture_guide', chapter=chapter, step=step+1) }}">{{ t.pictures.next }} →</a>{% endif %}
+    </nav>
+    {% else %}
+    <h1>{{ t.pictures.title }}</h1>
+    <ul>{% for key in chapters %}<li><a href="{{ url_for('player_guide.picture_guide', chapter=key, step=1) }}">{{ t.pictures.chapters[key] }}</a></li>{% endfor %}</ul>
+    {% endif %}
+  </main>
+</body></html>

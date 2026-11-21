@@ -4,6 +4,8 @@
 
 Open Minigame practice to play any game without a sleeping Pokémon. During a regular visit, the How to play link above the game opens in a separate tab.
 
+[Illustrated Dream World guide](http://127.0.0.1:8080/player-guide/pictures/)
+
 ## From tuck-in to the Entree Forest
 
 1. On the C-Gear touch screen, choose Wi-Fi → Game Sync and tuck in a Pokémon. Wait for the transfer to finish, then open the Dream World with the same game selected on the website.

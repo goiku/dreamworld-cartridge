@@ -78,7 +78,7 @@
     </section>
     <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p>
       {% if t.dream_steps %}<ol>{% for step in t.dream_steps %}<li>{{ step }}</li>{% endfor %}</ol>
-      <p><a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
+      <p><a href="{{ url_for('player_guide.picture_guide') }}">{{ t.pictures.title }}</a> · <a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
     </section>
     {% if arcade.instructions %}
     <section id="minigames"><h2>{{ arcade.help_title }}</h2>

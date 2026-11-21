@@ -3282,10 +3282,10 @@ index 00a1d08e33cf644fed2087f4247656187c6d79bd..089f33d497b48df7861563c044f7ac16
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/player_guide.py b/api/player_guide.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..e3471e713b0356d970a39c055cd8564a76497236
+index 0000000000000000000000000000000000000000..3f97eec70c8bb1809fa07b8d788a026dd59e0f64
 --- /dev/null
 +++ b/api/player_guide.py
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,177 @@
 +"""Player instructions embedded in the archived site, with live DNS for the local console."""
 +import json
 +import re
@@ -3293,12 +3293,13 @@ index 0000000000000000000000000000000000000000..e3471e713b0356d970a39c055cd8564a
 +from html import escape
 +from urllib.parse import urlsplit
 +
-+from flask import Blueprint, Response, jsonify, render_template, request, url_for
++from flask import Blueprint, Response, abort, jsonify, render_template, request, url_for
 +
 +from api.distributions import labels as distribution_labels
 +from api.pgl_pals import current_save
-+from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
++from config import ASSET_LANG, LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
 +from utils import save_data
++from utils.assets import SITE_DIR
 +from utils.constants import PlayerStatus
 +from utils.data import load_json_data
 +from utils.player_dns import emulator_dns, get_player_dns
@@ -3327,6 +3328,32 @@ index 0000000000000000000000000000000000000000..e3471e713b0356d970a39c055cd8564a
 +    from api.practice import labels as practice_labels
 +    return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
 +                           language_names=LANGUAGE_NAMES, gifts=distribution_labels(), arcade=practice_labels())
++
++
++@cache
++def _picture_chapters() -> dict:
++    directory = SITE_DIR / "src/swf/pdw/assets" / ASSET_LANG / "img"
++    labels = _messages[LANG]["pictures"]
++    names = directory / "tutorial-captions.json"
++    captions = json.loads(names.read_text(encoding="utf-8")) if names.is_file() else {}
++    chapters = {}
++    for path in sorted(directory.glob("tutorial*-*.jpg")):
++        match = re.fullmatch(r"tutorial(\d{2})-\d{2}[a-z]?\.jpg", path.name)
++        if match and match[1] in labels["chapters"]:
++            chapters.setdefault(match[1], []).append((
++                f"/src/swf/pdw/assets/{ASSET_LANG}/img/{path.name}", captions.get(path.name, "")))
++    return chapters
++
++
++@player_guide.get("/pictures/")
++@player_guide.get("/pictures/<chapter>/<int:step>/")
++def picture_guide(chapter: str | None = None, step: int = 1):
++    chapters = _picture_chapters()
++    slides = chapters.get(chapter, ())
++    if chapter is not None and not 1 <= step <= len(slides):
++        abort(404)
++    return render_template("picture_guide.html", lang=LANG, t=_messages[LANG],
++                           chapters=chapters, chapter=chapter, slides=slides, step=step)
 +
 +
 +@player_guide.get("/phone/")
@@ -7145,10 +7172,10 @@ index 0000000000000000000000000000000000000000..c8dedb22deb785e9f088f7027f6d423b
 +}
 diff --git a/json_data/player_guide.json b/json_data/player_guide.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c51308921
+index 0000000000000000000000000000000000000000..0dd61d992665573633e8a4dc8cc288c4a5b3db28
 --- /dev/null
 +++ b/json_data/player_guide.json
-@@ -0,0 +1,594 @@
+@@ -0,0 +1,738 @@
 +{
 +  "en": {
 +    "wake_title": "Your Pokémon is ready to wake up",
@@ -7222,7 +7249,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "Play a minigame with a Pokémon you meet. At the Tree of Dreams, click the hollow, offer a Berry and choose one of the Pokémon you befriended.",
 +      "At the house, use the chest to choose items to take back. Select a C-Gear skin under Customize if you want one. Use the power button at the top right of the Dream World and confirm you are ready to wake up.",
 +      "Open Wi-Fi → Game Sync on the same save and wake your sleeping Pokémon. When the transfer finishes, choose Wireless → Entralink, walk north into the Entree Forest and talk to your new partner to catch it."
-+    ]
++    ],
++    "pictures": {
++      "title": "Illustrated Dream World guide",
++      "previous": "Previous",
++      "next": "Next",
++      "chapters": {
++        "00": "Tuck in, register and wake up",
++        "01": "Around your island",
++        "02": "Dream Pal map and profiles",
++        "03": "House, chest and furniture",
++        "04": "Put items on your Share Shelf",
++        "05": "Trade at a friend’s Share Shelf",
++        "07": "Make a wish at the Tree of Dreams",
++        "08": "Explore and find items",
++        "09": "Play with a Pokémon",
++        "10": "Plant, water and harvest Berries",
++        "11": "Cross the rainbow bridge"
++      }
++    }
 +  },
 +  "ja": {
 +    "wake_title": "ポケモンを起こせます",
@@ -7296,7 +7341,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "出会ったポケモンとミニゲームで遊ぼう。ゆめの木に着いたら木の穴をクリックし、きのみを1個お供えして、連れて帰る仲間を選ぼう。",
 +      "ホームの宝箱で持ち帰る道具を選ぼう。Cギアスキンを変えるなら、先にウェブの「カスタマイズ」で設定する。最後に画面右上の電源ボタンを押し、起こす準備をして終了しよう。",
 +      "同じソフトの「Wi-Fi → ゲームシンク」で寝ているポケモンを起こす。通信が終わったら「WIRELESS → ハイリンク」を選び、北のハイリンクの森で仲間に話しかけて捕まえよう。"
-+    ]
++    ],
++    "pictures": {
++      "title": "ドリームワールドの図解ガイド",
++      "previous": "前へ",
++      "next": "次へ",
++      "chapters": {
++        "00": "寝かしつけ・登録・起こし方",
++        "01": "島の施設",
++        "02": "ともだちの地図とプロフィール",
++        "03": "ホーム・宝箱・インテリア",
++        "04": "交換する道具を並べる",
++        "05": "友達の棚で道具を交換する",
++        "07": "ゆめの木でお願いする",
++        "08": "ゆめしまの探索と道具",
++        "09": "ポケモンとミニゲーム",
++        "10": "きのみを育てて収穫する",
++        "11": "虹の橋から出発する"
++      }
++    }
 +  },
 +  "zh": {
 +    "wake_title": "宝可梦正在等待唤醒",
@@ -7370,7 +7433,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "点击遇见的宝可梦，玩它的小游戏。到了梦之树，点击树洞，献上一枚树果，再从结交的伙伴里选一只带回去。",
 +      "回到小屋，在宝箱里选好要送回的道具。想换 C 装置壁纸时，先在网页“自定义”里选好。最后点梦世界右上角的电源按钮，选择“准备唤醒并结束”，核对伙伴后确认。",
 +      "回到同一份游戏存档，用“Wi-Fi → 游戏同步”唤醒入睡的宝可梦。同步结束后打开“WIRELESS → ハイリンク”，往北进连入之森，与刚才许愿的伙伴对话并捕捉。"
-+    ]
++    ],
++    "pictures": {
++      "title": "梦世界图解教程",
++      "previous": "上一步",
++      "next": "下一步",
++      "chapters": {
++        "00": "入睡、登记与唤醒",
++        "01": "小岛上的设施",
++        "02": "梦友地图与个人主页",
++        "03": "小屋、宝箱与家具",
++        "04": "把道具放上分享架",
++        "05": "在好友的分享架交换",
++        "07": "在梦之树许愿",
++        "08": "探索梦之岛与拾取道具",
++        "09": "与宝可梦玩小游戏",
++        "10": "种植、浇水与采收树果",
++        "11": "从彩虹桥出发"
++      }
++    }
 +  },
 +  "fr": {
 +    "wake_title": "Votre Pokémon peut être réveillé",
@@ -7444,7 +7525,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "Joue avec un Pokémon rencontré. À l’Arbre des Rêves, clique sur le creux du tronc, offre une Baie et choisis le Pokémon qui t’accompagnera.",
 +      "À la maison, choisis dans le coffre les objets à emporter. Choisis aussi ton habillage C-Gear dans la personnalisation. Clique ensuite sur le bouton d’alimentation en haut à droite et confirme le réveil.",
 +      "Dans la même sauvegarde, réveille ton Pokémon par Wi-Fi et Synchro-Jeu. Ouvre ensuite le Heylink depuis le menu sans fil du C-Gear, marche vers le nord et parle à ton nouveau partenaire dans la forêt pour le capturer."
-+    ]
++    ],
++    "pictures": {
++      "title": "Guide illustré du Pokémon Dream World",
++      "previous": "Précédent",
++      "next": "Suivant",
++      "chapters": {
++        "00": "Endormir, enregistrer et réveiller",
++        "01": "Visiter son île",
++        "02": "Carte des amis et profils",
++        "03": "Maison, coffre et meubles",
++        "04": "Déposer des objets sur l’étagère",
++        "05": "Échanger sur l’étagère d’un ami",
++        "07": "Faire un vœu à l’Arbre des Rêves",
++        "08": "Explorer et trouver des objets",
++        "09": "Jouer avec un Pokémon",
++        "10": "Planter, arroser et récolter les Baies",
++        "11": "Traverser le pont arc-en-ciel"
++      }
++    }
 +  },
 +  "it": {
 +    "wake_title": "Il tuo Pokémon è pronto per il risveglio",
@@ -7518,7 +7617,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "Gioca a un minigioco con un Pokémon che incontri. All’Albero dei Sogni clicca sulla cavità, offri una Bacca e scegli un compagno.",
 +      "A casa, scegli nel forziere gli strumenti da portare con te. Se vuoi uno sfondo per il C-Gear, selezionalo nella personalizzazione. Premi il pulsante di accensione in alto a destra e conferma il risveglio.",
 +      "Risveglia il Pokémon nello stesso salvataggio con Wi-Fi e Sincrogioco. Dal menu wireless del C-Gear entra nell’Intramondo, vai a nord nella Foresta Intramondo e parla al nuovo compagno per catturarlo."
-+    ]
++    ],
++    "pictures": {
++      "title": "Guida illustrata al Pokémon Dream World",
++      "previous": "Indietro",
++      "next": "Avanti",
++      "chapters": {
++        "00": "Addormentare, registrare e svegliare",
++        "01": "In giro per la tua isola",
++        "02": "Mappa degli amici e profili",
++        "03": "Casa, forziere e mobili",
++        "04": "Mettere strumenti sullo scaffale",
++        "05": "Fare scambi sullo scaffale di un amico",
++        "07": "Esprimere un desiderio all’Albero dei Sogni",
++        "08": "Esplorare e trovare strumenti",
++        "09": "Giocare con un Pokémon",
++        "10": "Piantare, annaffiare e raccogliere Bacche",
++        "11": "Attraversare il ponte arcobaleno"
++      }
++    }
 +  },
 +  "de": {
 +    "wake_title": "Dein Pokémon ist bereit zum Aufwachen",
@@ -7592,7 +7709,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "Spiele ein Minispiel mit einem Pokémon. Klicke am Traumbaum auf die Höhlung, opfere eine Beere und wähle einen deiner neuen Freunde.",
 +      "Wähle in der Truhe zu Hause die Gegenstände für die Rückreise und bei Bedarf unter Individualisierung einen C-Gear-Hintergrund. Klicke oben rechts auf den Ausschalter und bestätige, dass du das Pokémon wecken möchtest.",
 +      "Wecke dein Pokémon im selben Spielstand über Wi-Fi und Spielsynchro. Gehe anschließend über das Drahtlos-Menü zur Kontaktebene, laufe nach Norden in den Kontakthain und sprich deinen neuen Partner an, um ihn zu fangen."
-+    ]
++    ],
++    "pictures": {
++      "title": "Die Traumwelt in Bildern",
++      "previous": "Zurück",
++      "next": "Weiter",
++      "chapters": {
++        "00": "Schlafen legen, registrieren und wecken",
++        "01": "Rund um deine Insel",
++        "02": "Freundeskarte und Profile",
++        "03": "Haus, Truhe und Möbel",
++        "04": "Items ins Tauschregal legen",
++        "05": "Am Regal eines Freundes tauschen",
++        "07": "Am Traumbaum einen Wunsch äußern",
++        "08": "Die Insel erkunden und Items finden",
++        "09": "Mit einem Pokémon spielen",
++        "10": "Beeren pflanzen, gießen und ernten",
++        "11": "Die Regenbogenbrücke überqueren"
++      }
++    }
 +  },
 +  "es": {
 +    "wake_title": "Tu Pokémon está listo para despertar",
@@ -7666,7 +7801,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "Juega al minijuego de un Pokémon que encuentres. En el Árbol de los Sueños, toca el hueco del tronco, ofrece una Baya y elige un compañero.",
 +      "En casa, elige en el cofre los objetos que quieras llevarte. Si quieres un fondo para el C-Gear, elígelo en personalización. Pulsa el botón de encendido en la esquina superior derecha y confirma que quieres despertar al Pokémon.",
 +      "Despiértalo desde Wi-Fi y Sincronizar Juego en la misma partida. En el menú inalámbrico del C-Gear, abre la Zona Nexo y camina hacia el norte hasta el Bosque Nexo. Habla con tu nuevo compañero para capturarlo."
-+    ]
++    ],
++    "pictures": {
++      "title": "Guía ilustrada del Pokémon Dream World",
++      "previous": "Anterior",
++      "next": "Siguiente",
++      "chapters": {
++        "00": "Dormir, registrar y despertar",
++        "01": "Recorrido por tu isla",
++        "02": "Mapa de amigos y perfiles",
++        "03": "Casa, cofre y muebles",
++        "04": "Poner objetos en la estantería",
++        "05": "Intercambiar en la estantería de un amigo",
++        "07": "Pedir un deseo en el Árbol de los Sueños",
++        "08": "Explorar y encontrar objetos",
++        "09": "Jugar con un Pokémon",
++        "10": "Plantar, regar y cosechar Bayas",
++        "11": "Cruzar el puente arcoíris"
++      }
++    }
 +  },
 +  "ko": {
 +    "wake_title": "포켓몬을 깨울 수 있어요",
@@ -7740,7 +7893,25 @@ index 0000000000000000000000000000000000000000..34fc8fb66701aa625a68853a12fe994c
 +      "만난 포켓몬과 미니게임을 하세요. 꿈의 나무에 도착하면 나무 구멍을 클릭하고 나무열매 하나를 바친 뒤 데려갈 친구를 고르세요.",
 +      "집의 보물상자에서 가져갈 도구를 고르세요. C기어 스킨을 바꾸려면 꾸미기에서 먼저 선택하세요. 오른쪽 위 전원 버튼을 누르고 깨울 준비를 마치세요.",
 +      "같은 저장 데이터에서 Wi-Fi와 게임싱크로 포켓몬을 깨우세요. 전송이 끝나면 C기어의 무선 메뉴에서 하일링크로 이동하세요. 북쪽 숲에 들어가 새 친구에게 말을 걸면 잡을 수 있어요."
-+    ]
++    ],
++    "pictures": {
++      "title": "그림으로 보는 포켓몬 드림월드",
++      "previous": "이전",
++      "next": "다음",
++      "chapters": {
++        "00": "재우기·등록·깨우기",
++        "01": "내 섬 둘러보기",
++        "02": "꿈친구 지도와 프로필",
++        "03": "집과 보물상자, 가구",
++        "04": "교환 선반에 도구 놓기",
++        "05": "친구 선반에서 도구 교환하기",
++        "07": "꿈의 나무에서 소원 빌기",
++        "08": "꿈의 섬 탐험과 도구 줍기",
++        "09": "포켓몬과 미니게임 하기",
++        "10": "나무열매 심기·물 주기·수확하기",
++        "11": "무지개다리 건너기"
++      }
++    }
 +  }
 +}
 diff --git a/json_data/pokemon.json b/json_data/pokemon.json
@@ -18067,10 +18238,10 @@ index 0000000000000000000000000000000000000000..41d5fcc6cf29410e8232e8dae667792d
 +    main()
 diff --git a/static/player-guide.css b/static/player-guide.css
 new file mode 100644
-index 0000000000000000000000000000000000000000..94e1f6a154309d519984690a87cffe962cf466cd
+index 0000000000000000000000000000000000000000..05b3f621d61938497cc5cb5008545443338f9699
 --- /dev/null
 +++ b/static/player-guide.css
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,54 @@
 +.dw-player-help {
 +  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
 +  gap: 6px 18px; padding: 9px 16px; margin: 0 auto; width: 100%; max-width: 1003px;
@@ -18121,6 +18292,10 @@ index 0000000000000000000000000000000000000000..94e1f6a154309d519984690a87cffe96
 +.console-model summary { padding: 8px 12px; font-weight: 600; }
 +.console-model p { padding: 0 12px 3px; }
 +.guide-main .guide-note { margin: 12px 0 0; font-size: .92rem; color: #415347; }
++.guide-slide { margin: 1rem 0; }
++.guide-slide img { display: block; max-width: 100%; height: auto; }
++.guide-slide figcaption { margin-top: .65rem; font-weight: 600; }
++.slide-controls { align-items: center; }
 diff --git a/static/player-guide.js b/static/player-guide.js
 new file mode 100644
 index 0000000000000000000000000000000000000000..8d0ae21c3eeb986b86de141ba523256e7b7fabf5
@@ -18924,9 +19099,44 @@ index 0000000000000000000000000000000000000000..376a2e16b08b98a4b26486975ebf968c
 +  </main>
 +</body>
 +</html>
+diff --git a/templates/picture_guide.html b/templates/picture_guide.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..ba1261eb40b4dedf3f5d6ae74d700d4760a76422
+--- /dev/null
++++ b/templates/picture_guide.html
+@@ -0,0 +1,29 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}">
++<head>
++  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>{% if chapter %}{{ t.pictures.chapters[chapter] }} · {% endif %}{{ t.pictures.title }}</title>
++  <link rel="stylesheet" href="{{ url_for('player_guide.static', filename='player-guide.css') }}">
++</head>
++<body class="dw-guide">
++  <header class="guide-header"><a href="{{ url_for('player_guide.guide') }}#dream">{{ t.title }}</a></header>
++  <main class="guide-main">
++    {% if chapter %}
++    <a href="{{ url_for('player_guide.picture_guide') }}">← {{ t.pictures.title }}</a>
++    <h1>{{ t.pictures.chapters[chapter] }}</h1>
++    {% set src, caption = slides[step-1] %}
++    <figure class="guide-slide">
++      <img src="{{ src }}" alt="{{ caption or (t.pictures.chapters[chapter] ~ ' · ' ~ step) }}">
++      {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
++    </figure>
++    <nav class="guide-actions slide-controls" aria-label="{{ t.pictures.title }}">
++      {% if step > 1 %}<a rel="prev" href="{{ url_for('player_guide.picture_guide', chapter=chapter, step=step-1) }}">← {{ t.pictures.previous }}</a>{% endif %}
++      <span>{{ step }} / {{ slides|length }}</span>
++      {% if step < slides|length %}<a rel="next" href="{{ url_for('player_guide.picture_guide', chapter=chapter, step=step+1) }}">{{ t.pictures.next }} →</a>{% endif %}
++    </nav>
++    {% else %}
++    <h1>{{ t.pictures.title }}</h1>
++    <ul>{% for key in chapters %}<li><a href="{{ url_for('player_guide.picture_guide', chapter=key, step=1) }}">{{ t.pictures.chapters[key] }}</a></li>{% endfor %}</ul>
++    {% endif %}
++  </main>
++</body></html>
 diff --git a/templates/player_guide.html b/templates/player_guide.html
 new file mode 100644
-index 0000000000000000000000000000000000000000..d13235b837777944e4c949a30f52c71d06834a16
+index 0000000000000000000000000000000000000000..2124e19b7f971baaacad3fa37764d17e63544b6b
 --- /dev/null
 +++ b/templates/player_guide.html
 @@ -0,0 +1,98 @@
@@ -19010,7 +19220,7 @@ index 0000000000000000000000000000000000000000..d13235b837777944e4c949a30f52c71d
 +    </section>
 +    <section id="dream"><h2>{{ t.dream_title }}</h2><p>{{ t.dream }}</p>
 +      {% if t.dream_steps %}<ol>{% for step in t.dream_steps %}<li>{{ step }}</li>{% endfor %}</ol>
-+      <p><a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
++      <p><a href="{{ url_for('player_guide.picture_guide') }}">{{ t.pictures.title }}</a> · <a href="#minigames">{{ arcade.help_title }}</a></p>{% endif %}
 +    </section>
 +    {% if arcade.instructions %}
 +    <section id="minigames"><h2>{{ arcade.help_title }}</h2>
@@ -19669,16 +19879,42 @@ index 0000000000000000000000000000000000000000..d88971e0efe3fedced60d4b25e4c7d24
 +    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]
 diff --git a/tests/test_game_guides_news.py b/tests/test_game_guides_news.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..036befc0f8b2cd67578ff2fc9a21ea3252941b3c
+index 0000000000000000000000000000000000000000..696beccdd727c8e259ca736900b1c78ff785793d
 --- /dev/null
 +++ b/tests/test_game_guides_news.py
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,74 @@
 +"""The archived homepage, game stage and public guides must agree on localized content."""
 +from flask import url_for
 +
 +from api import pgl_news, practice
 +from api.server import create_app
 +from utils.data import load_json_data
++
++
++def test_picture_guide_loads_one_step_and_preserves_archive_variants(monkeypatch, tmp_path):
++    from api import player_guide
++
++    monkeypatch.setattr(player_guide, "SITE_DIR", tmp_path)
++    monkeypatch.setattr(player_guide, "ASSET_LANG", "ja")
++    monkeypatch.setattr(player_guide, "LANG", "zh")
++    folder = tmp_path / "src/swf/pdw/assets/ja/img"
++    folder.mkdir(parents=True)
++    for number in ("02", "02a", "03"):
++        (folder / f"tutorial02-{number}.jpg").touch()
++    (folder / "tutorial-captions.json").write_text('{"tutorial02-02a.jpg":"查看梦友地图"}', encoding="utf-8")
++    player_guide._picture_chapters.cache_clear()
++    try:
++        client = create_app().test_client()
++        base = "/player-guide/pictures/"
++        index = client.get(base).get_data(as_text=True)
++        assert "<img " not in index and base + "02/1/" in index
++        page = client.get(base + "02/2/").get_data(as_text=True)
++        assert page.count("<img ") == 1 and "tutorial02-02a.jpg" in page
++        assert "查看梦友地图" in page and base + "02/1/" in page and base + "02/3/" in page
++        assert client.get(base + "02/4/").status_code == 404
++        assert client.get(base + "06/1/").status_code == 404
++    finally:
++        player_guide._picture_chapters.cache_clear()
 +
 +
 +def test_every_translated_game_links_to_its_own_practice(monkeypatch):

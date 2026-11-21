@@ -24,9 +24,11 @@ BADGES = {
 def tutorial_pictures():
     directory = TARGET/"img"
     directory.mkdir(parents=True, exist_ok=True)
+    accessible_captions = {}
     for chapter, steps in CAPTIONS.items():
         pictures = sorted((SOURCE/"img").glob(f"tutorial{chapter}-*.jpg"))
         for picture, caption in zip(pictures, steps, strict=True):
+            accessible_captions[picture.name] = caption
             for path in (picture, picture.with_suffix(".png")):
                 if not path.is_file():
                     continue
@@ -39,6 +41,8 @@ def tutorial_pictures():
                     ImageDraw.Draw(result).line((0,h-bar_height,w,h-bar_height), fill="#c4b389")
                     lettering(result,(2,h-bar_height+1,w-2,h),caption,maximum=max(12,h//14))
                     result.save(directory/path.name,quality=93,subsampling=0)
+    (directory/"tutorial-captions.json").write_text(
+        json.dumps(accessible_captions, ensure_ascii=False), encoding="utf-8")
 
     for name in ("catalog_01", "catalog_01_s", "takarabako_1", "takarabako_2"):
         with Image.open(SOURCE/"img"/(name+".png")) as source:

@@ -6,6 +6,32 @@ from api.server import create_app
 from utils.data import load_json_data
 
 
+def test_picture_guide_loads_one_step_and_preserves_archive_variants(monkeypatch, tmp_path):
+    from api import player_guide
+
+    monkeypatch.setattr(player_guide, "SITE_DIR", tmp_path)
+    monkeypatch.setattr(player_guide, "ASSET_LANG", "ja")
+    monkeypatch.setattr(player_guide, "LANG", "zh")
+    folder = tmp_path / "src/swf/pdw/assets/ja/img"
+    folder.mkdir(parents=True)
+    for number in ("02", "02a", "03"):
+        (folder / f"tutorial02-{number}.jpg").touch()
+    (folder / "tutorial-captions.json").write_text('{"tutorial02-02a.jpg":"查看梦友地图"}', encoding="utf-8")
+    player_guide._picture_chapters.cache_clear()
+    try:
+        client = create_app().test_client()
+        base = "/player-guide/pictures/"
+        index = client.get(base).get_data(as_text=True)
+        assert "<img " not in index and base + "02/1/" in index
+        page = client.get(base + "02/2/").get_data(as_text=True)
+        assert page.count("<img ") == 1 and "tutorial02-02a.jpg" in page
+        assert "查看梦友地图" in page and base + "02/1/" in page and base + "02/3/" in page
+        assert client.get(base + "02/4/").status_code == 404
+        assert client.get(base + "06/1/").status_code == 404
+    finally:
+        player_guide._picture_chapters.cache_clear()
+
+
 def test_every_translated_game_links_to_its_own_practice(monkeypatch):
     from api import player_guide
 

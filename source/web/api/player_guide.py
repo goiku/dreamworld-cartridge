@@ -5,12 +5,13 @@ from functools import cache
 from html import escape
 from urllib.parse import urlsplit
 
-from flask import Blueprint, Response, jsonify, render_template, request, url_for
+from flask import Blueprint, Response, abort, jsonify, render_template, request, url_for
 
 from api.distributions import labels as distribution_labels
 from api.pgl_pals import current_save
-from config import LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
+from config import ASSET_LANG, LANG, LANGUAGE_NAMES, ROOT_DIR, WEB_PORTS
 from utils import save_data
+from utils.assets import SITE_DIR
 from utils.constants import PlayerStatus
 from utils.data import load_json_data
 from utils.player_dns import emulator_dns, get_player_dns
@@ -39,6 +40,32 @@ def guide() -> str:
     from api.practice import labels as practice_labels
     return render_template("player_guide.html", t=_messages[LANG], lang=LANG,
                            language_names=LANGUAGE_NAMES, gifts=distribution_labels(), arcade=practice_labels())
+
+
+@cache
+def _picture_chapters() -> dict:
+    directory = SITE_DIR / "src/swf/pdw/assets" / ASSET_LANG / "img"
+    labels = _messages[LANG]["pictures"]
+    names = directory / "tutorial-captions.json"
+    captions = json.loads(names.read_text(encoding="utf-8")) if names.is_file() else {}
+    chapters = {}
+    for path in sorted(directory.glob("tutorial*-*.jpg")):
+        match = re.fullmatch(r"tutorial(\d{2})-\d{2}[a-z]?\.jpg", path.name)
+        if match and match[1] in labels["chapters"]:
+            chapters.setdefault(match[1], []).append((
+                f"/src/swf/pdw/assets/{ASSET_LANG}/img/{path.name}", captions.get(path.name, "")))
+    return chapters
+
+
+@player_guide.get("/pictures/")
+@player_guide.get("/pictures/<chapter>/<int:step>/")
+def picture_guide(chapter: str | None = None, step: int = 1):
+    chapters = _picture_chapters()
+    slides = chapters.get(chapter, ())
+    if chapter is not None and not 1 <= step <= len(slides):
+        abort(404)
+    return render_template("picture_guide.html", lang=LANG, t=_messages[LANG],
+                           chapters=chapters, chapter=chapter, slides=slides, step=step)
 
 
 @player_guide.get("/phone/")
