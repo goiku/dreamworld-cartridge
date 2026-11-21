@@ -1,0 +1,154 @@
+{
+  "zh": {
+    "title": "安心邮件",
+    "profile": "返回个人资料",
+    "inbox": "收件箱",
+    "sent": "已发送",
+    "to": "收件人",
+    "send": "发送安心邮件",
+    "empty": "这里还没有邮件。",
+    "unavailable": "目前无法给这位好友发信。",
+    "login": "请登录并选择已关联的游戏存档。",
+    "choose": "选择一句话",
+    "delivered": "邮件已发送。",
+    "phrases": {
+      "hello": "你好！很高兴认识你。",
+      "trade": "谢谢你和我交换宝可梦！",
+      "visit": "谢谢你来我的小岛玩！",
+      "play": "下次再一起玩吧！"
+    }
+  },
+  "ja": {
+    "title": "あんしんメール",
+    "profile": "マイページへ",
+    "inbox": "受信箱",
+    "sent": "送信済み",
+    "to": "宛先",
+    "send": "あんしんメールを送る",
+    "empty": "メールはありません。",
+    "unavailable": "この相手にはメールを送れません。",
+    "login": "ログインして登録済みのゲームを選んでください。",
+    "choose": "メッセージを選んでください",
+    "delivered": "メールを送りました。",
+    "phrases": {
+      "hello": "こんにちは！ よろしくね。",
+      "trade": "ポケモンを交換してくれてありがとう！",
+      "visit": "島に遊びに来てくれてありがとう！",
+      "play": "また一緒に遊ぼうね！"
+    }
+  },
+  "en": {
+    "title": "Friendly Mail",
+    "profile": "Back to profile",
+    "inbox": "Inbox",
+    "sent": "Sent",
+    "to": "To",
+    "send": "Send Friendly Mail",
+    "empty": "No messages yet.",
+    "unavailable": "You can’t send mail to this player right now.",
+    "login": "Sign in and select a linked game.",
+    "choose": "Choose a message",
+    "delivered": "Message sent.",
+    "phrases": {
+      "hello": "Hello! Nice to meet you.",
+      "trade": "Thanks for trading Pokémon with me!",
+      "visit": "Thanks for visiting my island!",
+      "play": "Let’s play again soon!"
+    }
+  },
+  "fr": {
+    "title": "Courrier",
+    "profile": "Retour au profil",
+    "inbox": "Boîte de réception",
+    "sent": "Messages envoyés",
+    "to": "Destinataire",
+    "send": "Envoyer",
+    "empty": "Aucun message.",
+    "unavailable": "Ce destinataire est indisponible.",
+    "login": "Connectez-vous et sélectionnez un jeu associé.",
+    "choose": "Choisissez un message",
+    "delivered": "Message envoyé.",
+    "phrases": {
+      "hello": "Bonjour ! Ravi de te rencontrer.",
+      "trade": "Merci pour cet échange de Pokémon !",
+      "visit": "Merci de ta visite sur mon île !",
+      "play": "À bientôt pour une nouvelle partie !"
+    }
+  },
+  "de": {
+    "title": "Post",
+    "profile": "Zurück zum Profil",
+    "inbox": "Posteingang",
+    "sent": "Gesendet",
+    "to": "Empfänger",
+    "send": "Nachricht senden",
+    "empty": "Noch keine Nachrichten.",
+    "unavailable": "Diesem Spieler kannst du gerade nicht schreiben.",
+    "login": "Melde dich an und wähle ein verknüpftes Spiel.",
+    "choose": "Wähle eine Nachricht",
+    "delivered": "Nachricht gesendet.",
+    "phrases": {
+      "hello": "Hallo! Schön, dich kennenzulernen.",
+      "trade": "Danke für den Pokémon-Tausch!",
+      "visit": "Danke für deinen Besuch auf meiner Insel!",
+      "play": "Lass uns bald wieder spielen!"
+    }
+  },
+  "it": {
+    "title": "Posta",
+    "profile": "Torna al profilo",
+    "inbox": "Posta in arrivo",
+    "sent": "Posta inviata",
+    "to": "Destinatario",
+    "send": "Invia",
+    "empty": "Nessun messaggio.",
+    "unavailable": "Non puoi scrivere a questo giocatore al momento.",
+    "login": "Accedi e seleziona un gioco collegato.",
+    "choose": "Scegli un messaggio",
+    "delivered": "Messaggio inviato.",
+    "phrases": {
+      "hello": "Ciao! Piacere di conoscerti.",
+      "trade": "Grazie per lo scambio di Pokémon!",
+      "visit": "Grazie per la visita alla mia isola!",
+      "play": "Giochiamo ancora insieme!"
+    }
+  },
+  "es": {
+    "title": "Correo",
+    "profile": "Volver al perfil",
+    "inbox": "Bandeja de entrada",
+    "sent": "Enviados",
+    "to": "Destinatario",
+    "send": "Enviar",
+    "empty": "Todavía no hay mensajes.",
+    "unavailable": "Ahora no puedes escribir a este jugador.",
+    "login": "Inicia sesión y selecciona un juego vinculado.",
+    "choose": "Elige un mensaje",
+    "delivered": "Mensaje enviado.",
+    "phrases": {
+      "hello": "¡Hola! Encantado de conocerte.",
+      "trade": "¡Gracias por el intercambio de Pokémon!",
+      "visit": "¡Gracias por visitar mi isla!",
+      "play": "¡Volvamos a jugar pronto!"
+    }
+  },
+  "ko": {
+    "title": "안심 메일",
+    "profile": "프로필로 돌아가기",
+    "inbox": "받은 메일함",
+    "sent": "보낸 메일함",
+    "to": "받는 사람",
+    "send": "안심 메일 보내기",
+    "empty": "아직 메일이 없습니다.",
+    "unavailable": "지금은 이 친구에게 메일을 보낼 수 없습니다.",
+    "login": "로그인한 뒤 연동한 게임을 선택해 주세요.",
+    "choose": "메시지를 선택해 주세요",
+    "delivered": "메일을 보냈습니다.",
+    "phrases": {
+      "hello": "안녕! 만나서 반가워.",
+      "trade": "포켓몬을 교환해 줘서 고마워!",
+      "visit": "내 섬에 놀러 와 줘서 고마워!",
+      "play": "다음에 또 같이 놀자!"
+    }
+  }
+}

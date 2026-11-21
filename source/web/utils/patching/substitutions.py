@@ -115,4 +115,11 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
                       data, count=1, flags=re.DOTALL)
     if LANG == "zh" and filename == "theme.js":
         data = data.replace(b"theme.language = getLanguage();", b"theme.language = 'zh';")
+    if LANG == "zh" and filename == "profile.js":
+        data = data.replace(b">mailer</", ">发送安心邮件</".encode())
+    if LANG == "zh" and filename == "profile.css":
+        data += (b"\nhtml[lang=zh-CN] table.friendlist td.action .mailer-link{"
+                 b"text-indent:0;background:#f4f4ed!important;border-radius:4px;text-align:center;"
+                 b"line-height:25px;color:#214d40}html[lang=zh-CN] table.friendlist td.action "
+                 b".mailer-link.disabled{opacity:.55}\n")
     return data

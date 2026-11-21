@@ -1164,6 +1164,81 @@ index 0000000000000000000000000000000000000000..2ab4675cdb9c2e5000003489e79774d5
 +def forget(island: str) -> Response:
 +    peers.forget(session["gscd"], island)
 +    return jsonify(island_id=island, paired=False)
+diff --git a/api/mailer.py b/api/mailer.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8de020e076c65663bc83fe71c7ed3d333ecd3e12
+--- /dev/null
++++ b/api/mailer.py
+@@ -0,0 +1,69 @@
++"""Friendly Mail between cartridge contacts and accepted Dream Pals."""
++import json
++from secrets import token_urlsafe
++
++from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
++from itsdangerous import BadData, URLSafeSerializer
++
++from api.pgl_member import _cartridge_contacts
++from api.pgl_pals import current_save
++from config import LANG, ROOT_DIR
++from game_sync_server.entralinked.utility.db_manager import db
++from utils import save_data, visits
++
++mailer = Blueprint("mailer", __name__, template_folder="../templates")
++LABELS = json.loads((ROOT_DIR / "json_data/friendly_mail.json").read_text(encoding="utf-8"))
++
++
++def _contacts(viewer):
++    partners = set(_cartridge_contacts(viewer))
++    for row in db.read_rows("SELECT left_gscd,right_gscd FROM dream_pals WHERE accepted=1 "
++                            "AND (left_gscd=? OR right_gscd=?)", viewer, viewer):
++        partners.add(row[1] if row[0] == viewer else row[0])
++    contacts = {}
++    for other in partners:
++        if other == viewer or not visits.published(other, viewer, dream_world=False):
++            continue
++        member = save_data.read_member(other)
++        if member.get("pgl_name") and member.get("member_savedata_id") is not None:
++            contacts[str(member["member_savedata_id"])] = (other, member["pgl_name"])
++    return dict(sorted(contacts.items(), key=lambda item: item[1][1].casefold()))
++
++
++@mailer.get("/mailer/index.html")
++@mailer.route("/mailer/", methods=["GET", "POST"])
++def mailbox():
++    t = LABELS[LANG]
++    viewer = current_save()
++    def page(status=200, **data):
++        return render_template("friendly_mail.html", t=t, lang=LANG, **data), status, {"Cache-Control": "no-store"}
++    if not viewer:
++        return page(401, login=True)
++
++    contacts = _contacts(viewer)
++    selected = request.args.get("mailto")
++    if request.method == "POST":
++        selected = request.form.get("recipient", "")
++    unavailable = selected is not None and selected not in contacts
++    signer = URLSafeSerializer(current_app.secret_key, salt="pgl-friendly-mail")
++    if request.method == "POST":
++        try:
++            owner, nonce = signer.loads(request.form.get("ticket", ""))
++        except BadData:
++            return page(400, error=t["unavailable"])
++        phrase = request.form.get("phrase", "")
++        if owner != viewer or unavailable or phrase not in t["phrases"]:
++            return page(403, error=t["unavailable"])
++        other, name = contacts[selected]
++        with db.transaction() as conn:
++            conn.execute("INSERT INTO dream_mail(sender,recipient,sender_name,recipient_name,phrase,submission) "
++                         "VALUES(?,?,?,?,?,?) ON CONFLICT(sender,submission) DO NOTHING",
++                         (viewer, other, save_data.read_member(viewer)["pgl_name"], name, phrase, nonce))
++        return redirect(url_for("mailer.mailbox", box="sent", delivered=1), 303)
++
++    sent = request.args.get("box") == "sent"
++    column = "sender" if sent else "recipient"
++    rows = db.read_rows(f"SELECT sender_name,recipient_name,phrase,created FROM dream_mail "
++                        f"WHERE {column}=? ORDER BY id DESC", viewer)
++    return page(contacts=contacts, selected=selected, unavailable=unavailable, rows=rows,
++                sent=sent, ticket=signer.dumps((viewer, token_urlsafe(18))))
 diff --git a/api/native_islands.py b/api/native_islands.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..c297355ea4d0b1d67c8dc55644944c02474ce219
@@ -3799,10 +3874,10 @@ index 0000000000000000000000000000000000000000..43a1c9a650ab0d84106607ebd4d5a828
 +        path = directory / aliases[match[1]]
 +    return send_file(path, mimetype="application/x-shockwave-flash")
 diff --git a/api/server.py b/api/server.py
-index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e93c9f58c 100644
+index aa9976c45d19c3301b54089d1eac98a52f427e5a..26c3639337f0852fa14115496d48e0355ca44a38 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -7,18 +7,31 @@ import atexit
+@@ -7,18 +7,32 @@ import atexit
  import json
  import logging
  from pathlib import Path
@@ -3810,7 +3885,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
 +from urllib.parse import parse_qs, urlsplit
  
 -from flask import Blueprint, Flask, Response, current_app, redirect, request
-+from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
++from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session, url_for
  from werkzeug.wrappers import Response as WerkzeugResponse
  
 +from api.distributions import campaigns
@@ -3820,6 +3895,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
 +from api.practice import practice
++from api.mailer import mailer
 +from api.pgl_news import news_pages
 +from api.pgl_present import customize
 +from api.tournaments import tournaments
@@ -3838,17 +3914,19 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -38,8 +51,7 @@ site = Blueprint("site", __name__)
+@@ -38,8 +52,9 @@ site = Blueprint("site", __name__)
  def rewrite_incoming_path() -> WerkzeugResponse | None:
      """Enforce a trailing slash on paths that map to a site directory."""
      path = request.path
 -    site_path = path_inside(SITE_DIR, path.lstrip("/"))
 -    if not path.endswith("/") and site_path and site_path.is_dir():
 +    if not path.endswith("/") and next(site_directories(path.lstrip("/")), None):
++        if path == "/mailer" and "mailto" in request.args:
++            return redirect(url_for("mailer.mailbox", mailto=request.args["mailto"]), 302)
          return redirect(f"{path}/", 301)
      return None
  
-@@ -54,6 +66,12 @@ def _params(data: str) -> Query:
+@@ -54,6 +69,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -3861,7 +3939,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -81,25 +99,86 @@ def api_post() -> Response:
+@@ -81,25 +102,86 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -3954,7 +4032,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
  
      # static asset
      file_path = resolve_static(full_path)
-@@ -121,6 +200,17 @@ def create_app() -> Flask:
+@@ -121,6 +203,18 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
@@ -3962,6 +4040,7 @@ index aa9976c45d19c3301b54089d1eac98a52f427e5a..2634e841f9a3d7d9dae81c50d6fbf65e
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
++    app.register_blueprint(mailer)
 +    app.register_blueprint(news_pages)
 +    app.register_blueprint(customize)
 +    app.register_blueprint(tournaments)
@@ -5091,6 +5170,166 @@ index 0000000000000000000000000000000000000000..c98f6b3d75714b3de4367a64b07c8ed1
 +[240,248,69,0,["ENG"]],
 +[240,445,242,0,["ENG"]]
 +]
+diff --git a/json_data/friendly_mail.json b/json_data/friendly_mail.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19f51a11ec3306721ad4b44e507e86000ec6f3fb
+--- /dev/null
++++ b/json_data/friendly_mail.json
+@@ -0,0 +1,154 @@
++{
++  "zh": {
++    "title": "安心邮件",
++    "profile": "返回个人资料",
++    "inbox": "收件箱",
++    "sent": "已发送",
++    "to": "收件人",
++    "send": "发送安心邮件",
++    "empty": "这里还没有邮件。",
++    "unavailable": "目前无法给这位好友发信。",
++    "login": "请登录并选择已关联的游戏存档。",
++    "choose": "选择一句话",
++    "delivered": "邮件已发送。",
++    "phrases": {
++      "hello": "你好！很高兴认识你。",
++      "trade": "谢谢你和我交换宝可梦！",
++      "visit": "谢谢你来我的小岛玩！",
++      "play": "下次再一起玩吧！"
++    }
++  },
++  "ja": {
++    "title": "あんしんメール",
++    "profile": "マイページへ",
++    "inbox": "受信箱",
++    "sent": "送信済み",
++    "to": "宛先",
++    "send": "あんしんメールを送る",
++    "empty": "メールはありません。",
++    "unavailable": "この相手にはメールを送れません。",
++    "login": "ログインして登録済みのゲームを選んでください。",
++    "choose": "メッセージを選んでください",
++    "delivered": "メールを送りました。",
++    "phrases": {
++      "hello": "こんにちは！ よろしくね。",
++      "trade": "ポケモンを交換してくれてありがとう！",
++      "visit": "島に遊びに来てくれてありがとう！",
++      "play": "また一緒に遊ぼうね！"
++    }
++  },
++  "en": {
++    "title": "Friendly Mail",
++    "profile": "Back to profile",
++    "inbox": "Inbox",
++    "sent": "Sent",
++    "to": "To",
++    "send": "Send Friendly Mail",
++    "empty": "No messages yet.",
++    "unavailable": "You can’t send mail to this player right now.",
++    "login": "Sign in and select a linked game.",
++    "choose": "Choose a message",
++    "delivered": "Message sent.",
++    "phrases": {
++      "hello": "Hello! Nice to meet you.",
++      "trade": "Thanks for trading Pokémon with me!",
++      "visit": "Thanks for visiting my island!",
++      "play": "Let’s play again soon!"
++    }
++  },
++  "fr": {
++    "title": "Courrier",
++    "profile": "Retour au profil",
++    "inbox": "Boîte de réception",
++    "sent": "Messages envoyés",
++    "to": "Destinataire",
++    "send": "Envoyer",
++    "empty": "Aucun message.",
++    "unavailable": "Ce destinataire est indisponible.",
++    "login": "Connectez-vous et sélectionnez un jeu associé.",
++    "choose": "Choisissez un message",
++    "delivered": "Message envoyé.",
++    "phrases": {
++      "hello": "Bonjour ! Ravi de te rencontrer.",
++      "trade": "Merci pour cet échange de Pokémon !",
++      "visit": "Merci de ta visite sur mon île !",
++      "play": "À bientôt pour une nouvelle partie !"
++    }
++  },
++  "de": {
++    "title": "Post",
++    "profile": "Zurück zum Profil",
++    "inbox": "Posteingang",
++    "sent": "Gesendet",
++    "to": "Empfänger",
++    "send": "Nachricht senden",
++    "empty": "Noch keine Nachrichten.",
++    "unavailable": "Diesem Spieler kannst du gerade nicht schreiben.",
++    "login": "Melde dich an und wähle ein verknüpftes Spiel.",
++    "choose": "Wähle eine Nachricht",
++    "delivered": "Nachricht gesendet.",
++    "phrases": {
++      "hello": "Hallo! Schön, dich kennenzulernen.",
++      "trade": "Danke für den Pokémon-Tausch!",
++      "visit": "Danke für deinen Besuch auf meiner Insel!",
++      "play": "Lass uns bald wieder spielen!"
++    }
++  },
++  "it": {
++    "title": "Posta",
++    "profile": "Torna al profilo",
++    "inbox": "Posta in arrivo",
++    "sent": "Posta inviata",
++    "to": "Destinatario",
++    "send": "Invia",
++    "empty": "Nessun messaggio.",
++    "unavailable": "Non puoi scrivere a questo giocatore al momento.",
++    "login": "Accedi e seleziona un gioco collegato.",
++    "choose": "Scegli un messaggio",
++    "delivered": "Messaggio inviato.",
++    "phrases": {
++      "hello": "Ciao! Piacere di conoscerti.",
++      "trade": "Grazie per lo scambio di Pokémon!",
++      "visit": "Grazie per la visita alla mia isola!",
++      "play": "Giochiamo ancora insieme!"
++    }
++  },
++  "es": {
++    "title": "Correo",
++    "profile": "Volver al perfil",
++    "inbox": "Bandeja de entrada",
++    "sent": "Enviados",
++    "to": "Destinatario",
++    "send": "Enviar",
++    "empty": "Todavía no hay mensajes.",
++    "unavailable": "Ahora no puedes escribir a este jugador.",
++    "login": "Inicia sesión y selecciona un juego vinculado.",
++    "choose": "Elige un mensaje",
++    "delivered": "Mensaje enviado.",
++    "phrases": {
++      "hello": "¡Hola! Encantado de conocerte.",
++      "trade": "¡Gracias por el intercambio de Pokémon!",
++      "visit": "¡Gracias por visitar mi isla!",
++      "play": "¡Volvamos a jugar pronto!"
++    }
++  },
++  "ko": {
++    "title": "안심 메일",
++    "profile": "프로필로 돌아가기",
++    "inbox": "받은 메일함",
++    "sent": "보낸 메일함",
++    "to": "받는 사람",
++    "send": "안심 메일 보내기",
++    "empty": "아직 메일이 없습니다.",
++    "unavailable": "지금은 이 친구에게 메일을 보낼 수 없습니다.",
++    "login": "로그인한 뒤 연동한 게임을 선택해 주세요.",
++    "choose": "메시지를 선택해 주세요",
++    "delivered": "메일을 보냈습니다.",
++    "phrases": {
++      "hello": "안녕! 만나서 반가워.",
++      "trade": "포켓몬을 교환해 줘서 고마워!",
++      "visit": "내 섬에 놀러 와 줘서 고마워!",
++      "play": "다음에 또 같이 놀자!"
++    }
++  }
++}
 diff --git a/json_data/gen4_event_cards.json b/json_data/gen4_event_cards.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..4c1418eb782f4c058bf03b1cd30cc6421b2bea15
@@ -20851,6 +21090,41 @@ index 0000000000000000000000000000000000000000..21e7e2ac504e4e7244263214f70437e4
 +{% if row.claim %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}{% if row.event=='cafe' %}<label>{{ t.sex }} <select name="gender"><option value="1">♀</option><option value="0">♂</option></select></label>{% endif %} <button type="submit">{{ t.claim }}</button>{% if row.event=="berries" %} <button name="destination" value="chest">{{ t.chest }}</button>{% endif %}</form>{% elif row.number and row.status in ('queued','sent') %}<form method="post" action="{{ url_for('campaigns.claim',key=row.key) }}">{{ fields() }}<input type="hidden" name="next" value="1"><button>{{ t.prioritize }}</button></form>{% endif %}</li>{% else %}<li>{{ t.empty }}</li>{% endfor %}</ul>
 +{% if pages>1 %}<nav class="gift-pages" aria-label="{{ page }} / {{ pages }}">{% if page>1 %}<a aria-label="{{ t.prev }}" href="{{ url_for(endpoint,kind=kind,filter=mode,page=page-1,q=search,version=version) }}">← {{ t.prev }}</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page<pages %}<a href="{{ url_for(endpoint,kind=kind,filter=mode,page=page+1,q=search,version=version) }}">{{ t.next }} →</a>{% endif %}</nav>{% endif %}{% endif %}
 +<footer>{% if card and japanese %}<p><a href="/customize/">{{ t.customize }}</a></p>{% endif %}<a href="/languages/?page={{ url_for(endpoint) }}">Language · 日本語 · 简体中文</a></footer></main></body></html>
+diff --git a/templates/friendly_mail.html b/templates/friendly_mail.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..5975f599c187405b635ceac77848a69d7bb8e420
+--- /dev/null
++++ b/templates/friendly_mail.html
+@@ -0,0 +1,29 @@
++<!doctype html>
++<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head>
++<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
++<title>{{ t.title }} · Pokémon Global Link</title>
++<link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
++<style>fieldset{margin:1rem 0;border:1px solid #bccdbf}fieldset label{display:block;padding:.35rem}select,button{font:inherit;padding:.45rem}article{padding:.7rem 0;border-bottom:1px solid #bccdbf}article p{margin:.3rem 0}time{font-size:.85em}</style>
++</head><body><main>
++<nav><a href="/profile/">← {{ t.profile }}</a></nav><h1>{{ t.title }}</h1>
++{% if login %}<p><a href="/login/pgl.html">{{ t.login }}</a></p>
++{% elif error %}<p role="alert">{{ error }}</p>
++{% else %}
++{% if unavailable %}<p role="alert">{{ t.unavailable }}</p>
++{% elif contacts %}
++<form method="post" action="{{ url_for('mailer.mailbox') }}">
++<input type="hidden" name="ticket" value="{{ ticket }}">
++<label>{{ t.to }} <select name="recipient" required>
++{% if not selected %}<option value=""></option>{% endif %}
++{% for id, contact in contacts.items() %}<option value="{{ id }}" {% if id == selected %}selected{% endif %}>{{ contact[1] }}</option>{% endfor %}
++</select></label>
++<fieldset><legend>{{ t.choose }}</legend>
++{% for key, phrase in t.phrases.items() %}<label><input required type="radio" name="phrase" value="{{ key }}"> {{ phrase }}</label>{% endfor %}
++</fieldset><button>{{ t.send }}</button></form>
++{% endif %}
++{% if sent and request.args.get('delivered') == '1' %}<p role="status">{{ t.delivered }}</p>{% endif %}
++<nav><a href="{{ url_for('mailer.mailbox') }}">{{ t.inbox }}</a><a href="{{ url_for('mailer.mailbox', box='sent') }}">{{ t.sent }}</a></nav>
++<h2>{{ t.sent if sent else t.inbox }}</h2>
++{% for mail in rows %}<article><strong>{{ mail.recipient_name if sent else mail.sender_name }}</strong>
++<p>{{ t.phrases[mail.phrase] }}</p><time>{{ mail.created }} UTC</time></article>{% else %}<p>{{ t.empty }}</p>{% endfor %}
++{% endif %}</main></body></html>
 diff --git a/templates/gen4_campaign.html b/templates/gen4_campaign.html
 new file mode 100644
 index 0000000000000000000000000000000000000000..5024ca5c5211e102b613d1cf7ce92e85e021cd49
@@ -21947,6 +22221,64 @@ index 0000000000000000000000000000000000000000..d88971e0efe3fedced60d4b25e4c7d24
 +    assert create(673).data[:128] == bytes(128)
 +    assert create(-1).status_code == 200 and create(1 << 32).data[:128] != bytes(128)
 +    assert check(673)["error"]["details"]["gscd"] != check(674)["error"]["details"]["gscd"]
+diff --git a/tests/test_friendly_mail.py b/tests/test_friendly_mail.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..ab1356eade8d011715b0e0061183b3266e01fcba
+--- /dev/null
++++ b/tests/test_friendly_mail.py
+@@ -0,0 +1,52 @@
++import re
++
++from api.server import create_app
++from game_sync_server.entralinked.model.player.player_manager import PlayerManager
++from game_sync_server.entralinked.utility.db_manager import db
++from game_sync_server.entralinked.utility.gsid_utility import gsid_to_gscd
++from utils import save_data
++from utils.account_manager import accounts
++
++
++def test_trade_pal_compose_delivery_and_block(tmp_path, monkeypatch):
++    for store in (accounts, db):
++        store.close()
++        monkeypatch.setattr(store, "_db_path", tmp_path / "mail.db")
++        monkeypatch.setattr(store, "_created", False)
++    monkeypatch.setattr("api.server.get_secret_key", lambda: "test-mail")
++    monkeypatch.setattr("api.mailer.LANG", "zh")
++    app = create_app()
++    alice, bob = app.test_client(), app.test_client()
++    assert alice.get("/mailer/").status_code == 401
++    a, b = gsid_to_gscd(101), gsid_to_gscd(102)
++    for pid, (client, code, name) in enumerate(((alice, a, "Alice"), (bob, b, "Bob")), 1):
++        accounts.create_account(name, "unused", "", 1, 1, "everyone", "everyone", name)
++        PlayerManager().register_player(code, 20, 1)
++        accounts.link_gscd(name, code)
++        save_data.update_member({"pgl_name": name}, code)
++        with db.transaction() as conn:
++            key = bytes([pid])
++            conn.execute("INSERT INTO wfc_cartridge_keys VALUES(?,?)", (code, key))
++            conn.execute("INSERT INTO wfc_profile_keys VALUES(?,?)", (pid, key))
++        with client.session_transaction() as s:
++            s.update(username=name, gscd=code)
++    with db.transaction() as conn:
++        conn.execute("INSERT INTO gts_profile_events VALUES(1,1,2,X'01',X'02','{}','{}',0)")
++    recipient = str(save_data.read_member(b)["member_savedata_id"])
++    page = alice.get("/mailer?mailto=" + recipient, follow_redirects=True)
++    assert page.status_code == 200 and re.search(r'<option value="\d+" selected>Bob</option>', page.text)
++    action = re.search(r'<form method="post" action="([^"]+)"', page.text)[1]
++    form = {"ticket": re.search(r'name="ticket" value="([^"]+)"', page.text)[1],
++            "recipient": recipient, "phrase": "trade"}
++    assert bob.post(action, data=form).status_code == 403
++    for _ in range(2):
++        assert alice.post(action, data=form).status_code == 303
++    assert alice.get("/mailer/?box=sent").text.count("<article>") == 1
++    inbox = bob.get("/mailer/").text
++    assert inbox.count("<article>") == 1 and "谢谢你和我交换宝可梦" in inbox
++    assert not re.search("<article>", alice.get("/mailer/").text)
++    save_data.update_member({"blocked_profiles": [a]}, b)
++    assert alice.post(action, data=form).status_code == 403
++    assert "目前无法给这位好友发信" in alice.get("/mailer/?mailto=" + recipient).text
++    accounts.close()
++    db.close()
 diff --git a/tests/test_game_guides_news.py b/tests/test_game_guides_news.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..3731e2bfd57bf1b80064068dd139bbfa720b569d
@@ -22044,10 +22376,10 @@ index 0000000000000000000000000000000000000000..3731e2bfd57bf1b80064068dd139bbfa
 +        assert client.get(f"/top/assets/images/info-default/{item['news_category_id']}.png").data.startswith(b"\x89PNG")
 diff --git a/tests/test_game_upload_transport.py b/tests/test_game_upload_transport.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..78f60839528f7dd8c829e8e3297f143afc79b029
+index 0000000000000000000000000000000000000000..5967d6d3d54a46c33ff23523eb5877313a061518
 --- /dev/null
 +++ b/tests/test_game_upload_transport.py
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,43 @@
 +import io
 +import logging
 +
@@ -22086,6 +22418,10 @@ index 0000000000000000000000000000000000000000..78f60839528f7dd8c829e8e3297f143a
 +    assert submitted == ([] if missing else [payload])
 +    assert 0 < max(requests) <= 16 * 1024
 +    assert ("Tuck-in upload timing" in caplog.text) == (not missing)
++    for percent in (25, 50, 75, 100):
++        expected = 0 if (missing and percent == 100) else 1
++        assert caplog.text.count(f"Tuck-in upload {percent}% after") == expected
++    assert ("longest read interval" in caplog.text) == (not missing)
 +    assert "private-test-token" not in caplog.text
 diff --git a/tests/test_gen4_campaign.py b/tests/test_gen4_campaign.py
 new file mode 100644
@@ -27116,7 +27452,7 @@ index 0000000000000000000000000000000000000000..2b3952aa5929f88dc5620d2bd1bffddc
 +                        b"states.subtype = this.seasons.length ? validate(path[2], ['', 'ranking', 'trend']) : '';")
 +    return helper + data
 diff --git a/utils/patching/substitutions.py b/utils/patching/substitutions.py
-index 0decf632e77356b9d4476bcc8080404bde99b3b4..b79f8b8d4f9197155058b1854bf9ddf5323a64b0 100644
+index 0decf632e77356b9d4476bcc8080404bde99b3b4..db274ffe485c4f95c47a9b530aa28bdb463a4d02 100644
 --- a/utils/patching/substitutions.py
 +++ b/utils/patching/substitutions.py
 @@ -2,9 +2,11 @@
@@ -27182,7 +27518,7 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..b79f8b8d4f9197155058b1854bf9ddf5
      Substitution(f"http://gus.pokemon.com/{LANG}".encode(), f"/pgl-363/{LANG}".encode()),
      Substitution(b"https://assets.pokemon.com", b"/assets.pokemon.com"),
      Substitution(b"https://www.pokemon.com", b"/www.pokemon.com"),
-@@ -86,4 +105,14 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
+@@ -86,4 +105,21 @@ def apply_substitutions(data: bytes, filename: str) -> bytes:
      """Apply global substitutions, then file-specific ones."""
      for sub in (*_GLOBAL_SUBS, *JS_PATCHES.get(filename, ())):
          data = data.replace(sub.old, sub.new)
@@ -27196,6 +27532,13 @@ index 0decf632e77356b9d4476bcc8080404bde99b3b4..b79f8b8d4f9197155058b1854bf9ddf5
 +                      data, count=1, flags=re.DOTALL)
 +    if LANG == "zh" and filename == "theme.js":
 +        data = data.replace(b"theme.language = getLanguage();", b"theme.language = 'zh';")
++    if LANG == "zh" and filename == "profile.js":
++        data = data.replace(b">mailer</", ">发送安心邮件</".encode())
++    if LANG == "zh" and filename == "profile.css":
++        data += (b"\nhtml[lang=zh-CN] table.friendlist td.action .mailer-link{"
++                 b"text-indent:0;background:#f4f4ed!important;border-radius:4px;text-align:center;"
++                 b"line-height:25px;color:#214d40}html[lang=zh-CN] table.friendlist td.action "
++                 b".mailer-link.disabled{opacity:.55}\n")
      return data
 diff --git a/utils/patching/swf_patches.py b/utils/patching/swf_patches.py
 index 8826c25c7362d58bfd58c36eadde6483f78f3404..c612eeb5019d349ca15f29061b220c4e014dc932 100644

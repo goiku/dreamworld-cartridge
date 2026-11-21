@@ -5,7 +5,7 @@ import logging
 import socket
 import socketserver
 import threading
-from time import perf_counter
+from time import perf_counter, thread_time
 from collections.abc import Callable, Iterable
 from typing import Any
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
@@ -88,6 +88,11 @@ class RequestBodyMiddleware:
                   and Request(environ).args.get("p") == "savedata.upload")
         if upload:
             started = perf_counter()
+            cpu_started = thread_time()
+            total = remaining
+            quarter = 1
+            last_read = started
+            longest_read = 0.0
             logger.info("Tuck-in upload started: expecting %d bytes", remaining)
 
         if remaining > 0 and wsgi_input is not None:
@@ -102,6 +107,14 @@ class RequestBodyMiddleware:
                     return Response(status=400)(environ, start_response)
                 chunks.append(chunk)
                 remaining -= len(chunk)
+                if upload:
+                    now = perf_counter()
+                    longest_read = max(longest_read, now - last_read)
+                    last_read = now
+                    while quarter <= 4 and (total - remaining) * 4 >= total * quarter:
+                        logger.info("Tuck-in upload %d%% after %.3fs (%d bytes received)",
+                                    quarter * 25, now - started, total - remaining)
+                        quarter += 1
 
             body = b"".join(chunks)
             environ["wsgi.input"] = io.BytesIO(body)
@@ -109,9 +122,11 @@ class RequestBodyMiddleware:
 
         if upload:
             received = perf_counter()
+            receive_cpu = thread_time() - cpu_started
             response = self.wsgi_app(environ, start_response)
-            logger.info("Tuck-in upload timing: receive %.3fs, handle %.3fs",
-                        received - started, perf_counter() - received)
+            logger.info("Tuck-in upload timing: receive %.3fs, handle %.3fs, "
+                        "receive thread CPU %.3fs, longest read interval %.3fs",
+                        received - started, perf_counter() - received, receive_cpu, longest_read)
             return response
         return self.wsgi_app(environ, start_response)
 

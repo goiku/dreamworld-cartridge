@@ -1,7 +1,7 @@
 {
   "web": {
     "revision": "77174d2f3084b83b80544161dca8ad2d325654b8",
-    "patch_sha256": "601fcec51e9ce15222f5b43ff46ded68d9c8e3b45078eedf6c16e4696c6dd454",
+    "patch_sha256": "6afc1f6bf71c3e7749093c906795a4cc0fdd24eb7882dc86a9fd088e0477da64",
     "files": {
       "Invite-Friend.cmd": {
         "before": null,
@@ -56,6 +56,10 @@
       "api/island_peers.py": {
         "before": null,
         "after": "f037b654bd0e08e7d9aec409279fed8faac4ce2f462e5a066410ed83edf17e28"
+      },
+      "api/mailer.py": {
+        "before": null,
+        "after": "db07ff4dbe9319556a4bccc29f89aef74dddca785e58008e40468415ededadfb"
       },
       "api/native_islands.py": {
         "before": null,
@@ -170,13 +174,14 @@
       },
       "api/server.py": {
         "before": "d910f4c2431588b3174ea4560295493afa321f6541fbe8866dc22db972189332",
-        "after": "63158d661bea557eb0a0f8a4adcd3ad3b90bf35e3242303c61acff42855f7873",
+        "after": "bd56c5a668ad9dc5d84b2264f0e928669c5d63bc79f782c6e325655dbcd40357",
         "previous": [
           "08511746546190c34633f7da8ec022734d0871b555b1cdb4cba5a9f771832f63",
           "1f9f72973eaaea387b78cae26dc17f307841571ebd4869eafcffd18c4cd8e7c4",
           "28669eecbb75ec92805a903355718d6c161e37d7f1d0a95a0a4ebe714b06f747",
           "29e220658ee3cf6bdd13b386a1cbaaf27ab686c7638cc89f1a0a10a4ccca727c",
           "2c7fd3db66f7ac46e10a98c235e0379a1c7f0684efa82c2daf70fe9f0f38fed2",
+          "63158d661bea557eb0a0f8a4adcd3ad3b90bf35e3242303c61acff42855f7873",
           "7b1bb50c368b881aa369f064e4b60a89dfa0141430ed3fe486a7190d3ecbd178",
           "afacddd724074ef1cc97b026c381cf4504373ba14c56fde33b59293653952bcb",
           "b2ef8ba96c67fe78927b1a3e902571fc3a8d35fbcd16b474f2f23cbb1e165544",
@@ -238,6 +243,10 @@
         "previous": [
           "8be7e46a7d0b7f7847e31fc72ab3bf2f014916680d0ee7b7b364769703633b55"
         ]
+      },
+      "json_data/friendly_mail.json": {
+        "before": null,
+        "after": "d91c9af3f41e3aed7ade11059623b2e67bac5de4344fef69e4f8d87c46c8d882"
       },
       "json_data/gen4_event_cards.json": {
         "before": null,
@@ -603,6 +612,10 @@
           "b7434332b09b6eb8c617fb7c7e602626daa5825e2fca71ba7da5324990ebd43a"
         ]
       },
+      "templates/friendly_mail.html": {
+        "before": null,
+        "after": "7eb8f8e1b1fef1be83ed18ea9ab25aabd89d1c943afeae404ffc734800dd1d5b"
+      },
       "templates/gen4_campaign.html": {
         "before": null,
         "after": "b6d524e0f3a3949747240f90bdf02e5550f0b55f3e1e5be997856b0e218cc974"
@@ -717,6 +730,10 @@
           "f8dbe07ac4f9c9bbcb2733e099cc4660bc17895cebb75322e121dfaaf4f8d6cb"
         ]
       },
+      "tests/test_friendly_mail.py": {
+        "before": null,
+        "after": "4542a17fa9995d85380afb35bb901b1018004bee6cc296f47c6433c5e51c5d54"
+      },
       "tests/test_game_guides_news.py": {
         "before": null,
         "after": "14c04fd910bf5eae52a1f9e60ba442088e6d2dc5e448048e70530dea2144d3b3",
@@ -727,7 +744,10 @@
       },
       "tests/test_game_upload_transport.py": {
         "before": null,
-        "after": "92c17b50a6dfba195343e5df8e709e2897de555fa4c76df04020d977322c9a8f"
+        "after": "b8a17ef4641bf16aa0fae5f73d6860ddbdd80c14dd9c0f1ed7ac44539d9d3b6a",
+        "previous": [
+          "92c17b50a6dfba195343e5df8e709e2897de555fa4c76df04020d977322c9a8f"
+        ]
       },
       "tests/test_gen4_campaign.py": {
         "before": null,
@@ -946,9 +966,10 @@
       },
       "utils/patching/substitutions.py": {
         "before": "7222896eb22c14bd5acb91061d67f9254fbabbc6573a7c28ac459c67fa4f0168",
-        "after": "8d996485b19640656198e7ec0af3cab3b226eaf6628c62d2ec4ed2aaf867f24d",
+        "after": "3142ae49a5a370b292f0d725adcc92b3252fae3dee30a99511ed79d143b5a7f9",
         "previous": [
           "5fde94a221f936feee4a763a8854f08c72f23c6025efb1b7863cef2f5659ab1f",
+          "8d996485b19640656198e7ec0af3cab3b226eaf6628c62d2ec4ed2aaf867f24d",
           "cae367ff569c4829c5d3e494f6a3084f0d7b5940b278af4370994eae9a43c2b1",
           "cdafd36b10b48218f7359952b0e2f3cf221d886c6bf5260eecdc5cbc04bb5957"
         ]
@@ -1025,7 +1046,7 @@
     },
     "upgrade": {
       "patch": "web-upgrade.patch",
-      "sha256": "8d0eaf768d94d3891dfdebfe2e40b8a9794442861375055f4dc606cc94019be5",
+      "sha256": "3724023d0355f4aea3c3000f7e386489832139189dc880e133c7d25f8c41673e",
       "from": {
         "api/pgl_top.py": "4cc0c3f92447fde3fa2b4d99b69ff083c1594dc7138ce26525208c04e45bf84b",
         "api/server.py": "30f772efb372e078db58ab102a6cf8038003782b6f5c1b4fa0fb2adef0e9002a",
@@ -1035,7 +1056,7 @@
   },
   "game-sync": {
     "revision": "3aefe23a36893d75990e7dc7c203bd85bb78a377",
-    "patch_sha256": "f5f5fa37826eca5a2d5a8778a8bf34cdf7723eeadd5554157861812305f62aee",
+    "patch_sha256": "79af720cb38dd5285e5b0b0b3a827d63de47f243066de09e76bc7909bcbadf74",
     "files": {
       "entralinked/app.py": {
         "before": "8d61f17e0ff06318a2b060d8e85fb09ea8888e37761ff384ccd43eac9e01ac3a",
@@ -1143,8 +1164,9 @@
       },
       "entralinked/network/http/http_server.py": {
         "before": "1129df4de258fbf52f4a1395f6db3b12841cf5cfa281f01159c4675d65749685",
-        "after": "24c1171d390bcb6ea800573e493c6211d1334dfcdb0eadfc4054a0c37ea1aa92",
+        "after": "2225e9af253e7069974b1bfebf43e3fb9b1ea0a0988d620111cc44f08ba0c2ea",
         "previous": [
+          "24c1171d390bcb6ea800573e493c6211d1334dfcdb0eadfc4054a0c37ea1aa92",
           "29aa222305727b44346e2a0ec0392884b7b2f87f4c2adaf59486cf09dd4366c4"
         ]
       },
@@ -1209,7 +1231,10 @@
       },
       "entralinked/utility/db_manager.py": {
         "before": "22fca84e16399f3b9791ce2a18926ce00f69c982537537bf80b27c0389aa2fcc",
-        "after": "30afa2e5837937b374b9280cbbc9725786dbf1edc1e967d89946563788d644bb"
+        "after": "123e58d075a4090c6088497d212bdf14bf4f8f27f905aab88c36412f11405449",
+        "previous": [
+          "30afa2e5837937b374b9280cbbc9725786dbf1edc1e967d89946563788d644bb"
+        ]
       }
     },
     "upgrade": {

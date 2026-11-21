@@ -1811,7 +1811,7 @@ index 0000000000000000000000000000000000000000..09c2d5801017bb30c359ad9f108a65e4
 +            challenge.reply = body + checksum
 +            return _binary(challenge.reply)
 diff --git a/entralinked/network/http/http_server.py b/entralinked/network/http/http_server.py
-index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1e154f2e3 100644
+index 701b7dd645d14ba87efa45f66062f5e495712755..9d2249e039cf720dadcb45eed81a83b1d00e9f6a 100644
 --- a/entralinked/network/http/http_server.py
 +++ b/entralinked/network/http/http_server.py
 @@ -1,8 +1,11 @@
@@ -1822,7 +1822,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
 +import socket
  import socketserver
  import threading
-+from time import perf_counter
++from time import perf_counter, thread_time
  from collections.abc import Callable, Iterable
  from typing import Any
  from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
@@ -1887,7 +1887,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
  class RequestBodyMiddleware:
      def __init__(self, wsgi_app: Callable[..., Iterable[bytes]]) -> None:
          self.wsgi_app = wsgi_app
-@@ -34,17 +78,28 @@ class RequestBodyMiddleware:
+@@ -34,24 +78,56 @@ class RequestBodyMiddleware:
          try:
              remaining = int(environ.get("CONTENT_LENGTH") or 0)
          except ValueError:
@@ -1902,6 +1902,11 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
 +                  and Request(environ).args.get("p") == "savedata.upload")
 +        if upload:
 +            started = perf_counter()
++            cpu_started = thread_time()
++            total = remaining
++            quarter = 1
++            last_read = started
++            longest_read = 0.0
 +            logger.info("Tuck-in upload started: expecting %d bytes", remaining)
  
          if remaining > 0 and wsgi_input is not None:
@@ -1918,21 +1923,31 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
 +                    return Response(status=400)(environ, start_response)
                  chunks.append(chunk)
                  remaining -= len(chunk)
++                if upload:
++                    now = perf_counter()
++                    longest_read = max(longest_read, now - last_read)
++                    last_read = now
++                    while quarter <= 4 and (total - remaining) * 4 >= total * quarter:
++                        logger.info("Tuck-in upload %d%% after %.3fs (%d bytes received)",
++                                    quarter * 25, now - started, total - remaining)
++                        quarter += 1
  
-@@ -52,6 +107,12 @@ class RequestBodyMiddleware:
+             body = b"".join(chunks)
              environ["wsgi.input"] = io.BytesIO(body)
              environ["CONTENT_LENGTH"] = str(len(body))
  
 +        if upload:
 +            received = perf_counter()
++            receive_cpu = thread_time() - cpu_started
 +            response = self.wsgi_app(environ, start_response)
-+            logger.info("Tuck-in upload timing: receive %.3fs, handle %.3fs",
-+                        received - started, perf_counter() - received)
++            logger.info("Tuck-in upload timing: receive %.3fs, handle %.3fs, "
++                        "receive thread CPU %.3fs, longest read interval %.3fs",
++                        received - started, perf_counter() - received, receive_cpu, longest_read)
 +            return response
          return self.wsgi_app(environ, start_response)
  
  
-@@ -59,8 +120,8 @@ class TLSServer(TLSSocketServerMixIn, socketserver.ThreadingMixIn, WSGIServer):
+@@ -59,8 +135,8 @@ class TLSServer(TLSSocketServerMixIn, socketserver.ThreadingMixIn, WSGIServer):
      allow_reuse_address = True
      daemon_threads = True
  
@@ -1943,7 +1958,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
          self.private_key = private_key
          self.cert_chain = cert_chain
          self.session_cache = SessionCache()
-@@ -89,13 +150,18 @@ def create_app(context: Context) -> Flask:
+@@ -89,13 +165,18 @@ def create_app(context: Context) -> Flask:
      app.url_map.strict_slashes = False
      app.wsgi_app = RequestBodyMiddleware(app.wsgi_app)
  
@@ -1964,7 +1979,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
  
      return app
  
-@@ -103,8 +169,9 @@ def create_app(context: Context) -> Flask:
+@@ -103,8 +184,9 @@ def create_app(context: Context) -> Flask:
  class HttpServer:
      """Serves the app over HTTP(S)."""
  
@@ -1975,7 +1990,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
          self.http_port = http_port
          self.http_server: BaseWSGIServer | None = None
          self.http_thread: threading.Thread | None = None
-@@ -113,7 +180,13 @@ class HttpServer:
+@@ -113,7 +195,13 @@ class HttpServer:
  
      def start(self) -> None:
          """Start the HTTP and HTTPS servers."""
@@ -1990,7 +2005,7 @@ index 701b7dd645d14ba87efa45f66062f5e495712755..88684651ca8b64709ffa1f331fb39df1
          self.http_thread = threading.Thread(target=self.http_server.serve_forever, daemon=True)
          self.http_thread.start()
          logger.info("HTTP server listening @ port %d", self.http_port)
-@@ -121,7 +194,7 @@ class HttpServer:
+@@ -121,7 +209,7 @@ class HttpServer:
          pem = SERVER_PEM_PATH.read_text(encoding="UTF-8") # update the cert in 2076
          chain = X509CertChain()
          chain.parsePemList(pem)
@@ -4014,7 +4029,7 @@ index 0000000000000000000000000000000000000000..34611a339eaf1628ee920732ac2fca14
 +            process.terminate()
 +        self.join()
 diff --git a/entralinked/utility/db_manager.py b/entralinked/utility/db_manager.py
-index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd629de6c30d 100644
+index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..a36835f7303677be5af509a2ca977c40ace50fc3 100644
 --- a/entralinked/utility/db_manager.py
 +++ b/entralinked/utility/db_manager.py
 @@ -1,7 +1,8 @@
@@ -4027,7 +4042,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
  
  from ..model.player.starting_save import STARTING_PLOTS, starting_chest, starting_garden, starting_shelf
  from ..paths import SAVE_DIR
-@@ -33,10 +34,93 @@ class DBManager(SQLiteStore):
+@@ -33,10 +34,101 @@ class DBManager(SQLiteStore):
              profiles TEXT
          )""",
          """
@@ -4099,6 +4114,14 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
 +            ticket BLOB PRIMARY KEY, pid INTEGER NOT NULL, pokemon BLOB NOT NULL, expires INTEGER NOT NULL
 +        )""",
 +        """
++        CREATE TABLE IF NOT EXISTS dream_mail (
++            id INTEGER PRIMARY KEY, sender TEXT NOT NULL, recipient TEXT NOT NULL,
++            sender_name TEXT NOT NULL, recipient_name TEXT NOT NULL, phrase TEXT NOT NULL,
++            submission TEXT NOT NULL, created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
++            UNIQUE(sender, submission)
++        )""",
++        "CREATE INDEX IF NOT EXISTS dream_mail_inbox ON dream_mail(recipient, id)",
++        """
 +        CREATE TABLE IF NOT EXISTS dream_pals (
 +            left_gscd TEXT NOT NULL,
 +            right_gscd TEXT NOT NULL,
@@ -4121,7 +4144,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
      )
      COLUMNS = frozenset({"player_data", "sleeping_pokemon", "game_sync", "crop_data", "chest_data", "share_data"})
  
-@@ -44,6 +128,21 @@ class DBManager(SQLiteStore):
+@@ -44,6 +136,21 @@ class DBManager(SQLiteStore):
          if column not in self.COLUMNS:
              raise ValueError(f"Invalid column name: '{column}'")
  
@@ -4143,7 +4166,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
      # ------------
      # id counters
      # ------------
-@@ -54,8 +153,8 @@ class DBManager(SQLiteStore):
+@@ -54,8 +161,8 @@ class DBManager(SQLiteStore):
          Ids only ever go up and are never reused. Each name has its own sequence, which
          every player shares.
          """
@@ -4154,7 +4177,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
  
      @staticmethod
      def _next_id(conn: sqlite3.Connection, name: str, count: int) -> list[int]:
-@@ -76,9 +175,7 @@ class DBManager(SQLiteStore):
+@@ -76,9 +183,7 @@ class DBManager(SQLiteStore):
  
          Do nothing if the row exists.
          """
@@ -4165,7 +4188,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
              if conn.execute("SELECT 1 FROM player_saves WHERE gscd = ?", (gscd,)).fetchone():
                  return
              croft_ids = self._next_id(conn, "my_croft_id", STARTING_PLOTS)
-@@ -125,9 +222,7 @@ class DBManager(SQLiteStore):
+@@ -125,9 +230,7 @@ class DBManager(SQLiteStore):
          dict is returned.
          """
          self._validate_column(column)
@@ -4176,7 +4199,7 @@ index 8544ea07272b0b1b07e1803adf8bc30650a80fdf..234c97ed8550d5b9a7123266bfcabd62
              row = conn.execute(f"SELECT {column} FROM player_saves WHERE gscd = ?", (gscd,)).fetchone()
              data = json.loads(row[column]) if row and row[column] else {}
              change(data)
-@@ -144,8 +239,8 @@ class DBManager(SQLiteStore):
+@@ -144,8 +247,8 @@ class DBManager(SQLiteStore):
                  game_sync = excluded.game_sync,
                  sleeping_pokemon = excluded.sleeping_pokemon
          """

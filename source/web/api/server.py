@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
+from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session, url_for
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from api.distributions import campaigns
@@ -19,6 +19,7 @@ from api.island_peers import island_peers
 from api.offline_friends import offline_friends
 from api.player_guide import player_guide
 from api.practice import practice
+from api.mailer import mailer
 from api.pgl_news import news_pages
 from api.pgl_present import customize
 from api.tournaments import tournaments
@@ -52,6 +53,8 @@ def rewrite_incoming_path() -> WerkzeugResponse | None:
     """Enforce a trailing slash on paths that map to a site directory."""
     path = request.path
     if not path.endswith("/") and next(site_directories(path.lstrip("/")), None):
+        if path == "/mailer" and "mailto" in request.args:
+            return redirect(url_for("mailer.mailbox", mailto=request.args["mailto"]), 302)
         return redirect(f"{path}/", 301)
     return None
 
@@ -204,6 +207,7 @@ def create_app() -> Flask:
     app.register_blueprint(campaigns)
     app.register_blueprint(player_guide)
     app.register_blueprint(practice)
+    app.register_blueprint(mailer)
     app.register_blueprint(news_pages)
     app.register_blueprint(customize)
     app.register_blueprint(tournaments)

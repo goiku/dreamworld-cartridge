@@ -14,6 +14,10 @@ Open Minigame practice to play any game without a sleeping Pokémon. During a re
 4. At the house, use the chest to choose items to take back. Select a C-Gear skin under Customize if you want one. Use the power button at the top right of the Dream World and confirm you are ready to wake up.
 5. Open Wi-Fi → Game Sync on the same save and wake your sleeping Pokémon. When the transfer finishes, choose Wireless → Entralink, walk north into the Entree Forest and talk to your new partner to catch it.
 
+## Send Friendly Mail
+
+Open the friend list on your profile and choose the mail button beside a trade partner or Dream Pal. The compose page selects that recipient. Choose a preset message, send it, and open Sent to check it. Your friend can read it in their inbox when they sign in with the corresponding game on the same server. Both players can use mail while their Pokémon are awake.
+
 ## Minigame controls
 
 ### Pokémon Seek

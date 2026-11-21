@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="{{ 'zh-CN' if lang == 'zh' else lang }}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.title }} · Pokémon Global Link</title>
+<link rel="stylesheet" href="{{ url_for('practice.static',filename='practice.css') }}">
+<style>fieldset{margin:1rem 0;border:1px solid #bccdbf}fieldset label{display:block;padding:.35rem}select,button{font:inherit;padding:.45rem}article{padding:.7rem 0;border-bottom:1px solid #bccdbf}article p{margin:.3rem 0}time{font-size:.85em}</style>
+</head><body><main>
+<nav><a href="/profile/">← {{ t.profile }}</a></nav><h1>{{ t.title }}</h1>
+{% if login %}<p><a href="/login/pgl.html">{{ t.login }}</a></p>
+{% elif error %}<p role="alert">{{ error }}</p>
+{% else %}
+{% if unavailable %}<p role="alert">{{ t.unavailable }}</p>
+{% elif contacts %}
+<form method="post" action="{{ url_for('mailer.mailbox') }}">
+<input type="hidden" name="ticket" value="{{ ticket }}">
+<label>{{ t.to }} <select name="recipient" required>
+{% if not selected %}<option value=""></option>{% endif %}
+{% for id, contact in contacts.items() %}<option value="{{ id }}" {% if id == selected %}selected{% endif %}>{{ contact[1] }}</option>{% endfor %}
+</select></label>
+<fieldset><legend>{{ t.choose }}</legend>
+{% for key, phrase in t.phrases.items() %}<label><input required type="radio" name="phrase" value="{{ key }}"> {{ phrase }}</label>{% endfor %}
+</fieldset><button>{{ t.send }}</button></form>
+{% endif %}
+{% if sent and request.args.get('delivered') == '1' %}<p role="status">{{ t.delivered }}</p>{% endif %}
+<nav><a href="{{ url_for('mailer.mailbox') }}">{{ t.inbox }}</a><a href="{{ url_for('mailer.mailbox', box='sent') }}">{{ t.sent }}</a></nav>
+<h2>{{ t.sent if sent else t.inbox }}</h2>
+{% for mail in rows %}<article><strong>{{ mail.recipient_name if sent else mail.sender_name }}</strong>
+<p>{{ t.phrases[mail.phrase] }}</p><time>{{ mail.created }} UTC</time></article>{% else %}<p>{{ t.empty }}</p>{% endfor %}
+{% endif %}</main></body></html>

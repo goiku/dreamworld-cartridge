@@ -56,15 +56,15 @@ index 5e5eea29abba2b7ce3ed41ba9e0a84a1f9aaab89..089f33d497b48df7861563c044f7ac16
  
      if account is None or not check_password_hash(account["password_hash"], password):
 diff --git a/api/server.py b/api/server.py
-index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e93c9f58c 100644
+index 8d93e0eef0999db12333397cd5541d95178b83e7..26c3639337f0852fa14115496d48e0355ca44a38 100644
 --- a/api/server.py
 +++ b/api/server.py
-@@ -9,16 +9,29 @@ import logging
+@@ -9,16 +9,30 @@ import logging
  from pathlib import Path
  from urllib.parse import parse_qs, urlsplit
  
 -from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request
-+from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session
++from flask import Blueprint, Flask, Response, current_app, redirect, render_template_string, request, session, url_for
  from werkzeug.wrappers import Response as WerkzeugResponse
  
 +from api.distributions import campaigns
@@ -74,6 +74,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
 +from api.offline_friends import offline_friends
 +from api.player_guide import player_guide
 +from api.practice import practice
++from api.mailer import mailer
 +from api.pgl_news import news_pages
 +from api.pgl_present import customize
 +from api.tournaments import tournaments
@@ -90,7 +91,16 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
  
  # Copied from a real pdw1.pokemon-gl.com /api/ response
  NO_CACHE_HEADERS = {
-@@ -53,6 +66,12 @@ def _params(data: str) -> Query:
+@@ -39,6 +53,8 @@ def rewrite_incoming_path() -> WerkzeugResponse | None:
+     """Enforce a trailing slash on paths that map to a site directory."""
+     path = request.path
+     if not path.endswith("/") and next(site_directories(path.lstrip("/")), None):
++        if path == "/mailer" and "mailto" in request.args:
++            return redirect(url_for("mailer.mailbox", mailto=request.args["mailto"]), 302)
+         return redirect(f"{path}/", 301)
+     return None
+ 
+@@ -53,6 +69,12 @@ def _params(data: str) -> Query:
  
  def _call_api(method: str, query: Query) -> Response:
      api_name = query.get("p")
@@ -103,7 +113,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
      logged_query = {name: "***" if "password" in name else value for name, value in query.items()}
      current_app.logger.info("API %s: %s %s", method, api_name, logged_query)
  
-@@ -80,13 +99,14 @@ def api_post() -> Response:
+@@ -80,13 +102,14 @@ def api_post() -> Response:
  # Site files
  # ---------------
  
@@ -121,7 +131,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
  
  
  @site.get("/languages/")
-@@ -107,7 +127,11 @@ def change_language(code: str) -> Response:
+@@ -107,7 +130,11 @@ def change_language(code: str) -> Response:
      language = normalize_language(code)
      if language not in WEB_PORTS:
          return not_found(request.path)
@@ -134,7 +144,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
      target = _language_page()
      return redirect(f"{request.scheme}://{hostname}:{WEB_PORTS[language]}{target}")
  
-@@ -126,6 +150,15 @@ def login_available() -> Response:
+@@ -126,6 +153,15 @@ def login_available() -> Response:
  @site.route("/<path:path>")
  def catch_all(path: str) -> Response:
      """Serve a patched SWF, a site directory's page, or a static asset for any other path."""
@@ -150,7 +160,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
      path = path.split("&")[0]
      full_path = f"/{path}"
  
-@@ -136,7 +169,10 @@ def catch_all(path: str) -> Response:
+@@ -136,7 +172,10 @@ def catch_all(path: str) -> Response:
              override = path_inside(SITE_DIR, path)
              if override and override.is_file():
                  return serve_file(override)
@@ -162,7 +172,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
  
      # find first HTML file inside given directory
      for dir_path in site_directories(path):
-@@ -164,6 +200,17 @@ def create_app() -> Flask:
+@@ -164,6 +203,18 @@ def create_app() -> Flask:
      app.logger.setLevel(logging.DEBUG if logging.getLogger().isEnabledFor(logging.DEBUG) else logging.INFO)
      app.secret_key = get_secret_key()
      app.register_blueprint(signup)
@@ -170,6 +180,7 @@ index 8d93e0eef0999db12333397cd5541d95178b83e7..2634e841f9a3d7d9dae81c50d6fbf65e
 +    app.register_blueprint(campaigns)
 +    app.register_blueprint(player_guide)
 +    app.register_blueprint(practice)
++    app.register_blueprint(mailer)
 +    app.register_blueprint(news_pages)
 +    app.register_blueprint(customize)
 +    app.register_blueprint(tournaments)

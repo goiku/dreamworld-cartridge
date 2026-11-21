@@ -36,4 +36,8 @@ def test_fragmented_upload_requires_the_last_byte(missing, caplog):
     assert submitted == ([] if missing else [payload])
     assert 0 < max(requests) <= 16 * 1024
     assert ("Tuck-in upload timing" in caplog.text) == (not missing)
+    for percent in (25, 50, 75, 100):
+        expected = 0 if (missing and percent == 100) else 1
+        assert caplog.text.count(f"Tuck-in upload {percent}% after") == expected
+    assert ("longest read interval" in caplog.text) == (not missing)
     assert "private-test-token" not in caplog.text
